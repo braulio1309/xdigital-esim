@@ -61,6 +61,9 @@ export const CUSTOM_TABLE = 'admin/app/custom-tables';
 //Beneficiarios
 export const BENEFICIARIOS = 'beneficiarios';
 
+//Clientes
+export const CLIENTES = 'clientes';
+
 //roles and users
 export const ROLES = 'admin/auth/roles';
 export const USERS = 'admin/auth/users';

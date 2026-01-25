@@ -361,6 +361,12 @@ class SidebarComposer
                 'permission' => true,
             ],
             [
+                'icon' => 'user-check',
+                'name' => 'Clientes',
+                'url' => request()->root() . '/admin/clientes',
+                'permission' => true,
+            ],
+            [
                 'icon' => 'settings',
                 'name' => trans('custom.settings'),
                 'url' => request()->root() . '/app-setting',
