@@ -58,6 +58,9 @@ export const DATATABLE_SERVER_SEARCH_SELECT = '/datatable/serverside/selectable-
 //Custom TAble
 export const CUSTOM_TABLE = 'admin/app/custom-tables';
 
+//Beneficiarios
+export const BENEFICIARIOS = 'beneficiarios';
+
 //roles and users
 export const ROLES = 'admin/auth/roles';
 export const USERS = 'admin/auth/users';
