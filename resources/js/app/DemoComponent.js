@@ -90,3 +90,6 @@ Vue.component('social-network-profile', require('./Components/Views/Demo/SocialN
 // Demo Crud
 Vue.component('app-demo-crud', require('./Components/Views/Demo/Tables/demo-crud/Index').default);
 Vue.component('app-add-modal', require('./Components/Views/Demo/Tables/demo-crud/AddModal').default);
+
+// Beneficiarios
+Vue.component('app-beneficiarios', require('./Components/Views/App/Beneficiarios/Index').default);

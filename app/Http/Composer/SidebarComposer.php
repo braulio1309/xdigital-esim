@@ -355,6 +355,12 @@ class SidebarComposer
                 'permission' => authorize_any(['view_users', 'view_roles', 'invite_user', 'create_roles']),
             ],
             [
+                'icon' => 'users',
+                'name' => 'Beneficiarios',
+                'url' => request()->root() . '/beneficiarios',
+                'permission' => true,
+            ],
+            [
                 'icon' => 'settings',
                 'name' => trans('custom.settings'),
                 'url' => request()->root() . '/app-setting',
