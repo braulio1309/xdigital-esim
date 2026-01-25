@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Models\App\Cliente\Cliente;
 use App\Services\App\Cliente\ClienteService;
-use App\Services\App\Cliente\EsimService;
 
 class ClienteController extends Controller
 {

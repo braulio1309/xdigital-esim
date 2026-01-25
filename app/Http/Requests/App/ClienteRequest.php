@@ -13,10 +13,12 @@ class ClienteRequest extends AppRequest
      */
     public function rules()
     {
+        $clienteId = $this->route('cliente') ? $this->route('cliente')->id : null;
+        
         return [
             'nombre' => 'required|string|max:255',
             'apellido' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => 'required|email|max:255|unique:clientes,email,' . $clienteId,
         ];
     }
 }

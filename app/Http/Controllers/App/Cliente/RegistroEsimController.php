@@ -5,7 +5,6 @@ namespace App\Http\Controllers\App\Cliente;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Services\App\Cliente\ClienteService;
-use App\Services\App\Cliente\EsimService;
 use Illuminate\Http\Request as HttpRequest;
 
 class RegistroEsimController extends Controller
