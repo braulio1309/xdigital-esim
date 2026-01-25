@@ -18,26 +18,33 @@
 
         <app-table :id="tableId" :options="options" @action="getListAction"/>
 
-        <app-add-modal v-if="isAddEditModalActive"
-                       :table-id="tableId"
-                       :selected-url="selectedUrl"
-                       @close-modal="closeAddEditModal"/>
+        <add-modal v-if="isAddEditModalActive"
+                   :table-id="tableId"
+                   :selected-url="selectedUrl"
+                   @close-modal="closeAddEditModal"/>
 
         <app-delete-modal v-if="deleteConfirmationModalActive"
-                                :preloader="deleteLoader"
-                                modal-id="beneficiario-delete"
-                                @confirmed="confirmed"
-                                @cancelled="cancelled"/>
+                          :preloader="deleteLoader"
+                          modal-id="beneficiario-delete"
+                          @confirmed="confirmed"
+                          @cancelled="cancelled"/>
     </div>
 </template>
 
 <script>
     import CoreLibrary from "../../../../../core/helpers/CoreLibrary.js";
     import * as actions from "../../../../Config/ApiUrl";
+    
+    // CAMBIO 1: Importamos el modal local desde la misma carpeta
+    import AddModal from "./AddModal"; 
 
     export default {
         extends: CoreLibrary,
         name: "BeneficiariosList",
+        // CAMBIO 2: Registramos el componente
+        components: {
+            AddModal
+        },
         data() {
             return {
                 deleteLoader: false,
@@ -101,13 +108,16 @@
              */
             openAddEditModal() {
                 this.isAddEditModalActive = true;
+                // Nota: Asegúrate de que tu AddModal local abra el modal automáticamente al montarse
+                // o usa un nextTick si necesitas disparar el trigger de bootstrap manual.
             },
 
             /**
              * for close add edit modal
              */
             closeAddEditModal() {
-                $("#beneficiario-add-edit-modal").modal('hide');
+                // Asegúrate que este ID coincida con el ID dentro de tu AddModal.vue local
+                $("#beneficiario-add-edit-modal").modal('hide'); 
                 this.isAddEditModalActive = false;
                 this.reSetData();
             },
