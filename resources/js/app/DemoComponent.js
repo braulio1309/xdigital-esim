@@ -93,3 +93,6 @@ Vue.component('app-add-modal', require('./Components/Views/Demo/Tables/demo-crud
 
 // Beneficiarios
 Vue.component('app-beneficiarios', require('./Components/Views/App/Beneficiarios/Index').default);
+
+// Clientes
+Vue.component('app-clientes', require('./Components/Views/App/Clientes/Index').default);

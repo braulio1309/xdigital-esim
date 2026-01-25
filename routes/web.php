@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\App\Cliente\RegistroEsimController;
 use App\Http\Controllers\App\Settings\SettingsApiController;
 use App\Http\Controllers\Core\Auth\User\UserPasswordController;
 use App\Http\Controllers\Core\LanguageController;
@@ -17,6 +18,11 @@ use App\Http\Middleware\PermissionMiddleware;
 
 Route::redirect('/', 'admin/users/login');
 Route::get('/get-basic-setting-data', [SettingsApiController::class, 'getBasicSettingData']);
+
+// Ruta pública para registro de clientes eSIM (sin autenticación)
+Route::get('/registro/esim', [RegistroEsimController::class, 'mostrarFormulario'])->name('registro.esim.form');
+Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'])->name('registro.esim.store');
+
 Route::group(['middleware' => ['auth', 'authorize']], function () {
     include_route_files(__DIR__ . '/app/');
 });
