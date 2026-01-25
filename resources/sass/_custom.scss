@@ -1,0 +1,488 @@
+//dev
+.t {
+  border: 1px solid red;
+}
+
+button:focus{
+  outline: none;
+}
+
+// utility classes
+.gap {
+  &-1 { column-gap: 10px; }
+  &-2 { column-gap: 20px; }
+  &-3 { column-gap: 30px; }
+  &-4 { column-gap: 40px; }
+  &-5 { column-gap: 50px; }
+  &-y {
+    &-1 { row-gap: 10px; }
+    &-2 { row-gap: 20px; }
+    &-3 { row-gap: 30px; }
+    &-4 { row-gap: 40px; }
+    &-5 { row-gap: 50px; }
+  }
+  &-x {
+    &-1 { column-gap: 10px; }
+    &-2 { column-gap: 20px; }
+    &-3 { column-gap: 30px; }
+    &-4 { column-gap: 40px; }
+    &-5 { column-gap: 50px; }
+  }
+}
+
+
+@import "core/variables";
+@import "core/theme-colors";
+
+$text-muted: #666 !default;
+
+// dev
+.t {
+  border: 1px solid red;
+}
+
+.pswp__bg {
+  background-color: #fff !important;
+}
+.pswp_bg image-zoom-background {
+  background-color: #fff !important;
+}
+
+.tab-root {
+  background-color: #17ffb217;
+}
+
+.bg-brand-sami-transparent {
+  background-color: rgba(205, 245, 212, 0.1);
+}
+
+.gap {
+  &-1 {
+    column-gap: 10px;
+  }
+
+  &-2 {
+    column-gap: 20px;
+  }
+
+  &-3 {
+    column-gap: 30px;
+  }
+
+  &-4 {
+    column-gap: 40px;
+  }
+
+  &-5 {
+    column-gap: 50px;
+  }
+
+  &-y {
+    &-1 {
+      row-gap: 10px;
+    }
+
+    &-2 {
+      row-gap: 20px;
+    }
+
+    &-3 {
+      row-gap: 30px;
+    }
+
+    &-4 {
+      row-gap: 40px;
+    }
+
+    &-5 {
+      row-gap: 50px;
+    }
+  }
+
+  &-x {
+    &-1 {
+      column-gap: 10px;
+    }
+
+    &-2 {
+      column-gap: 20px;
+    }
+
+    &-3 {
+      column-gap: 30px;
+    }
+
+    &-4 {
+      column-gap: 40px;
+    }
+
+    &-5 {
+      column-gap: 50px;
+    }
+  }
+}
+
+.fab {
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  &:focus{ outline: none; }
+
+  &-1{ width: 20px; height: 20px; }
+  &-2{ width: 25px; height: 25px; }
+  &-3{ width: 30px; height: 30px; }
+  &-4{ width: 35px; height: 35px; }
+  &-5{ width: 40px; height: 40px; }
+  &-red{ background-color: #ff000020; color: #f00; &:hover{background-color: #ff000040} }
+  &-brand{ background-color: rgba($brand-color, .2); color: $brand-color; &:hover{background-color: rgba($brand-color, .4)} }
+  &-transparent{ background-color: transparent; }
+}
+
+
+.text {
+  &-brand {
+    color: $brand-color !important;
+  }
+  &-black {
+    color: #000000 !important;
+  }
+}
+
+.check {
+  display: flex;
+  // flex-direction: column;
+  gap: 1rem;
+}
+
+.check__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 1rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    column-gap: 6px;
+  }
+}
+
+.default__check[type="checkbox"],
+.default__check[type="radio"] {
+  display: none;
+
+  ~ .custom__check {
+    display: flex;
+    align-items: center;
+    height: 16px;
+    border: 2px solid #000;
+    position: relative;
+    transition: all 0.4s ease;
+    cursor: pointer;
+
+    &:after {
+      content: "";
+      display: inline-block;
+      position: absolute;
+      transition: all 0.4s ease;
+    }
+  }
+
+  &:not(.switchbox) {
+    ~ .custom__check {
+      justify-content: center;
+      width: 16px;
+
+      &:after {
+        visibility: hidden;
+      }
+    }
+  }
+
+  &.switchbox {
+    + .custom__check {
+      width: 32px;
+
+      &:after {
+        transform: scale(1.5);
+        left: 4px;
+      }
+    }
+
+    &:not(:checked) {
+      ~ .custom__check {
+        &:after {
+          background-color: #000;
+        }
+      }
+    }
+
+    &:checked {
+      ~ .custom__check {
+        &:after {
+          left: 20px;
+        }
+      }
+    }
+  }
+
+  &:disabled {
+    ~ .custom__check {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+  }
+
+  &:checked {
+    ~ .custom__check {
+      background-color: #000;
+
+      &:after {
+        visibility: visible;
+      }
+    }
+  }
+}
+
+.default__check[type="checkbox"] {
+  &:not(.switchbox) {
+    ~ .custom__check {
+      border-radius: 0.375rem;
+      &:after {
+        height: 7px;
+        width: 3px;
+        margin-top: -1px;
+        border-bottom: 2px solid #fff;
+        border-right: 2px solid #fff;
+        transform: rotate(45deg);
+      }
+    }
+  }
+}
+
+.default__check[type="radio"],
+.default__check[type="checkbox"].switchbox {
+  ~ .custom__check {
+    border-radius: 50rem;
+    &:after {
+      width: 8px;
+      height: 8px;
+      background-color: #fff;
+      border-radius: 50rem;
+    }
+  }
+}
+
+// Kanban view design
+.kanban-wrapper {
+  display: flex;
+  padding: 0 0.5rem 0.5rem 0;
+
+  &.custom-scrollbar {
+    &::-webkit-scrollbar {
+      height: 7px !important;
+    }
+  }
+
+  .kanban-column {
+    width: 360px;
+    min-width: 360px;
+    background-color: var(--base-color);
+    margin-right: .5rem;
+
+    &:last-child {
+      padding-right: 0;
+    }
+
+    .kanban-draggable-column {
+      overflow-y: auto;
+      height: 600px;
+      //max-height: 600px;
+      //min-height: 300px;
+      padding: 0 5px;
+
+      .draggable-item {
+        cursor: move;
+        .card-body {
+          padding: 1rem !important;
+        }
+      }
+
+      &::-webkit-scrollbar {
+        width: $default-scrollbar-width;
+        height: $default-scrollbar-width;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: var(--kanban-scrollbar-track);
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--kanban-scrollbar-thumb);
+      }
+    }
+
+    .draggable-action-wrapper {
+      padding: 5px;
+    }
+  }
+
+  .sortable-ghost {
+    opacity: 0.1 !important;
+  }
+
+  //.sortable-chosen {
+  //    opacity: 0.1;
+  //    background-color: lighten($brand-color, 10%) !important;
+  //}
+
+  .stage-header {
+    border-bottom: .5rem solid var(--default-card-bg);
+
+    .stage-information {
+      span {
+        display: flex;
+        font-size: 90%;
+        align-items: center;
+        margin-right: 12px;
+
+        &:before {
+          content: '';
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          margin-right: 4px;
+          display: inline-block;
+          background-color: $text-muted;
+        }
+
+        &:last-child {
+          margin-right: 0;
+        }
+      }
+    }
+  }
+
+  .shadow-border-hover{
+    :hover {
+      box-shadow: 0 0 10px $brand-color;
+    }
+  }
+
+  .btn-stage-action {
+    width: 100%;
+    font-size: 90%;
+    display: flex;
+    color: $text-muted;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem 1.2rem;
+    background-color: var(--default-card-bg);
+    transition: color $default-transition-duration $action-transition-timing-function,
+    background-color $default-transition-duration $action-transition-timing-function;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      stroke-width: 1.5;
+    }
+
+    &:hover {
+      color: $white;
+      background-color: $brand-color;
+    }
+  }
+}
+
+//quillJS
+//.quillWrapper{
+//	border: none !important;
+//}
+
+.ql-toolbar {
+  border: none !important;
+}
+
+.ql-container {
+  height: auto !important;
+  font-size: 100% !important;
+  min-height: 60px;
+  border-radius: 5px !important;
+  //padding: 10px 14px !important;
+  border: 1px solid var(--default-border-color) !important;
+  color: var(--default-font-color);
+  background-color: var(--form-control-bg);
+  &:focus-within {
+    border: 1px solid $brand-color !important;
+  }
+}
+
+.html-reset {}
+.html-reset * {
+  //padding: 0;
+  margin: 0;
+}
+
+.html-reset * {
+  text-align: left;
+}
+
+.turncate-html {}
+.turncate-html * {
+  display: inline-block;
+  font-weight: lighter;
+  font-size: small;
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  color: var(--default-font-color) !important;
+}
+
+.turncate-html--bold * {
+  font-weight: bold !important;
+  color: $brand-color !important;
+}
+
+.rounded-corner {
+  border-radius: 15px !important;
+}
+
+.scroll{
+  overflow: scroll;
+  &-x{ overflow-x: scroll }
+  &-y{ overflow-y: scroll }
+}
+
+// print
+@media print {
+  *{
+    visibility: hidden;
+  }
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+  #print-area {
+    position: absolute;
+    width: 100vw;
+    left: 0;
+    top: 0;
+  }
+}
+
+.ql-toolbar{
+  display: none !important;
+}
+
+#scrolling-container {
+  border: 1px solid black;
+}
+
+.ql-editor {
+  min-height: auto !important;
+}
