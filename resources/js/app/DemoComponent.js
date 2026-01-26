@@ -96,3 +96,6 @@ Vue.component('app-beneficiarios', require('./Components/Views/App/Beneficiarios
 
 // Clientes
 Vue.component('app-clientes', require('./Components/Views/App/Clientes/Index').default);
+
+// Transactions
+Vue.component('app-transactions', require('./Components/Views/App/Transactions/Index').default);
