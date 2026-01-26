@@ -6,6 +6,7 @@ use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Transaction\Transaction;
 use App\Models\Core\Auth\User;
+use App\Models\Core\Status;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -18,6 +19,9 @@ class BeneficiarioClienteSeeder extends Seeder
      */
     public function run()
     {
+        // Get active status
+        $activeStatus = Status::findByNameAndType('status_active', 'user');
+        
         // Create a test beneficiario with user
         $beneficiarioUser = User::firstOrCreate(
             ['email' => 'beneficiario.test@example.com'],
@@ -26,7 +30,7 @@ class BeneficiarioClienteSeeder extends Seeder
                 'last_name' => 'Beneficiario',
                 'password' => Hash::make('Juan123'),
                 'user_type' => 'beneficiario',
-                'status_id' => 1,
+                'status_id' => $activeStatus->id,
             ]
         );
 
@@ -51,7 +55,7 @@ class BeneficiarioClienteSeeder extends Seeder
                 'last_name' => 'Cliente',
                 'password' => Hash::make('Maria123'),
                 'user_type' => 'cliente',
-                'status_id' => 1,
+                'status_id' => $activeStatus->id,
             ]
         );
 

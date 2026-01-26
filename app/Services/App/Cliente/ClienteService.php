@@ -4,6 +4,7 @@ namespace App\Services\App\Cliente;
 
 use App\Models\App\Cliente\Cliente;
 use App\Models\Core\Auth\User;
+use App\Models\Core\Status;
 use App\Services\App\AppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -53,8 +54,8 @@ class ClienteService extends AppService
         // Generate password: nombre + "123"
         $password = $cliente->nombre . '123';
         
-        // Get active status ID (assuming 1 is active)
-        $statusId = 1;
+        // Get active status
+        $status = Status::findByNameAndType('status_active', 'user');
         
         $user = User::create([
             'first_name' => $cliente->nombre,
@@ -62,7 +63,7 @@ class ClienteService extends AppService
             'email' => $email,
             'password' => Hash::make($password),
             'user_type' => 'cliente',
-            'status_id' => $statusId,
+            'status_id' => $status->id,
         ]);
         
         return $user;

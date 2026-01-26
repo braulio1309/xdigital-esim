@@ -4,6 +4,7 @@ namespace App\Services\App\Beneficiario;
 
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\Core\Auth\User;
+use App\Models\Core\Status;
 use App\Services\App\AppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -47,14 +48,14 @@ class BeneficiarioService extends AppService
      */
     protected function createUserForBeneficiario(Beneficiario $beneficiario, array $attributes)
     {
-        // Generate email if not provided
+        // Generate email from request or create from name
         $email = $attributes['email'] ?? strtolower(str_replace(' ', '.', $beneficiario->nombre)) . '@beneficiario.local';
         
         // Generate password: nombre + "123"
         $password = $beneficiario->nombre . '123';
         
-        // Get active status ID (assuming 1 is active)
-        $statusId = 1;
+        // Get active status
+        $status = Status::findByNameAndType('status_active', 'user');
         
         $user = User::create([
             'first_name' => $beneficiario->nombre,
@@ -62,7 +63,7 @@ class BeneficiarioService extends AppService
             'email' => $email,
             'password' => Hash::make($password),
             'user_type' => 'beneficiario',
-            'status_id' => $statusId,
+            'status_id' => $status->id,
         ]);
         
         return $user;
