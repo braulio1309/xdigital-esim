@@ -11,6 +11,23 @@ class CustomRoute extends HookContract
 
     public function handle()
     {
+        // Redirect based on user type after login
+        if (auth()->check()) {
+            $user = auth()->user();
+            
+            if ($user->user_type === 'beneficiario') {
+                return [
+                    'route_name' => 'beneficiario.dashboard',
+                    'route_params' => null
+                ];
+            } elseif ($user->user_type === 'cliente') {
+                return [
+                    'route_name' => 'cliente.dashboard',
+                    'route_params' => null
+                ];
+            }
+        }
+        
         return [];
     }
 }

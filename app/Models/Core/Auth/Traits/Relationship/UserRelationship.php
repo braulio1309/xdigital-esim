@@ -2,7 +2,9 @@
 
 namespace App\Models\Core\Auth\Traits\Relationship;
 
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Chat\Message;
+use App\Models\App\Cliente\Cliente;
 use App\Models\App\User\SocialLink;
 use App\Models\Core\Auth\PasswordHistory;
 use App\Models\Core\Auth\Profile;
@@ -77,5 +79,25 @@ trait UserRelationship
     public function messages()
     {
         return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    /**
+     * Relationship with Beneficiario model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function beneficiario()
+    {
+        return $this->hasOne(Beneficiario::class);
+    }
+
+    /**
+     * Relationship with Cliente model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function cliente()
+    {
+        return $this->hasOne(Cliente::class);
     }
 }
