@@ -64,6 +64,9 @@ export const BENEFICIARIOS = 'beneficiarios';
 //Clientes
 export const CLIENTES = 'clientes';
 
+//Transactions
+export const TRANSACTIONS = 'transactions';
+
 //roles and users
 export const ROLES = 'admin/auth/roles';
 export const USERS = 'admin/auth/users';

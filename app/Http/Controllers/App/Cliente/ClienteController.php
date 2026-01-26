@@ -10,6 +10,7 @@ use App\Services\App\Cliente\ClienteService;
 // Importamos el servicio de eSIM
 use App\Services\EsimFxService; 
 use Illuminate\Support\Facades\Log;
+use App\Models\App\Transaction\Transaction;
 
 class ClienteController extends Controller
 {
@@ -75,6 +76,16 @@ class ClienteController extends Controller
                     
                     // Guardamos los cambios en el modelo cliente
                     $cliente->save();
+
+                    // 4. Guardamos la transacción en la tabla transactions
+                    Transaction::create([
+                        'transaction_id' => $transactionId,
+                        'status' => $esimData['status'] ?? 'completed',
+                        'iccid' => $esimData['esim']['iccid'] ?? null,
+                        'esim_qr' => $esimData['esim']['esim_qr'] ?? null,
+                        'creation_time' => now(),
+                        'cliente_id' => $cliente->id
+                    ]);
                 }
 
             } catch (\Exception $e) {
