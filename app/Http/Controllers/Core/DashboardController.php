@@ -14,6 +14,15 @@ class DashboardController extends Controller
      */
     public function index()
     {
+        $user = auth()->user();
+        
+        // Redirect based on user type
+        if ($user && $user->user_type === 'beneficiario') {
+            return redirect()->route('beneficiario.dashboard');
+        } elseif ($user && $user->user_type === 'cliente') {
+            return redirect()->route('cliente.dashboard');
+        }
+        
         return view('dashboard.default');
     }
 }
