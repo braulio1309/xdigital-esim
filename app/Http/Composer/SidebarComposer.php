@@ -50,7 +50,7 @@ class SidebarComposer
                     ],
                 ],
             ],
-            [
+           /* [
                 'id' => 'auth-pages',
                 'icon' => 'power',
                 'name' => __t('authentication'),
@@ -347,7 +347,7 @@ class SidebarComposer
                 'name' => trans('custom.payment_method'),
                 'url' => request()->root() . '/payment-view',
                 'permission' => auth()->user()->can('view_payment_method'),
-            ],
+            ],*/
             [
                 'icon' => 'user-check',
                 'name' => trans('custom.user_and_roles'),
@@ -384,12 +384,12 @@ class SidebarComposer
                     ]
                 ),
             ],
-            [
+            /*[
                 'icon' => 'book',
                 'name' => trans('default.documentation'),
                 'url' => request()->root() . '/documentation/index.html',
                 'permission' => auth()->user()->can('view_map'),
-            ],
+            ],*/
         ];
 
 

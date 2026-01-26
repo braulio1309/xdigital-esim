@@ -6,13 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Http\Request as HttpRequest;
+// Importaciones necesarias
+use App\Services\EsimFxService;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Illuminate\Support\Facades\Log;
 
 class RegistroEsimController extends Controller
 {
     /**
      * Mostrar el formulario de registro de eSIM
-     * 
-     * @param \Illuminate\Http\Request $request
+     * * @param \Illuminate\Http\Request $request
      * @return \Illuminate\View\View
      */
     public function mostrarFormulario(HttpRequest $request)
@@ -25,22 +28,68 @@ class RegistroEsimController extends Controller
     }
 
     /**
-     * Registrar un nuevo cliente desde el formulario público
-     * 
-     * @param Request $request
+     * Registrar un nuevo cliente desde el formulario público e intentar activar eSIM
+     * * @param Request $request
      * @param ClienteService $service
+     * @param EsimFxService $esimService  <-- Inyectamos el servicio aquí
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function registrarCliente(Request $request, ClienteService $service)
+    public function registrarCliente(Request $request, ClienteService $service, EsimFxService $esimService)
     {
+        // 1. Guardar el cliente en BD local
         $cliente = $service->save();
 
-        // TODO: Llamar al servicio de eSIM cuando esté implementado
-        // $esimService = app(EsimService::class);
-        // $esimService->crearYActivarEsim($cliente->toArray());
+        $esimDataView = null; // Variable para guardar datos que enviaremos a la vista
 
-        return redirect()
-            ->back()
-            ->with('success', 'Cliente registrado exitosamente');
+        // 2. Verificar si se seleccionó un plan (product_id)
+        if ($request->filled('product_id') || true) {
+           try {
+                $productId = 'd06b781f-579a-4804-be03-2773b152525a';
+                // Generar ID de transacción único
+                $transactionId = 'WEB-' . $cliente->id . '-' . time();
+
+                // 3. Llamar al servicio de eSIM
+                // NOTA: Asegúrate de que tu EsimFxService tenga la corrección del payload ('product' => ['id'...])
+                $apiResponse = $esimService->createOrder($productId, $transactionId);
+                if (isset($apiResponse['esim'])) {
+                    // 4. Guardar datos técnicos en el cliente
+                   /* $cliente->iccid = $apiResponse['esim']['iccid'];
+                    $cliente->esim_qr = $apiResponse['esim']['esim_qr'];
+                    $cliente->save();*/
+
+                    // 5. Preparar los datos VISUALES para el usuario
+                    // Generamos el QR en formato SVG (escalable y ligero)
+                    $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
+
+                    // Separamos los datos para instalación manual
+                    // Formato esperado: LPA:1$smdp.address$activationCode
+                    $parts = explode('$', $apiResponse['esim']['esim_qr']);
+                    
+                    $esimDataView = [
+                        'qr_svg' => (string) $qrImage, // Convertimos a string para pasar a la vista
+                        'smdp' => $parts[1] ?? 'N/A',
+                        'code' => $parts[2] ?? 'N/A',
+                        'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
+                    ];
+                }
+
+            } catch (\Exception $e) {
+                Log::error("Error al activar eSIM en registro público: " . $e->getMessage());
+                // Podrías retornar con un error, pero como el cliente YA se creó, 
+                // es mejor avisar que contacte a soporte.
+                return redirect()->back()
+                    ->with('warning', 'Cliente registrado, pero hubo un error generando la eSIM. Por favor contacte a soporte.');
+            }
+        }
+
+        // 6. Redirección con datos
+        // Usamos 'with' para flashear los datos a la sesión.
+        // La vista podrá acceder a ellos con session('esim_success')
+       return view('clientes.registro-esim', [
+            'parametro' => $request->query('parametro', ''), // Pasamos el parámetro original
+            'esim_data' => $esimDataView,                    // Pasamos la data de la eSIM como variable
+            'success'   => '¡Registro exitoso! Tu eSIM ha sido generada.' // Mensaje de éxito
+        ]);
+
     }
 }
