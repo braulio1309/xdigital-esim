@@ -71,11 +71,11 @@ class ClienteController extends Controller
                 if (isset($esimData['esim'])) {
                     // Asumiendo que tu modelo Cliente tiene campos para guardar esto. 
                     // Si no, deberías guardarlo en una tabla relacionada 'esims'.
-                    $cliente->iccid = $esimData['esim']['iccid'] ?? null;
+                    /*$cliente->iccid = $esimData['esim']['iccid'] ?? null;
                     $cliente->esim_qr = $esimData['esim']['esim_qr'] ?? null; // El string del código QR
                     
                     // Guardamos los cambios en el modelo cliente
-                    $cliente->save();
+                    $cliente->save();*/
 
                     // 4. Guardamos la transacción en la tabla transactions
                     Transaction::create([
