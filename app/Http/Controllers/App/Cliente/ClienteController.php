@@ -61,24 +61,15 @@ class ClienteController extends Controller
                 $transactionId = 'CLI-' . $cliente->id . '-' . time();
 
                 // Llamamos al servicio 'createOrder' que definiste
-                // Pasamos 'operation_type' => 'NEW' explícitamente en extraParams
                 $esimData = $this->esimService->createOrder($productId, $transactionId, [
                     'operation_type' => 'NEW'
                 ]);
-
                 // 3. Actualizamos el cliente con la respuesta de la API
-                // La API devuelve normalmente la estructura ['esim' => ['iccid' => '...', 'esim_qr' => '...']]
                 if (isset($esimData['esim'])) {
-                    // Asumiendo que tu modelo Cliente tiene campos para guardar esto. 
-                    // Si no, deberías guardarlo en una tabla relacionada 'esims'.
-                    /*$cliente->iccid = $esimData['esim']['iccid'] ?? null;
-                    $cliente->esim_qr = $esimData['esim']['esim_qr'] ?? null; // El string del código QR
-                    
-                    // Guardamos los cambios en el modelo cliente
-                    $cliente->save();*/
 
                     // 4. Guardamos la transacción en la tabla transactions
                     Transaction::create([
+                        'order_id' => $esimData['id'], // Asumiendo que no hay una orden asociada en este contexto
                         'transaction_id' => $transactionId,
                         'status' => $esimData['status'] ?? 'completed',
                         'iccid' => $esimData['esim']['iccid'] ?? null,
@@ -93,8 +84,6 @@ class ClienteController extends Controller
                 // para asegurar que el cliente se haya creado al menos.
                 Log::error("Error activando eSIM para cliente ID {$cliente->id}: " . $e->getMessage());
                 
-                // Opcional: Podrías retornar un error 500 si la eSIM es estrictamente obligatoria
-                // throw $e; 
             }
         }
 

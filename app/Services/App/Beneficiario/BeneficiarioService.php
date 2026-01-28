@@ -65,6 +65,7 @@ class BeneficiarioService extends AppService
             'user_type' => 'beneficiario',
             'status_id' => $status->id,
         ]);
+        $user->assignRole('Moderator');
         
         return $user;
     }

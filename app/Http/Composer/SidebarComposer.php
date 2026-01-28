@@ -366,7 +366,7 @@ class SidebarComposer
                 'url' => request()->root() . '/admin/clientes',
                 'permission' => true,
             ],
-            [
+           /* [
                 'icon' => 'settings',
                 'name' => trans('custom.settings'),
                 'url' => request()->root() . '/app-setting',
@@ -383,7 +383,7 @@ class SidebarComposer
                         'view_notification_templates',
                     ]
                 ),
-            ],
+            ],*/
             /*[
                 'icon' => 'book',
                 'name' => trans('default.documentation'),

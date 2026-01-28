@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App\Cliente;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
+use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Http\Request as HttpRequest;
 // Importaciones necesarias
@@ -38,7 +39,7 @@ class RegistroEsimController extends Controller
     {
         // 1. Guardar el cliente en BD local
         $cliente = $service->save();
-
+        
         $esimDataView = null; // Variable para guardar datos que enviaremos a la vista
 
         // 2. Verificar si se seleccionó un plan (product_id)
@@ -53,12 +54,6 @@ class RegistroEsimController extends Controller
                 $apiResponse = $esimService->createOrder($productId, $transactionId);
                 if (isset($apiResponse['esim'])) {
                     // 4. Guardar datos técnicos en el cliente
-                   /* $cliente->iccid = $apiResponse['esim']['iccid'];
-                    $cliente->esim_qr = $apiResponse['esim']['esim_qr'];
-                    $cliente->save();*/
-
-                    // 5. Preparar los datos VISUALES para el usuario
-                    // Generamos el QR en formato SVG (escalable y ligero)
                     $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
 
                     // Separamos los datos para instalación manual
@@ -71,6 +66,18 @@ class RegistroEsimController extends Controller
                         'code' => $parts[2] ?? 'N/A',
                         'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
                     ];
+
+                    // 4. Guardamos la transacción en la tabla transactions
+                    Transaction::create([
+                        'order_id' => $apiResponse['id'], // Asumiendo que no hay una orden asociada en este contexto
+                        'transaction_id' => $transactionId,
+                        'status' => $apiResponse['status'] ?? 'completed',
+                        'iccid' => $apiResponse['esim']['iccid'] ?? null,
+                        'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
+                        'creation_time' => now(),
+                        'cliente_id' => $cliente->id
+                    ]);
+                
                 }
 
             } catch (\Exception $e) {

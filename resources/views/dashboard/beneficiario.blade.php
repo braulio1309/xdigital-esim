@@ -8,13 +8,27 @@
             <div class="col-12">
                 <div class="page-header">
                     <h3 class="page-title">Panel de Beneficiario</h3>
-                    <p class="text-muted">Bienvenido, {{ $beneficiario->nombre }}</p>
+                    <div>
+                        <p class="text-muted mb-2">Bienvenido, {{ $beneficiario->nombre }}</p>
+                        
+                        <div class="input-group mb-3" style="max-width: 500px;">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-primary text-white">Tu Link:</span>
+                            </div>
+                            <input type="text" class="form-control bg-white" id="referralLink" 
+                                   value="{{ url('/registro/esim/' . Str::slug($beneficiario->nombre)) }}" readonly>
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-primary" type="button" onclick="copyLink()">
+                                    <i class="mdi mdi-content-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="row">
-            <!-- Commission Percentage Card -->
             <div class="col-md-4 grid-margin stretch-card">
                 <div class="card">
                     <div class="card-body">
@@ -28,7 +42,6 @@
                 </div>
             </div>
 
-            <!-- Total Earnings Card -->
             <div class="col-md-4 grid-margin stretch-card">
                 <div class="card">
                     <div class="card-body">
@@ -42,7 +55,6 @@
                 </div>
             </div>
 
-            <!-- Total Sales Card -->
             <div class="col-md-4 grid-margin stretch-card">
                 <div class="card">
                     <div class="card-body">
@@ -57,7 +69,6 @@
             </div>
         </div>
 
-        <!-- Statistics Summary -->
         <div class="row">
             <div class="col-12 grid-margin">
                 <div class="card">
@@ -70,7 +81,7 @@
                                 <div class="alert alert-info" role="alert">
                                     <h5 class="alert-heading">Estado Actual</h5>
                                     <p>Actualmente, tu comisión está en <strong>{{ number_format($commission_percentage, 2) }}%</strong> 
-                                       y has acumulado <strong>${{ number_format($total_earnings, 2) }}</strong> en ganancias.</p>
+                                        y has acumulado <strong>${{ number_format($total_earnings, 2) }}</strong> en ganancias.</p>
                                     <hr>
                                     <p class="mb-0">Continúa promoviendo para aumentar tus comisiones y ganancias.</p>
                                 </div>
@@ -108,5 +119,21 @@
         background: #f8f9fa;
         border-radius: 5px;
     }
+    .input-group-text {
+        font-weight: bold;
+    }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+    function copyLink() {
+        var copyText = document.getElementById("referralLink");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); // Para móviles
+        navigator.clipboard.writeText(copyText.value);
+        
+        alert("¡Enlace copiado al portapapeles!");
+    }
+</script>
 @endpush

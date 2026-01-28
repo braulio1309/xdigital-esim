@@ -16,7 +16,8 @@ class Transaction extends AppModel
         'iccid',
         'esim_qr',
         'creation_time',
-        'cliente_id'
+        'cliente_id',
+        'order_id'
     ];
 
     protected $casts = [
