@@ -51,11 +51,12 @@ class AdminMetricsService extends AppService
         // Total transactions in range
         $totalTransactions = Transaction::whereBetween('created_at', [$start, $end])->count();
 
-        // Total revenue from completed transactions (assuming there's an amount field)
-        // Since Transaction model doesn't have amount field, we'll set it as 0 or calculate based on business logic
+        // Total revenue from completed transactions
+        // TODO: Replace with actual transaction amount calculation once Transaction model has amount/price field
+        // This is a placeholder assuming $100 per completed transaction
         $totalRevenue = Transaction::where('status', 'completed')
             ->whereBetween('created_at', [$start, $end])
-            ->count() * 100; // Assuming $100 per completed transaction as placeholder
+            ->count() * 100;
 
         return [
             [
@@ -102,6 +103,7 @@ class AdminMetricsService extends AppService
             ->get();
 
         $rows = $topBeneficiarios->map(function ($beneficiario) {
+            // total_earnings is a database column from beneficiarios table
             $comisiones = $beneficiario->total_earnings ?? 0;
             
             return [
