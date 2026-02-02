@@ -82,7 +82,7 @@
                                 return `
                                     <div class="d-flex align-items-center">
                                         <input type="text" class="form-control form-control-sm mr-2" value="${link}" readonly id="link-${row.id}" style="max-width: 300px;">
-                                        <button class="btn btn-sm btn-primary" onclick="copyToClipboard('link-${row.id}')">
+                                        <button class="btn btn-sm btn-primary" data-link-id="link-${row.id}" class="copy-link-btn">
                                             <i class="mdi mdi-content-copy"></i>
                                         </button>
                                     </div>
@@ -196,11 +196,12 @@
             reSetData() {
                 this.rowData = {};
                 this.selectedUrl = '';
-            }
-        },
-        mounted() {
-            // Add global function for copying to clipboard using modern Clipboard API
-            window.copyToClipboard = (elementId) => {
+            },
+            
+            /**
+             * Copy text to clipboard with fallback for older browsers
+             */
+            copyToClipboard(elementId) {
                 const input = document.getElementById(elementId);
                 if (input) {
                     const textToCopy = input.value;
@@ -218,10 +219,12 @@
                         this.fallbackCopy(input);
                     }
                 }
-            };
+            },
             
-            // Fallback copy method for older browsers
-            this.fallbackCopy = (input) => {
+            /**
+             * Fallback copy method for older browsers
+             */
+            fallbackCopy(input) {
                 input.select();
                 input.setSelectionRange(0, 99999); // For mobile devices
                 try {
@@ -230,7 +233,20 @@
                 } catch (err) {
                     this.$toastr.e('Error al copiar el link');
                 }
-            };
+            }
+        },
+        mounted() {
+            // Setup event delegation for dynamically generated copy buttons
+            const self = this;
+            $(document).on('click', '[data-link-id]', function(e) {
+                e.preventDefault();
+                const linkId = $(this).data('link-id');
+                self.copyToClipboard(linkId);
+            });
+        },
+        beforeDestroy() {
+            // Cleanup event listeners
+            $(document).off('click', '[data-link-id]');
         }
     }
 </script>

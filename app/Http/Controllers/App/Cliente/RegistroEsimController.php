@@ -16,6 +16,22 @@ use Illuminate\Support\Facades\Log;
 class RegistroEsimController extends Controller
 {
     /**
+     * Extract codigo from referral code format (nombre-codigo)
+     * @param string $referralCode
+     * @return string|null
+     */
+    private function extractCodigoFromReferralCode($referralCode)
+    {
+        if (!$referralCode) {
+            return null;
+        }
+        
+        // Extraer el código del formato: nombre-codigo
+        $parts = explode('-', $referralCode);
+        return end($parts); // Último elemento es el código
+    }
+
+    /**
      * Mostrar el formulario de registro de eSIM
      * * @param \Illuminate\Http\Request $request
      * @param string|null $referralCode
@@ -26,10 +42,7 @@ class RegistroEsimController extends Controller
         $beneficiario = null;
         
         if ($referralCode) {
-            // Extraer el código del formato: nombre-codigo
-            $parts = explode('-', $referralCode);
-            $codigo = end($parts); // Último elemento es el código
-            
+            $codigo = $this->extractCodigoFromReferralCode($referralCode);
             $beneficiario = Beneficiario::where('codigo', $codigo)->first();
         }
         
@@ -52,8 +65,7 @@ class RegistroEsimController extends Controller
         // Extract beneficiario_id from referralCode if provided
         $beneficiarioId = null;
         if ($request->filled('referralCode')) {
-            $parts = explode('-', $request->referralCode);
-            $codigo = end($parts);
+            $codigo = $this->extractCodigoFromReferralCode($request->referralCode);
             $beneficiario = Beneficiario::where('codigo', $codigo)->first();
             if ($beneficiario) {
                 $beneficiarioId = $beneficiario->id;
