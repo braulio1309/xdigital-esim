@@ -7,6 +7,8 @@ Vue.component('dashboard-hospital', require('./Components/Views/Demo/Dashboard/H
 Vue.component('dashboard-hrm', require('./Components/Views/Demo/Dashboard/HRM').default);
 Vue.component('dashboard-pos', require('./Components/Views/Demo/Dashboard/POS').default);
 
+// Admin Dashboard
+Vue.component('admin-metrics-dashboard', require('./Components/Views/Admin/Dashboard/AdminMetrics').default);
 
 // Forms
 Vue.component('form-layouts', require('./Components/Views/Demo/Form/form-layouts/FormLayouts').default);

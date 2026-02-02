@@ -1,10 +1,17 @@
 <?php
 
+use App\Http\Controllers\App\Dashboard\AdminMetricsDashboardController;
 use App\Http\Controllers\App\Dashboard\DashboardController;
 use App\Http\Controllers\App\Dashboard\HrmDashboardController;
 use App\Http\Controllers\App\Dashboard\AcademicDashboardController;
 use App\Http\Controllers\App\Dashboard\HospitalDashboardController;
 use App\Http\Controllers\App\Dashboard\EcommerceDashboardController;
+
+// Admin metrics dashboard
+Route::get('/admin/metrics', [AdminMetricsDashboardController::class, 'index'])
+    ->name('admin.metrics.dashboard');
+Route::get('/admin/metrics/data', [AdminMetricsDashboardController::class, 'getMetrics'])
+    ->name('admin.metrics.data');
 
 Route::group(['prefix' => 'dashboard'], function () {
     Route::view('/academy', 'dashboard.academy');
