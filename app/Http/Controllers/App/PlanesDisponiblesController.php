@@ -203,7 +203,7 @@ class PlanesDisponiblesController extends Controller
                 'product_id' => 'required|string',
                 'product_name' => 'required|string',
                 'amount' => 'required|numeric|min:0',
-                'payment_method_id' => 'required_if:amount,>,0|string'
+                'payment_method_id' => 'nullable|string'
             ]);
 
             if ($validator->fails()) {
@@ -211,6 +211,14 @@ class PlanesDisponiblesController extends Controller
                     'success' => false,
                     'message' => 'Datos inválidos',
                     'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Validar payment_method_id solo si el monto es mayor a 0
+            if ($request->amount > 0 && empty($request->payment_method_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Método de pago requerido para planes de pago'
                 ], 422);
             }
 
@@ -233,8 +241,11 @@ class PlanesDisponiblesController extends Controller
             if ($request->amount > 0) {
                 Stripe::setApiKey(config('services.stripe.secret'));
 
+                // Convertir a centavos usando round para evitar problemas de precisión de punto flotante
+                $amountInCents = round($request->amount * 100);
+
                 $paymentIntent = PaymentIntent::create([
-                    'amount' => $request->amount * 100, // Convertir a centavos
+                    'amount' => $amountInCents,
                     'currency' => 'usd',
                     'payment_method' => $request->payment_method_id,
                     'confirmation_method' => 'manual',

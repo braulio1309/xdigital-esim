@@ -127,7 +127,9 @@ class EsimFxService
     {
         $response = Http::withHeaders($this->getHeaders())
                         ->post("{$this->baseUrl}/product/api/v1/get_products", [
-                            'coountries' => $countryCode // Nota: typo intencional según la API
+                            // NOTA IMPORTANTE: 'coountries' con doble 'o' es el formato requerido por la API de eSIMfx
+                            // NO corregir este typo ya que la API espera exactamente este nombre de parámetro
+                            'coountries' => $countryCode
                         ]);
 
         if ($response->failed()) {

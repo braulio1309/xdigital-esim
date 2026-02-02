@@ -213,7 +213,70 @@
         border-radius: 4px;
         background: white;
     }
+
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        min-width: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        padding: 16px;
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        display: none;
+    }
+
+    .toast-notification.show {
+        display: block;
+    }
+
+    .toast-notification.error {
+        border-left: 4px solid #dc3545;
+    }
+
+    .toast-notification.success {
+        border-left: 4px solid #28a745;
+    }
+
+    .toast-notification.warning {
+        border-left: 4px solid #ffc107;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+
+    .error-message.show {
+        display: block;
+    }
 </style>
+
+{{-- Toast Notification --}}
+<div class="toast-notification" id="toastNotification">
+    <div class="d-flex align-items-start">
+        <i class="mdi mdi-alert-circle mr-2" style="font-size: 1.5rem;"></i>
+        <div>
+            <strong id="toastTitle">Título</strong>
+            <p class="mb-0 small" id="toastMessage">Mensaje</p>
+        </div>
+    </div>
+</div>
 
 <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
@@ -286,11 +349,14 @@
                         <div class="form-group">
                             <label>Email</label>
                             <input type="email" class="form-control" name="email" required>
+                            <div class="error-message" id="loginEmailError"></div>
                         </div>
                         <div class="form-group">
                             <label>Contraseña</label>
                             <input type="password" class="form-control" name="password" required>
+                            <div class="error-message" id="loginPasswordError"></div>
                         </div>
+                        <div class="error-message" id="loginGeneralError"></div>
                         <button type="submit" class="btn btn-brand-gradient btn-block">Iniciar Sesión</button>
                     </form>
                 </div>
@@ -302,14 +368,17 @@
                         <div class="form-group">
                             <label>Nombre</label>
                             <input type="text" class="form-control" name="nombre" required>
+                            <div class="error-message" id="registroNombreError"></div>
                         </div>
                         <div class="form-group">
                             <label>Apellido</label>
                             <input type="text" class="form-control" name="apellido" required>
+                            <div class="error-message" id="registroApellidoError"></div>
                         </div>
                         <div class="form-group">
                             <label>Email</label>
                             <input type="email" class="form-control" name="email" required>
+                            <div class="error-message" id="registroEmailError"></div>
                         </div>
                         <div class="form-group">
                             <label>Teléfono (Opcional)</label>
@@ -318,7 +387,9 @@
                         <div class="form-group">
                             <label>Contraseña</label>
                             <input type="password" class="form-control" name="password" required>
+                            <div class="error-message" id="registroPasswordError"></div>
                         </div>
+                        <div class="error-message" id="registroGeneralError"></div>
                         <button type="submit" class="btn btn-brand-gradient btn-block">Registrarse</button>
                     </form>
                 </div>
@@ -426,6 +497,25 @@
     let cardElement = null;
     let selectedPlan = null;
 
+    // Función para mostrar toast notification
+    function showToast(title, message, type = 'error') {
+        const toast = document.getElementById('toastNotification');
+        const toastTitle = document.getElementById('toastTitle');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        toastTitle.textContent = title;
+        toastMessage.textContent = message;
+        
+        // Remover clases anteriores
+        toast.classList.remove('error', 'success', 'warning');
+        toast.classList.add(type, 'show');
+        
+        // Auto-ocultar después de 5 segundos
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 5000);
+    }
+
     // Función para mostrar/ocultar loading
     function toggleLoading(show) {
         const overlay = document.getElementById('loadingOverlay');
@@ -436,14 +526,38 @@
         }
     }
 
-    // Función para copiar texto
+    // Función para copiar texto usando Clipboard API moderno
     function copiarTexto(id) {
         const input = document.getElementById(id);
+        const text = input.value;
+        
+        // Usar Clipboard API moderno
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Feedback visual
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '¡Copiado!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Error al copiar:', err);
+                // Fallback para navegadores antiguos
+                copiarTextoFallback(input);
+            });
+        } else {
+            // Fallback para navegadores sin Clipboard API
+            copiarTextoFallback(input);
+        }
+    }
+
+    // Fallback para navegadores antiguos
+    function copiarTextoFallback(input) {
         input.select();
         input.setSelectionRange(0, 99999);
         document.execCommand("copy");
         
-        // Feedback visual
         const button = event.target;
         const originalText = button.textContent;
         button.textContent = '¡Copiado!';
@@ -481,13 +595,13 @@
             if (data.success) {
                 renderizarPlanes(data.data);
             } else {
-                alert('Error al cargar los planes');
+                showToast('Error', data.message || 'Error al cargar los planes', 'error');
             }
         })
         .catch(error => {
             toggleLoading(false);
             console.error('Error:', error);
-            alert('Error al cargar los planes');
+            showToast('Error', 'No se pudieron cargar los planes. Por favor, intenta de nuevo.', 'error');
         });
     });
 
@@ -511,13 +625,16 @@
                 ? '<span style="color: #28a745;">FREE</span>' 
                 : `$${plan.price} ${plan.price_unit}`;
             
+            // Escapar datos para evitar XSS
+            const planDataStr = JSON.stringify(plan).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            
             html += `
                 <div class="col-md-3 col-sm-6 mb-4">
                     <div class="plan-card">
-                        <div class="plan-duration">${plan.duration} ${plan.duration_unit}s</div>
-                        <div class="plan-data">${plan.amount} ${plan.amount_unit}</div>
+                        <div class="plan-duration">${escapeHtml(plan.duration + ' ' + plan.duration_unit + 's')}</div>
+                        <div class="plan-data">${escapeHtml(plan.amount + ' ' + plan.amount_unit)}</div>
                         <div class="plan-price ${plan.price > 0 ? 'paid' : ''}">${precio}</div>
-                        <button class="btn btn-brand-gradient btn-block" onclick="iniciarCompra(${JSON.stringify(plan).replace(/"/g, '&quot;')})">
+                        <button class="btn btn-brand-gradient btn-block btn-comprar" data-plan='${planDataStr}'>
                             Comprar
                         </button>
                     </div>
@@ -526,6 +643,21 @@
         });
 
         container.innerHTML = html;
+
+        // Event delegation para botones de compra
+        document.querySelectorAll('.btn-comprar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const planData = JSON.parse(this.getAttribute('data-plan'));
+                iniciarCompra(planData);
+            });
+        });
+    }
+
+    // Función para escapar HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // Iniciar proceso de compra
@@ -606,6 +738,12 @@
         e.preventDefault();
         toggleLoading(true);
 
+        // Limpiar errores anteriores
+        document.querySelectorAll('#loginTab .error-message').forEach(el => {
+            el.classList.remove('show');
+            el.textContent = '';
+        });
+
         const formData = new FormData(this);
         formData.append('tipo', 'login');
 
@@ -622,12 +760,27 @@
                 $('#authModal').modal('hide');
                 mostrarCheckout(selectedPlan);
             } else {
-                alert(data.message || 'Error en el login');
+                // Mostrar errores específicos
+                if (data.errors) {
+                    Object.keys(data.errors).forEach(key => {
+                        const errorEl = document.getElementById(`login${key.charAt(0).toUpperCase() + key.slice(1)}Error`);
+                        if (errorEl) {
+                            errorEl.textContent = data.errors[key][0];
+                            errorEl.classList.add('show');
+                        }
+                    });
+                } else {
+                    const errorEl = document.getElementById('loginGeneralError');
+                    errorEl.textContent = data.message || 'Error en el login';
+                    errorEl.classList.add('show');
+                }
             }
         } catch (error) {
             toggleLoading(false);
             console.error('Error:', error);
-            alert('Error en el login');
+            const errorEl = document.getElementById('loginGeneralError');
+            errorEl.textContent = 'Error de conexión. Por favor, intenta de nuevo.';
+            errorEl.classList.add('show');
         }
     });
 
@@ -635,6 +788,12 @@
     document.getElementById('registroForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         toggleLoading(true);
+
+        // Limpiar errores anteriores
+        document.querySelectorAll('#registroTab .error-message').forEach(el => {
+            el.classList.remove('show');
+            el.textContent = '';
+        });
 
         const formData = new FormData(this);
         formData.append('tipo', 'registro');
@@ -652,12 +811,27 @@
                 $('#authModal').modal('hide');
                 mostrarCheckout(selectedPlan);
             } else {
-                alert(data.message || 'Error en el registro');
+                // Mostrar errores específicos
+                if (data.errors) {
+                    Object.keys(data.errors).forEach(key => {
+                        const errorEl = document.getElementById(`registro${key.charAt(0).toUpperCase() + key.slice(1)}Error`);
+                        if (errorEl) {
+                            errorEl.textContent = data.errors[key][0];
+                            errorEl.classList.add('show');
+                        }
+                    });
+                } else {
+                    const errorEl = document.getElementById('registroGeneralError');
+                    errorEl.textContent = data.message || 'Error en el registro';
+                    errorEl.classList.add('show');
+                }
             }
         } catch (error) {
             toggleLoading(false);
             console.error('Error:', error);
-            alert('Error en el registro');
+            const errorEl = document.getElementById('registroGeneralError');
+            errorEl.textContent = 'Error de conexión. Por favor, intenta de nuevo.';
+            errorEl.classList.add('show');
         }
     });
 
@@ -708,12 +882,12 @@
             if (data.success) {
                 mostrarResultado(data.data);
             } else {
-                alert(data.message || 'Error al procesar el pago');
+                showToast('Error en el Pago', data.message || 'No se pudo procesar el pago. Por favor, verifica tus datos e intenta de nuevo.', 'error');
             }
         } catch (error) {
             toggleLoading(false);
             console.error('Error:', error);
-            alert('Error al procesar el pago');
+            showToast('Error', 'Error de conexión al procesar el pago. Por favor, intenta de nuevo.', 'error');
         }
     }
 
