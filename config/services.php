@@ -120,4 +120,15 @@ return [
         'razorpay_secret' => env('RAZORPAY_SECRET'),
     ],
 
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+    ],
+
+    'esimfx' => [
+        'base_url' => env('ESIMFX_BASE_URL', 'https://api.esimfx.com'),
+        'client_id' => env('ESIMFX_CLIENT_ID'),
+        'client_key' => env('ESIMFX_CLIENT_KEY'),
+    ],
+
 ];
