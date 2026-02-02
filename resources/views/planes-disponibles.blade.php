@@ -625,13 +625,16 @@
                 ? '<span style="color: #28a745;">FREE</span>' 
                 : `$${plan.price} ${plan.price_unit}`;
             
-            // Escapar datos para evitar XSS
+            // Escapar datos para evitar XSS y formatear correctamente
             const planDataStr = JSON.stringify(plan).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            
+            // Formatear duración (evitar doble pluralización)
+            const durationText = escapeHtml(`${plan.duration} ${plan.duration_unit}${plan.duration_unit.endsWith('s') || plan.duration_unit.endsWith('S') ? '' : 's'}`);
             
             html += `
                 <div class="col-md-3 col-sm-6 mb-4">
                     <div class="plan-card">
-                        <div class="plan-duration">${escapeHtml(plan.duration + ' ' + plan.duration_unit + 's')}</div>
+                        <div class="plan-duration">${durationText}</div>
                         <div class="plan-data">${escapeHtml(plan.amount + ' ' + plan.amount_unit)}</div>
                         <div class="plan-price ${plan.price > 0 ? 'paid' : ''}">${precio}</div>
                         <button class="btn btn-brand-gradient btn-block btn-comprar" data-plan='${planDataStr}'>
@@ -682,12 +685,17 @@
 
     // Mostrar modal de checkout
     function mostrarCheckout(plan) {
+        // Formatear duración (evitar doble pluralización)
+        const durationUnit = plan.duration_unit.endsWith('s') || plan.duration_unit.endsWith('S') 
+            ? plan.duration_unit 
+            : plan.duration_unit + 's';
+            
         const detailsHtml = `
             <div class="alert alert-info">
                 <strong>Plan Seleccionado:</strong><br>
                 ${plan.name}<br>
                 <strong>Datos:</strong> ${plan.amount} ${plan.amount_unit}<br>
-                <strong>Duración:</strong> ${plan.duration} ${plan.duration_unit}s<br>
+                <strong>Duración:</strong> ${plan.duration} ${durationUnit}<br>
                 <strong>Precio:</strong> ${plan.price === 0 ? 'GRATIS' : '$' + plan.price + ' ' + plan.price_unit}
             </div>
         `;
