@@ -30,14 +30,10 @@ class BeneficiarioService extends AppService
             // Generate unique codigo if not provided
             if (!isset($attributes['codigo'])) {
                 $attributes['codigo'] = $this->generateUniqueCode();
-                // Update request with codigo for parent save
-                if (empty($options)) {
-                    request()->merge(['codigo' => $attributes['codigo']]);
-                }
             }
             
-            // Create the beneficiario
-            $beneficiario = parent::save($options);
+            // Create the beneficiario - pass attributes as options to avoid request mutation
+            $beneficiario = parent::save($attributes);
             
             // Create user if not already associated
             if (!$beneficiario->user_id && isset($attributes['nombre'])) {

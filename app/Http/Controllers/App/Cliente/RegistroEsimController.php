@@ -28,12 +28,13 @@ class RegistroEsimController extends Controller
         
         // Extraer el código del formato: nombre-codigo
         $parts = explode('-', $referralCode);
-        return end($parts); // Último elemento es el código
+        // Get last element without modifying array pointer
+        return $parts[count($parts) - 1];
     }
 
     /**
      * Mostrar el formulario de registro de eSIM
-     * * @param \Illuminate\Http\Request $request
+     * @param \Illuminate\Http\Request $request
      * @param string|null $referralCode
      * @return \Illuminate\View\View
      */
