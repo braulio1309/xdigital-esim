@@ -39,6 +39,7 @@ Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.au
 Route::middleware(['auth'])->group(function () {
     Route::post('/planes/create-payment-intent', [PlanesDisponiblesController::class, 'createPaymentIntent'])->name('planes.payment.intent');
     Route::post('/planes/procesar-pago', [PlanesDisponiblesController::class, 'procesarPago'])->name('planes.pago');
+    Route::post('/planes/activar-gratis', [PlanesDisponiblesController::class, 'activarGratis'])->name('planes.activar.gratis');
 });
 
 Route::group(['middleware' => ['auth', 'authorize']], function () {

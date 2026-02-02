@@ -145,7 +145,7 @@ class PlanesDisponiblesController extends Controller
             }
 
             // Generar ID de transacción único
-            $transactionId = 'STRIPE-' . $cliente->id . '-' . time();
+            $transactionId = 'STRIPE-' . $cliente->id . '-' . time() . '-' . uniqid();
 
             // Crear orden en eSIM FX
             $apiResponse = $this->esimService->createOrder(
@@ -242,6 +242,90 @@ class PlanesDisponiblesController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al iniciar el pago: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Activar un plan gratuito
+     * Ruta: POST /planes/activar-gratis
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function activarGratis(Request $request)
+    {
+        try {
+            $request->validate([
+                'product_id' => 'required|string',
+            ]);
+
+            // Verificar que el usuario esté autenticado
+            if (!Auth::check()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Debe iniciar sesión para continuar.',
+                ], 401);
+            }
+
+            // Obtener el cliente asociado al usuario autenticado
+            $user = Auth::user();
+            $cliente = $user->cliente;
+
+            if (!$cliente) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró un cliente asociado a este usuario.',
+                ], 404);
+            }
+
+            // Generar ID de transacción único
+            $transactionId = 'FREE-' . $cliente->id . '-' . time() . '-' . uniqid();
+
+            // Crear orden en eSIM FX (para planes gratuitos)
+            $apiResponse = $this->esimService->createOrder(
+                $request->product_id,
+                $transactionId
+            );
+
+            if (!isset($apiResponse['esim'])) {
+                throw new Exception('No se recibieron datos de eSIM desde la API');
+            }
+
+            // Generar código QR
+            $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
+
+            // Separar datos para instalación manual
+            $parts = explode('$', $apiResponse['esim']['esim_qr']);
+
+            $esimData = [
+                'qr_svg' => (string) $qrImage,
+                'smdp' => $parts[1] ?? 'N/A',
+                'code' => $parts[2] ?? 'N/A',
+                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
+            ];
+
+            // Guardar la transacción en la base de datos
+            Transaction::create([
+                'order_id' => $apiResponse['id'],
+                'transaction_id' => $transactionId,
+                'status' => $apiResponse['status'] ?? 'completed',
+                'iccid' => $apiResponse['esim']['iccid'] ?? null,
+                'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
+                'creation_time' => now(),
+                'cliente_id' => $cliente->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => '¡Plan gratuito activado! Tu eSIM ha sido generada.',
+                'esim_data' => $esimData,
+            ]);
+        } catch (Exception $e) {
+            Log::error('Error activando plan gratuito: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al activar el plan gratuito: ' . $e->getMessage(),
             ], 500);
         }
     }

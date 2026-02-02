@@ -489,7 +489,8 @@ document.addEventListener('DOMContentLoaded', function() {
             esimData: null,
             stripe: null,
             cardElement: null,
-            paymentIntentId: null
+            paymentIntentId: null,
+            errorMessage: ''
         },
         mounted() {
             // Inicializar Stripe
@@ -532,7 +533,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } catch (error) {
                     console.error('Error cargando planes:', error);
-                    alert('Error al cargar los planes disponibles');
+                    this.showErrorMessage('Error al cargar los planes. Por favor, verifica tu conexión e intenta nuevamente.');
                 } finally {
                     this.loading = false;
                 }
@@ -656,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         $('#successModal').modal('show');
                     }
                 } catch (error) {
-                    alert('Error procesando el pago: ' + (error.message || error));
+                    this.showErrorMessage('Error procesando el pago: ' + (error.message || error));
                     console.error('Payment error:', error);
                 } finally {
                     this.paymentProcessing = false;
@@ -670,18 +671,80 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 try {
-                    // Procesar activación directa sin pago
-                    // Aquí deberías tener un endpoint específico para planes gratuitos
-                    alert('Activación de planes gratuitos en desarrollo');
+                    this.loading = true;
+                    // Llamar al endpoint de activación gratuita (reutilizando registro)
+                    const response = await axios.post('/planes/activar-gratis', {
+                        product_id: this.selectedPlan.id
+                    });
+
+                    if (response.data.success) {
+                        this.esimData = response.data.esim_data;
+                        $('#successModal').modal('show');
+                    } else {
+                        this.showErrorMessage('Error activando el plan gratuito');
+                    }
                 } catch (error) {
-                    alert('Error activando el plan gratuito');
+                    this.showErrorMessage('Error al activar el plan gratuito. Por favor, intenta nuevamente.');
+                    console.error('Free activation error:', error);
+                } finally {
+                    this.loading = false;
                 }
             },
             copyToClipboard(inputId) {
                 const input = document.getElementById(inputId);
+                
+                // Usar la API moderna de Clipboard
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(input.value)
+                        .then(() => {
+                            this.showSuccessMessage('Copiado al portapapeles');
+                        })
+                        .catch(err => {
+                            console.error('Error copiando:', err);
+                            // Fallback al método antiguo
+                            this.fallbackCopyToClipboard(input);
+                        });
+                } else {
+                    // Fallback para navegadores antiguos o contextos no seguros
+                    this.fallbackCopyToClipboard(input);
+                }
+            },
+            fallbackCopyToClipboard(input) {
                 input.select();
-                document.execCommand('copy');
-                alert('Copiado al portapapeles');
+                input.setSelectionRange(0, 99999); // Para móviles
+                try {
+                    document.execCommand('copy');
+                    this.showSuccessMessage('Copiado al portapapeles');
+                } catch (err) {
+                    console.error('Error copiando:', err);
+                }
+            },
+            showErrorMessage(message) {
+                this.errorMessage = message;
+                // Opcionalmente usar SweetAlert2 si está disponible
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: message
+                    });
+                } else {
+                    alert(message);
+                }
+            },
+            showSuccessMessage(message) {
+                // Opcionalmente usar SweetAlert2 si está disponible
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    alert(message);
+                }
             }
         }
     });

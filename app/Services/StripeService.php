@@ -54,9 +54,7 @@ class StripeService
                 'amount' => $amountInCents,
                 'currency' => strtolower($currency),
                 'metadata' => $metadata,
-                // Métodos de pago aceptados
-                'payment_method_types' => ['card'],
-                // Confirmar automáticamente el pago cuando se proporcione el método de pago
+                // Habilitar métodos de pago automáticos
                 'automatic_payment_methods' => [
                     'enabled' => true,
                     'allow_redirects' => 'never'
