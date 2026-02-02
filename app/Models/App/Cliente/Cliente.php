@@ -3,6 +3,7 @@
 namespace App\Models\App\Cliente;
 
 use App\Models\App\AppModel;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Transaction\Transaction;
 use App\Models\Core\Auth\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +12,7 @@ class Cliente extends AppModel
 {
     use HasFactory;
 
-    protected $fillable = ['nombre', 'apellido', 'email', 'user_id'];
+    protected $fillable = ['nombre', 'apellido', 'email', 'user_id', 'beneficiario_id'];
 
     /**
      * Relationship with Transaction model
@@ -31,6 +32,16 @@ class Cliente extends AppModel
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relationship with Beneficiario model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function beneficiario()
+    {
+        return $this->belongsTo(Beneficiario::class);
     }
 
     /**

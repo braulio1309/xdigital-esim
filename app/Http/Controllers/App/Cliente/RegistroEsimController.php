@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App\Cliente;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Http\Request as HttpRequest;
@@ -17,14 +18,25 @@ class RegistroEsimController extends Controller
     /**
      * Mostrar el formulario de registro de eSIM
      * * @param \Illuminate\Http\Request $request
+     * @param string|null $referralCode
      * @return \Illuminate\View\View
      */
-    public function mostrarFormulario(HttpRequest $request)
+    public function mostrarFormulario(HttpRequest $request, $referralCode = null)
     {
-        $parametro = $request->query('parametro', '');
+        $beneficiario = null;
+        
+        if ($referralCode) {
+            // Extraer el código del formato: nombre-codigo
+            $parts = explode('-', $referralCode);
+            $codigo = end($parts); // Último elemento es el código
+            
+            $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+        }
         
         return view('clientes.registro-esim', [
-            'parametro' => $parametro
+            'beneficiario' => $beneficiario,
+            'referralCode' => $referralCode,
+            'parametro' => $request->query('parametro', '')
         ]);
     }
 
@@ -37,6 +49,22 @@ class RegistroEsimController extends Controller
      */
     public function registrarCliente(Request $request, ClienteService $service, EsimFxService $esimService)
     {
+        // Extract beneficiario_id from referralCode if provided
+        $beneficiarioId = null;
+        if ($request->filled('referralCode')) {
+            $parts = explode('-', $request->referralCode);
+            $codigo = end($parts);
+            $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+            if ($beneficiario) {
+                $beneficiarioId = $beneficiario->id;
+            }
+        }
+        
+        // Merge beneficiario_id into request
+        if ($beneficiarioId) {
+            $request->merge(['beneficiario_id' => $beneficiarioId]);
+        }
+        
         // 1. Guardar el cliente en BD local
         $cliente = $service->save();
         

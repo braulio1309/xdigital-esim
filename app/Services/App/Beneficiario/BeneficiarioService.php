@@ -26,6 +26,15 @@ class BeneficiarioService extends AppService
         return DB::transaction(function () use ($options) {
             $attributes = count($options) ? $options : request()->all();
             
+            // Generate unique codigo if not provided
+            if (!isset($attributes['codigo'])) {
+                $attributes['codigo'] = $this->generateUniqueCode();
+                // Update request with codigo for parent save
+                if (empty($options)) {
+                    request()->merge(['codigo' => $attributes['codigo']]);
+                }
+            }
+            
             // Create the beneficiario
             $beneficiario = parent::save($options);
             
@@ -38,6 +47,23 @@ class BeneficiarioService extends AppService
             
             return $beneficiario;
         });
+    }
+
+    /**
+     * Generate a unique 8-character alphanumeric code
+     * @return string
+     */
+    protected function generateUniqueCode()
+    {
+        do {
+            // Generate random 8 character alphanumeric string
+            $codigo = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8));
+            
+            // Check if code already exists
+            $exists = Beneficiario::where('codigo', $codigo)->exists();
+        } while ($exists);
+        
+        return $codigo;
     }
 
     /**

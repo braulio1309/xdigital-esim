@@ -16,7 +16,7 @@
                                 <span class="input-group-text bg-primary text-white">Tu Link:</span>
                             </div>
                             <input type="text" class="form-control bg-white" id="referralLink" 
-                                   value="{{ url('/registro/esim/' . Str::slug($beneficiario->nombre)) }}" readonly>
+                                   value="{{ $beneficiario->referral_link }}" readonly>
                             <div class="input-group-append">
                                 <button class="btn btn-outline-primary" type="button" onclick="copyLink()">
                                     <i class="mdi mdi-content-copy"></i> Copiar

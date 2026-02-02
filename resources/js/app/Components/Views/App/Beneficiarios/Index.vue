@@ -70,6 +70,26 @@
                             key: 'descripcion',
                         },
                         {
+                            title: 'Link de Referencia',
+                            type: 'custom-html',
+                            key: 'referral_link',
+                            modifier: (value, row) => {
+                                if (!row.codigo) {
+                                    return '<span class="text-muted">Sin código</span>';
+                                }
+                                const slug = row.nombre.toLowerCase().replace(/\s+/g, '-');
+                                const link = `${window.location.origin}/registro/esim/${slug}-${row.codigo}`;
+                                return `
+                                    <div class="d-flex align-items-center">
+                                        <input type="text" class="form-control form-control-sm mr-2" value="${link}" readonly id="link-${row.id}" style="max-width: 300px;">
+                                        <button class="btn btn-sm btn-primary" onclick="copyToClipboard('link-${row.id}')">
+                                            <i class="mdi mdi-content-copy"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        },
+                        {
                             title: this.$t('action'),
                             type: 'action',
                             key: 'invoice',
@@ -177,6 +197,18 @@
                 this.rowData = {};
                 this.selectedUrl = '';
             }
+        },
+        mounted() {
+            // Add global function for copying to clipboard
+            window.copyToClipboard = (elementId) => {
+                const input = document.getElementById(elementId);
+                if (input) {
+                    input.select();
+                    input.setSelectionRange(0, 99999); // For mobile devices
+                    document.execCommand('copy');
+                    this.$toastr.s('Link copiado al portapapeles');
+                }
+            };
         }
     }
 </script>
