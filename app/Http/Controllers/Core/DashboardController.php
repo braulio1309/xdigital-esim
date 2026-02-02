@@ -23,6 +23,7 @@ class DashboardController extends Controller
             return redirect()->route('cliente.dashboard');
         }
         
-        return view('dashboard.default');
+        // Admin users go to metrics dashboard
+        return redirect()->route('admin.metrics.dashboard');
     }
 }
