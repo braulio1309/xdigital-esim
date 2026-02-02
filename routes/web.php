@@ -23,6 +23,13 @@ Route::get('/get-basic-setting-data', [SettingsApiController::class, 'getBasicSe
 Route::get('/registro/esim/{referralCode?}', [RegistroEsimController::class, 'mostrarFormulario'])->name('registro.esim.form');
 Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'])->name('registro.esim.store');
 
+// Rutas públicas para planes disponibles
+Route::get('/planes-disponibles', [\App\Http\Controllers\App\PlanesDisponiblesController::class, 'index'])->name('planes.index');
+Route::post('/planes/get-by-country', [\App\Http\Controllers\App\PlanesDisponiblesController::class, 'getPlanes'])->name('planes.get');
+Route::post('/planes/checkout', [\App\Http\Controllers\App\PlanesDisponiblesController::class, 'procesarPago'])->name('planes.checkout');
+Route::post('/planes/auth', [\App\Http\Controllers\App\PlanesDisponiblesController::class, 'autenticar'])->name('planes.auth');
+Route::get('/planes/verificar-auth', [\App\Http\Controllers\App\PlanesDisponiblesController::class, 'verificarAuth'])->name('planes.verificar-auth');
+
 Route::group(['middleware' => ['auth', 'authorize']], function () {
     include_route_files(__DIR__ . '/app/');
 });

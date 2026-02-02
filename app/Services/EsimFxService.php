@@ -117,4 +117,26 @@ class EsimFxService
          
          return $response->json()['data']['products'] ?? [];
     }
+
+    /**
+     * Obtener productos filtrados por país
+     * @param string $countryCode Código de país (ej: "ES", "US")
+     * @return array Array de productos
+     */
+    public function getProductsByCountry($countryCode)
+    {
+        $response = Http::withHeaders($this->getHeaders())
+                        ->post("{$this->baseUrl}/product/api/v1/get_products", [
+                            // NOTA IMPORTANTE: 'coountries' con doble 'o' es el formato requerido por la API de eSIMfx
+                            // NO corregir este typo ya que la API espera exactamente este nombre de parámetro
+                            'coountries' => $countryCode
+                        ]);
+
+        if ($response->failed()) {
+            Log::error('Error obteniendo productos de eSIMfx: ' . $response->body());
+            return [];
+        }
+
+        return $response->json()['data']['products'] ?? [];
+    }
 }
