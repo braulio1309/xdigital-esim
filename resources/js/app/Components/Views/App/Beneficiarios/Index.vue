@@ -199,14 +199,36 @@
             }
         },
         mounted() {
-            // Add global function for copying to clipboard
+            // Add global function for copying to clipboard using modern Clipboard API
             window.copyToClipboard = (elementId) => {
                 const input = document.getElementById(elementId);
                 if (input) {
-                    input.select();
-                    input.setSelectionRange(0, 99999); // For mobile devices
+                    const textToCopy = input.value;
+                    
+                    // Use modern Clipboard API if available
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            this.$toastr.s('Link copiado al portapapeles');
+                        }).catch(() => {
+                            // Fallback to older method if Clipboard API fails
+                            this.fallbackCopy(input);
+                        });
+                    } else {
+                        // Fallback for older browsers
+                        this.fallbackCopy(input);
+                    }
+                }
+            };
+            
+            // Fallback copy method for older browsers
+            this.fallbackCopy = (input) => {
+                input.select();
+                input.setSelectionRange(0, 99999); // For mobile devices
+                try {
                     document.execCommand('copy');
                     this.$toastr.s('Link copiado al portapapeles');
+                } catch (err) {
+                    this.$toastr.e('Error al copiar el link');
                 }
             };
         }

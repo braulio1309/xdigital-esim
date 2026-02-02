@@ -8,6 +8,7 @@ use App\Models\Core\Status;
 use App\Services\App\AppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class BeneficiarioService extends AppService
 {
@@ -56,12 +57,21 @@ class BeneficiarioService extends AppService
     protected function generateUniqueCode()
     {
         do {
-            // Generate random 8 character alphanumeric string
-            $codigo = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8));
+            // Generate random 8 character alphanumeric string using Laravel's Str helper
+            $codigo = strtoupper(Str::random(8));
+            
+            // Ensure it contains both letters and numbers for better uniqueness
+            // Replace any non-alphanumeric characters if Str::random includes them
+            $codigo = preg_replace('/[^A-Z0-9]/', '', $codigo);
+            
+            // If the string is shorter than 8 characters after filtering, regenerate
+            if (strlen($codigo) < 8) {
+                continue;
+            }
             
             // Check if code already exists
             $exists = Beneficiario::where('codigo', $codigo)->exists();
-        } while ($exists);
+        } while ($exists || strlen($codigo) < 8);
         
         return $codigo;
     }

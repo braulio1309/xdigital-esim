@@ -129,11 +129,31 @@
 <script>
     function copyLink() {
         var copyText = document.getElementById("referralLink");
-        copyText.select();
-        copyText.setSelectionRange(0, 99999); // Para móviles
-        navigator.clipboard.writeText(copyText.value);
+        var textToCopy = copyText.value;
         
-        alert("¡Enlace copiado al portapapeles!");
+        // Use modern Clipboard API if available
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy).then(function() {
+                alert("¡Enlace copiado al portapapeles!");
+            }).catch(function() {
+                // Fallback to older method
+                fallbackCopy(copyText);
+            });
+        } else {
+            // Fallback for older browsers
+            fallbackCopy(copyText);
+        }
+    }
+    
+    function fallbackCopy(element) {
+        element.select();
+        element.setSelectionRange(0, 99999); // Para móviles
+        try {
+            document.execCommand("copy");
+            alert("¡Enlace copiado al portapapeles!");
+        } catch (err) {
+            alert("Error al copiar el enlace");
+        }
     }
 </script>
 @endpush
