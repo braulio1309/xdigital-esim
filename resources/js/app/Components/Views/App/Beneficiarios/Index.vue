@@ -70,6 +70,26 @@
                             key: 'descripcion',
                         },
                         {
+                            title: 'Link de Referencia',
+                            type: 'custom-html',
+                            key: 'referral_link',
+                            modifier: (value, row) => {
+                                if (!row.codigo) {
+                                    return '<span class="text-muted">Sin código</span>';
+                                }
+                                const slug = row.nombre.toLowerCase().replace(/\s+/g, '-');
+                                const link = `${window.location.origin}/registro/esim/${slug}-${row.codigo}`;
+                                return `
+                                    <div class="d-flex align-items-center">
+                                        <input type="text" class="form-control form-control-sm mr-2" value="${link}" readonly id="link-${row.id}" style="max-width: 300px;">
+                                        <button class="btn btn-sm btn-primary" data-link-id="link-${row.id}" class="copy-link-btn">
+                                            <i class="mdi mdi-content-copy"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        },
+                        {
                             title: this.$t('action'),
                             type: 'action',
                             key: 'invoice',
@@ -176,7 +196,57 @@
             reSetData() {
                 this.rowData = {};
                 this.selectedUrl = '';
+            },
+            
+            /**
+             * Copy text to clipboard with fallback for older browsers
+             */
+            copyToClipboard(elementId) {
+                const input = document.getElementById(elementId);
+                if (input) {
+                    const textToCopy = input.value;
+                    
+                    // Use modern Clipboard API if available
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            this.$toastr.s('Link copiado al portapapeles');
+                        }).catch(() => {
+                            // Fallback to older method if Clipboard API fails
+                            this.fallbackCopy(input);
+                        });
+                    } else {
+                        // Fallback for older browsers
+                        this.fallbackCopy(input);
+                    }
+                }
+            },
+            
+            /**
+             * Fallback copy method for older browsers
+             */
+            fallbackCopy(input) {
+                input.select();
+                input.setSelectionRange(0, 99999); // For mobile devices
+                try {
+                    document.execCommand('copy');
+                    this.$toastr.s('Link copiado al portapapeles');
+                } catch (err) {
+                    this.$toastr.e('Error al copiar el link');
+                }
             }
+        },
+        mounted() {
+            // Setup event delegation for dynamically generated copy buttons
+            const self = this;
+            $(document).on('click', '[data-link-id]', function(e) {
+                e.preventDefault();
+                const linkId = $(this).data('link-id');
+                self.copyToClipboard(linkId);
+            });
+        },
+        beforeDestroy() {
+            // Cleanup event listeners
+            $(document).off('click', '[data-link-id]');
         }
     }
 </script>

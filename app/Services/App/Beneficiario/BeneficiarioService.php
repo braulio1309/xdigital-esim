@@ -8,6 +8,7 @@ use App\Models\Core\Status;
 use App\Services\App\AppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class BeneficiarioService extends AppService
 {
@@ -26,8 +27,13 @@ class BeneficiarioService extends AppService
         return DB::transaction(function () use ($options) {
             $attributes = count($options) ? $options : request()->all();
             
-            // Create the beneficiario
-            $beneficiario = parent::save($options);
+            // Generate unique codigo if not provided
+            if (!isset($attributes['codigo'])) {
+                $attributes['codigo'] = $this->generateUniqueCode();
+            }
+            
+            // Create the beneficiario - pass attributes as options to avoid request mutation
+            $beneficiario = parent::save($attributes);
             
             // Create user if not already associated
             if (!$beneficiario->user_id && isset($attributes['nombre'])) {
@@ -38,6 +44,23 @@ class BeneficiarioService extends AppService
             
             return $beneficiario;
         });
+    }
+
+    /**
+     * Generate a unique 8-character alphanumeric code
+     * @return string
+     */
+    protected function generateUniqueCode()
+    {
+        do {
+            // Generate random 8 character uppercase alphanumeric string using Laravel's Str helper
+            $codigo = strtoupper(Str::random(8));
+            
+            // Check if code already exists
+            $exists = Beneficiario::where('codigo', $codigo)->exists();
+        } while ($exists);
+        
+        return $codigo;
     }
 
     /**

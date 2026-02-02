@@ -89,6 +89,19 @@
 
                         {{-- 2. TEXTO PROMOCIONAL (Solo visible si NO estamos en éxito aun, opcional) --}}
                         @if(!isset($esim_data) && !session('esim_data'))
+                        
+                        {{-- Show referral message if beneficiario exists --}}
+                        @if(isset($beneficiario) && $beneficiario)
+                        <div class="alert alert-success animate__animated animate__fadeIn mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="mdi mdi-account-check mr-2" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>Registro referido por:</strong> {{ $beneficiario->nombre }}
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+                        
                         <div class="promo-card animate__animated animate__fadeIn">
                             <div class="d-flex align-items-start">
                                 <div class="mr-3">
@@ -203,6 +216,11 @@
 
                             <form class="pt-3" method="POST" action="{{ route('registro.esim.store') }}">
                                 @csrf
+                                
+                                {{-- Hidden field for referral code --}}
+                                @if(isset($referralCode) && $referralCode)
+                                <input type="hidden" name="referralCode" value="{{ $referralCode }}">
+                                @endif
 
                                 <div class="form-group">
                                     <label for="nombre" class="font-weight-bold text-small">Nombre</label>

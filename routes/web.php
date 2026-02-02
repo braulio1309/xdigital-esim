@@ -20,7 +20,7 @@ Route::redirect('/', 'admin/users/login');
 Route::get('/get-basic-setting-data', [SettingsApiController::class, 'getBasicSettingData']);
 
 // Ruta pública para registro de clientes eSIM (sin autenticación)
-Route::get('/registro/esim', [RegistroEsimController::class, 'mostrarFormulario'])->name('registro.esim.form');
+Route::get('/registro/esim/{referralCode?}', [RegistroEsimController::class, 'mostrarFormulario'])->name('registro.esim.form');
 Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'])->name('registro.esim.store');
 
 Route::group(['middleware' => ['auth', 'authorize']], function () {
