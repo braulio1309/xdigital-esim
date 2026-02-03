@@ -15,7 +15,7 @@ class AddCodigoAndRelationsToBeneficiarios extends Migration
     {
         // Add codigo field to beneficiarios table
         Schema::table('beneficiarios', function (Blueprint $table) {
-            $table->string('codigo', 8)->unique()->after('descripcion');
+            $table->string('codigo', 8)->nullable()->after('descripcion');
         });
 
         // Add beneficiario_id foreign key to clientes table

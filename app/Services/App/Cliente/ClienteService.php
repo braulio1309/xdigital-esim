@@ -24,10 +24,10 @@ class ClienteService extends AppService
     public function save($options = [])
     {
         return DB::transaction(function () use ($options) {
-            $attributes = count($options) ? $options : request()->all();
+            $attributes = request()->all();
             
             // Create the cliente
-            $cliente = parent::save($options);
+            $cliente = parent::save($attributes);
             
             // Create user if not already associated
             if (!$cliente->user_id && isset($attributes['nombre'])) {

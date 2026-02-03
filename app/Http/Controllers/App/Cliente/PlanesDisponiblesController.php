@@ -153,6 +153,10 @@ class PlanesDisponiblesController extends Controller
                 $transactionId
             );
 
+            $activateSuscription = $this->esimService->activateOrder(
+                $apiResponse['id']
+            );
+
             if (!isset($apiResponse['esim'])) {
                 throw new Exception('No se recibieron datos de eSIM desde la API');
             }

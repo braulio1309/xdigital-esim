@@ -230,6 +230,31 @@
         display: inline-block;
         margin: 20px auto;
     }
+
+    .brand-alliance-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .logo-xcertus {
+        height: 50px; /* Ajusta según necesidad */
+        object-fit: contain;
+    }
+
+    .logo-nomad {
+        height: 40px; /* Ajusta según necesidad */
+        object-fit: contain;
+    }
+
+    .alliance-x {
+        font-size: 1.5rem;
+        color: #ccc;
+        font-weight: 300;
+    }
+
 </style>
 
 <div id="planes-disponibles-app" class="container-scroller">
@@ -239,10 +264,16 @@
                 <div class="col-lg-11 col-xl-10 mx-auto">
                     
                     {{-- Header con logo --}}
-                    <div class="brand-alliance-container">
-                        <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-nomad">
-                    </div>
-
+                    <div class="text-center mb-3">
+                            <p class="small text-muted text-uppercase mb-2 font-weight-bold" style="letter-spacing: 1px;">Alianza Estratégica</p>
+                            <div class="brand-alliance-container">
+                                {{-- Logo Xcertus --}}
+                                <img src="{{ asset('images/logo.png') }}" alt="Xcertus" class="logo-xcertus">
+                                <span class="alliance-x">&times;</span>
+                                {{-- Logo Nomad --}}
+                                <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-nomad">
+                            </div>
+                        </div>
                     <h2 class="page-title">Planes eSIM Disponibles</h2>
                     
                     {{-- Selector de país --}}

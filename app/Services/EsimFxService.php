@@ -88,10 +88,9 @@ class EsimFxService
 
     public function activateOrder($orderId)
     {
-        $endpoint = "{$this->baseUrl}/order/api/v1/create_order";
+        $endpoint = "{$this->baseUrl}/order/api/v1/activate_subscription";
 
         // Estructura del body para "Cualquier Plan/Cliente"
-        // NOTA: Revisa la pag 17 de tu PDF para confirmar si requieren 'operation_type'
         $payload = array_merge([
             'order_id' => $orderId      // Posiblemente requerido según pag 17
         ]);
@@ -99,9 +98,6 @@ class EsimFxService
         $response = Http::withHeaders($this->getHeaders())
                         ->post($endpoint, $payload);
 
-       
-
-       
 
         return $response->json()['data'];
     }

@@ -12,6 +12,7 @@ use Illuminate\Http\Request as HttpRequest;
 use App\Services\EsimFxService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class RegistroEsimController extends Controller
 {
@@ -68,6 +69,7 @@ class RegistroEsimController extends Controller
         if ($request->filled('referralCode')) {
             $codigo = $this->extractCodigoFromReferralCode($request->referralCode);
             $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+
             if ($beneficiario) {
                 $beneficiarioId = $beneficiario->id;
             }
@@ -93,6 +95,8 @@ class RegistroEsimController extends Controller
                 // 3. Llamar al servicio de eSIM
                 // NOTA: Asegúrate de que tu EsimFxService tenga la corrección del payload ('product' => ['id'...])
                 $apiResponse = $esimService->createOrder($productId, $transactionId);
+                $activate = $esimService->activateOrder($apiResponse['id']);
+
                 if (isset($apiResponse['esim'])) {
                     // 4. Guardar datos técnicos en el cliente
                     $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
