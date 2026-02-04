@@ -105,8 +105,8 @@ class RegistroEsimController extends Controller
                     // Filtrar el producto de 1GB con 7 días de duración
                     $selectedProduct = null;
                     
-                    if (isset($products['data']) && is_array($products['data'])) {
-                        foreach ($products['data'] as $product) {
+                    if (is_array($products) && !empty($products)) {
+                        foreach ($products as $product) {
                             // Buscar producto con 1GB y 7 días
                             if (isset($product['data_amount']) && 
                                 isset($product['data_unit']) && 
@@ -130,8 +130,8 @@ class RegistroEsimController extends Controller
                     }
 
                     // Si no se encontró producto de 1GB/7días, usar el primero disponible
-                    if (!$selectedProduct && isset($products['data'][0])) {
-                        $selectedProduct = $products['data'][0];
+                    if (!$selectedProduct && isset($products[0])) {
+                        $selectedProduct = $products[0];
                         Log::warning("No se encontró producto 1GB/7días para {$countryCode}, usando primer producto disponible");
                     }
 
