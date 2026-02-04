@@ -48,6 +48,9 @@ export const GET_RECAPTCHA_SETTINGS = '/get-re-captcha-setting';
 export const GET_SMS_SETTINGS_INFO = 'get-sms-setting-info';
 //Email settings
 export const GET_EMAIL_SETTINGS = '/admin/app/settings/delivery-settings';
+//Plan Margins
+export const GET_PLAN_MARGINS = '/admin/app/settings/plan-margins';
+export const UPDATE_PLAN_MARGINS = '/admin/app/settings/plan-margins';
 
 //DataTable
 export const DATATABLE_DATA = 'crud';
