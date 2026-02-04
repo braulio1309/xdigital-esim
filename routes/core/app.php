@@ -1,6 +1,7 @@
 <?php
 
 
+use App\Http\Controllers\App\Settings\PlanMarginController;
 use App\Http\Controllers\App\Settings\StorageSettingController;
 use App\Http\Controllers\Core\{Builder\Table\CustomTableController,
     Log\ActivityLogController,
@@ -55,5 +56,11 @@ Route::group(['prefix' => 'app'], function () {
 
     Route::get('activity-logs', [ActivityLogController::class, 'index'])
         ->name('activity-logs.index');
+
+    Route::get('settings/plan-margins', [PlanMarginController::class, 'index'])
+        ->name('settings.plan-margins.index');
+
+    Route::post('settings/plan-margins', [PlanMarginController::class, 'update'])
+        ->name('settings.plan-margins.update');
 
 });

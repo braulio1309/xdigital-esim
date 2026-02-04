@@ -5,6 +5,7 @@ namespace App\Http\Controllers\App\Cliente;
 use App\Http\Controllers\Controller;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
+use App\Services\App\Settings\PlanMarginService;
 use App\Services\EsimFxService;
 use App\Services\StripeService;
 use Illuminate\Http\Request;
@@ -22,15 +23,18 @@ class PlanesDisponiblesController extends Controller
     protected $esimService;
     protected $stripeService;
     protected $clienteService;
+    protected $planMarginService;
 
     public function __construct(
         EsimFxService $esimService, 
         StripeService $stripeService,
-        ClienteService $clienteService
+        ClienteService $clienteService,
+        PlanMarginService $planMarginService
     ) {
         $this->esimService = $esimService;
         $this->stripeService = $stripeService;
         $this->clienteService = $clienteService;
+        $this->planMarginService = $planMarginService;
     }
 
     /**
@@ -72,6 +76,11 @@ class PlanesDisponiblesController extends Controller
 
             // Formatear los productos para el frontend
             $formattedProducts = collect($products)->map(function ($product) {
+                // Apply profit margin to price
+                $originalPrice = $product['price'];
+                $planCapacity = $product['amount']; // Amount is in GB (e.g., 1, 3, 5, 10, 20, 50)
+                $finalPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $planCapacity);
+                
                 return [
                     'id' => $product['id'],
                     'name' => $product['name'],
@@ -79,10 +88,12 @@ class PlanesDisponiblesController extends Controller
                     'duration_unit' => $product['duration_unit'],
                     'amount' => $product['amount'],
                     'amount_unit' => $product['amount_unit'],
-                    'price' => $product['price'],
+                    'original_price' => $originalPrice,
+                    'price' => $finalPrice,
                     'price_unit' => $product['price_unit'],
                     'coverage' => $product['coverage'] ?? [],
-                    'is_free' => $product['price'] == 0,
+                    'is_free' => $originalPrice == 0,
+                    'margin_applied' => $finalPrice != $originalPrice,
                 ];
             });
 
