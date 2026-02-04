@@ -28,13 +28,13 @@ class PlanMarginRequest extends AppRequest
     public function messages()
     {
         return [
-            'margins.required' => 'Los márgenes son requeridos.',
-            'margins.array' => 'Los márgenes deben ser un array.',
-            'margins.*.margin_percentage.required' => 'El porcentaje de margen es requerido.',
-            'margins.*.margin_percentage.numeric' => 'El porcentaje de margen debe ser un número.',
-            'margins.*.margin_percentage.min' => 'El porcentaje de margen debe ser al menos 0.',
-            'margins.*.margin_percentage.max' => 'El porcentaje de margen no puede ser mayor a 100.',
-            'margins.*.is_active.boolean' => 'El estado activo debe ser verdadero o falso.',
+            'margins.required' => __('validation.required', ['attribute' => 'margins']),
+            'margins.array' => __('validation.array', ['attribute' => 'margins']),
+            'margins.*.margin_percentage.required' => __('validation.required', ['attribute' => 'margin percentage']),
+            'margins.*.margin_percentage.numeric' => __('validation.numeric', ['attribute' => 'margin percentage']),
+            'margins.*.margin_percentage.min' => __('validation.min.numeric', ['attribute' => 'margin percentage', 'min' => 0]),
+            'margins.*.margin_percentage.max' => __('validation.max.numeric', ['attribute' => 'margin percentage', 'max' => 100]),
+            'margins.*.is_active.boolean' => __('validation.boolean', ['attribute' => 'active status']),
         ];
     }
 }
