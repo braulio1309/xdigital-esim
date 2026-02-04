@@ -114,12 +114,12 @@ class RegistroEsimController extends Controller
                                 isset($product['validity_unit'])) {
                                 
                                 // Verificar si es 1GB
-                                $isOneGb = ($product['data_amount'] == 1 && 
-                                           strtoupper($product['data_unit']) == 'GB');
+                                $isOneGb = ($product['data_amount'] === 1 && 
+                                           strtoupper($product['data_unit']) === 'GB');
                                 
                                 // Verificar si es 7 días
-                                $isSevenDays = ($product['validity_period'] == 7 && 
-                                               strtoupper($product['validity_unit']) == 'DAYS');
+                                $isSevenDays = ($product['validity_period'] === 7 && 
+                                               strtoupper($product['validity_unit']) === 'DAYS');
                                 
                                 if ($isOneGb && $isSevenDays) {
                                     $selectedProduct = $product;
@@ -164,7 +164,13 @@ class RegistroEsimController extends Controller
                             $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
 
                             // Separar datos para instalación manual
+                            // Formato esperado: LPA:1$smdp.address$activationCode
                             $parts = explode('$', $apiResponse['esim']['esim_qr']);
+                            
+                            // Validar que tenemos las partes necesarias
+                            if (count($parts) < 3) {
+                                Log::warning("Formato de QR inesperado: " . $apiResponse['esim']['esim_qr']);
+                            }
 
                             // Preparar datos para la vista
                             $esimDataView = [
