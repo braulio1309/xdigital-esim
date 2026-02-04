@@ -128,7 +128,7 @@
                                 <div class="d-flex align-items-center">
                                     <i class="mdi mdi-account-check mr-2" style="font-size: 1.5rem;"></i>
                                     <div class="text-break"> {{-- text-break evita desborde de nombres largos --}}
-                                        <strong>Referido por:</strong> {{ $beneficiario->nombre }}
+                                        <strong>Exclusivo para clientes de:</strong> {{ $beneficiario->nombre }}
                                     </div>
                                 </div>
                             </div>

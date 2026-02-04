@@ -22,7 +22,7 @@
                         "component": "general-setting",
                         "permission": this.permissions.general,
                     },
-                    {
+                    /*{
                         "name": this.$t('email_setup'),
                         "title": this.$t('email_setup'),
                         "component": "email-setting",
@@ -71,12 +71,12 @@
                         "title": this.$t('storage_configuration'),
                         "component": "storage-setting",
                         "permission": true,
-                    },
+                    },*/
                     {
                         "name": this.$t('plan_margins'),
-                        "title": this.$t('plan_margins'),
+                        "title": 'Comisiones de Planes',
                         "component": "plan-margins",
-                        "permission": this.permissions.plan_margins || true,
+                        "permission":  true,
                     },
                 ]
             }

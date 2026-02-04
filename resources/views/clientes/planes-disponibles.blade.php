@@ -280,9 +280,51 @@
                     <div class="country-selector">
                         <select class="form-control form-control-lg" v-model="selectedCountry" @change="loadPlans">
                             <option value="">Seleccione un país</option>
-                            <option value="ES">España</option>
-                            <option value="US">Estados Unidos</option>
+                            <option value="US">🇺🇸 Estados Unidos</option>
+                            <option value="ES">🇪🇸 España</option>
+                            <option value="GB">🇬🇧 Reino Unido</option>
+                            <option value="FR">🇫🇷 Francia</option>
+                            <option value="DE">🇩🇪 Alemania</option>
+                            <option value="IT">🇮🇹 Italia</option>
+                            <option value="CA">🇨🇦 Canadá</option>
+                            <option value="MX">🇲🇽 México</option>
+                            <option value="BR">🇧🇷 Brasil</option>
+                            <option value="AR">🇦🇷 Argentina</option>
+                            <option value="CL">🇨🇱 Chile</option>
+                            <option value="CO">🇨🇴 Colombia</option>
+                            <option value="PE">🇵🇪 Perú</option>
+                            <option value="JP">🇯🇵 Japón</option>
+                            <option value="KR">🇰🇷 Corea del Sur</option>
+                            <option value="CN">🇨🇳 China</option>
+                            <option value="IN">🇮🇳 India</option>
+                            <option value="AU">🇦🇺 Australia</option>
+                            <option value="NZ">🇳🇿 Nueva Zelanda</option>
+                            <option value="TH">🇹🇭 Tailandia</option>
+                            <option value="SG">🇸🇬 Singapur</option>
+                            <option value="AE">🇦🇪 Emiratos Árabes</option>
+                            <option value="TR">🇹🇷 Turquía</option>
+                            <option value="ZA">🇿🇦 Sudáfrica</option>
+                            <option value="EG">🇪🇬 Egipto</option>
+                            <option value="PT">🇵🇹 Portugal</option>
+                            <option value="NL">🇳🇱 Países Bajos</option>
+                            <option value="BE">🇧🇪 Bélgica</option>
+                            <option value="CH">🇨🇭 Suiza</option>
+                            <option value="AT">🇦🇹 Austria</option>
+                            <option value="SE">🇸🇪 Suecia</option>
+                            <option value="NO">🇳🇴 Noruega</option>
+                            <option value="DK">🇩🇰 Dinamarca</option>
+                            <option value="FI">🇫🇮 Finlandia</option>
+                            <option value="IE">🇮🇪 Irlanda</option>
+                            <option value="PL">🇵🇱 Polonia</option>
+                            <option value="CZ">🇨🇿 República Checa</option>
+                            <option value="GR">🇬🇷 Grecia</option>
+                            <option value="IL">🇮🇱 Israel</option>
+                            <option value="MY">🇲🇾 Malasia</option>
+                            <option value="ID">🇮🇩 Indonesia</option>
+                            <option value="PH">🇵🇭 Filipinas</option>
+                            <option value="VN">🇻🇳 Vietnam</option>
                         </select>
+                        
                     </div>
 
                     {{-- Mensajes informativos --}}
