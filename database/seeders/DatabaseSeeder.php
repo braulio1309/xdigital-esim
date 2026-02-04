@@ -13,6 +13,7 @@ use Database\Seeders\App\NotificationSettingsSeeder;
 use Database\Seeders\App\NotificationTemplateSeeder;
 use Database\Seeders\App\PaymentMethodTableSeeder;
 use Database\Seeders\App\PermissionChildAppSeeder;
+use Database\Seeders\App\PlanMarginSeeder;
 use Database\Seeders\App\SettingTableSeeder;
 use Database\Seeders\App\SocialLinkSeeder;
 use Database\Seeders\App\StageTableSeeder;
@@ -60,6 +61,7 @@ class DatabaseSeeder extends Seeder
         Crud::factory(50)->create();
         $this->call(UserDemoSeeder::class);
         $this->call(PaymentMethodTableSeeder::class);
+        $this->call(PlanMarginSeeder::class);
         $this->enableForeignKeys();
         Model::reguard();
     }
