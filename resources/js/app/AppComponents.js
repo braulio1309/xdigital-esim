@@ -24,6 +24,7 @@ Vue.component('sms-setting', require('./Components/Views/Settings/SmsSetting').d
 Vue.component('google-re-captcha-setting', require('./Components/Views/Settings/GoogleRecaptchaSetting').default);
 Vue.component('notification-settings', require('./Components/Views/Settings/Notification/Settings/Index').default);
 Vue.component('storage-setting', require('./Components/Views/Settings/Storage/Index').default);
+Vue.component('plan-margins-setting', require('./Components/Views/Settings/PlanMargins').default);
 Vue.component('database-template', require('./Components/Views/Settings/Notification/Template/DatabaseTemplate').default);
 Vue.component('mail-template', require('./Components/Views/Settings/Notification/Template/MailTemplate').default);
 Vue.component('payment-method', require('./Components/Views/Settings/PaymentMethod/PaymentMethod').default);

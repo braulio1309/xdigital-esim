@@ -72,6 +72,12 @@
                         "component": "storage-setting",
                         "permission": true,
                     },
+                    {
+                        "name": this.$t('plan_margins'),
+                        "title": this.$t('plan_margins'),
+                        "component": "plan-margins-setting",
+                        "permission": true,
+                    },
                 ]
             }
         },

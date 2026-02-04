@@ -929,4 +929,22 @@ return [
     "tax_no" => "Tax no",
     'job-post' => 'Job Post',
     'loader' => 'Loader',
+    
+    // Plan Margins
+    'plan_margins' => 'Plan Margins',
+    'plan_margins_configuration' => 'Plan Margins Configuration',
+    'plan_margins_description' => 'Configure profit margins for each eSIM plan. The final price will be calculated automatically using the formula: Final Price = Cost / (1 - Margin)',
+    'plan_capacity' => 'Plan Capacity',
+    'margin_percentage' => 'Margin (%)',
+    'example_calculation' => 'Example Calculation',
+    'enter_margin' => 'Enter margin',
+    'cost' => 'Cost',
+    'final_price' => 'Final Price',
+    'margin' => 'Margin',
+    'formula' => 'Formula',
+    'formula_description' => 'Final Price = Cost / (1 - Margin)',
+    'example' => 'Example',
+    'margins_updated_successfully' => 'Plan margins have been updated successfully',
+    'error_loading_margins' => 'Error loading plan margins',
+    'error_updating_margins' => 'Error updating plan margins',
 ];
