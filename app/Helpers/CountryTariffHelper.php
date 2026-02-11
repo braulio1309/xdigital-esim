@@ -69,7 +69,7 @@ class CountryTariffHelper
             ['code' => 'DE', 'name' => 'Germany', 'region' => 'EU28', 'tier' => 'Blue', 'price' => 0.67],
             ['code' => 'DM', 'name' => 'Dominica', 'region' => 'Latin America', 'tier' => 'Amber', 'price' => 3.67],
             ['code' => 'DK', 'name' => 'Denmark', 'region' => 'EU28', 'tier' => 'Blue', 'price' => 0.67],
-            ['code' => 'DO', 'name' => 'Dominican Republic', 'region' => 'Latin America', 'tier' => 'Lilac', 'price' => 1.64],
+            ['code' => 'DO', 'name' => 'Dominican Republic', 'region' => 'Latin America', 'tier' => 'Lilac', 'price' => 0.1],
             ['code' => 'DZ', 'name' => 'Algeria', 'region' => 'Middle East', 'tier' => 'Neon', 'price' => 0.82],
             ['code' => 'EC', 'name' => 'Ecuador', 'region' => 'Latin America', 'tier' => 'Blue', 'price' => 2.95],
             ['code' => 'EG', 'name' => 'Egypt', 'region' => 'Middle East', 'tier' => 'Neon', 'price' => 1.32],
