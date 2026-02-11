@@ -13,6 +13,7 @@ use App\Services\EsimFxService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Helpers\CountryTariffHelper;
 
 class RegistroEsimController extends Controller
 {
@@ -48,10 +49,14 @@ class RegistroEsimController extends Controller
             $beneficiario = Beneficiario::where('codigo', $codigo)->first();
         }
         
+        // Get affordable countries (tariff <= $0.67)
+        $affordableCountries = CountryTariffHelper::getAffordableCountries();
+        
         return view('clientes.registro-esim', [
             'beneficiario' => $beneficiario,
             'referralCode' => $referralCode,
-            'parametro' => $request->query('parametro', '')
+            'parametro' => $request->query('parametro', ''),
+            'affordableCountries' => $affordableCountries
         ]);
     }
 
@@ -194,12 +199,16 @@ class RegistroEsimController extends Controller
                 }
             }
 
+            // Get affordable countries (tariff <= $0.67)
+            $affordableCountries = CountryTariffHelper::getAffordableCountries();
+            
             // Retornar la vista con los datos
             return view('clientes.registro-esim', [
                 'esim_data' => $esimDataView,
                 'beneficiario' => $beneficiario,
                 'referralCode' => $request->referralCode,
-                'parametro' => $request->query('parametro', '')
+                'parametro' => $request->query('parametro', ''),
+                'affordableCountries' => $affordableCountries
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

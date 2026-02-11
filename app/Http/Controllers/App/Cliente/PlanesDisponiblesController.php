@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use App\Helpers\CountryTariffHelper;
 use Exception;
 
 /**
@@ -48,8 +49,12 @@ class PlanesDisponiblesController extends Controller
         // Obtener la clave pública de Stripe para el frontend
         $stripePublicKey = $this->stripeService->getPublishableKey();
         
+        // Get all countries with tariff information
+        $allCountries = CountryTariffHelper::getAllCountries();
+        
         return view('clientes.planes-disponibles', [
             'stripePublicKey' => $stripePublicKey,
+            'allCountries' => $allCountries
         ]);
     }
 
@@ -95,7 +100,13 @@ class PlanesDisponiblesController extends Controller
                     'is_free' => $originalPrice == 0,
                     'margin_applied' => $finalPrice != $originalPrice,
                 ];
-            });
+            })
+            // Filter to only show 3GB, 5GB, and 10GB plans
+            ->filter(function ($product) {
+                $amount = $product['amount'];
+                return in_array($amount, [3, 5, 10]);
+            })
+            ->values(); // Reset array keys
 
             return response()->json([
                 'success' => true,
