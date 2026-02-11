@@ -43,6 +43,35 @@
                                placeholder="Email"
                                :required="true"/>
                 </div>
+                <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_beneficiario_id" class="col-sm-3 mb-0">
+                        Beneficiario
+                    </label>
+                    <app-input id="inputs_beneficiario_id"
+                               class="col-sm-9"
+                               type="select"
+                               v-model="inputs.beneficiario_id"
+                               :list="beneficiarios"
+                               list-value-field="id"
+                               :placeholder="'Seleccionar beneficiario (opcional)'"
+                               :required="false"/>
+                </div>
+                <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_can_activate_free_esim" class="col-sm-3 mb-0">
+                        Permitir eSIM Gratuita
+                    </label>
+                    <div class="col-sm-9">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" 
+                                   class="custom-control-input" 
+                                   id="inputs_can_activate_free_esim"
+                                   v-model="inputs.can_activate_free_esim">
+                            <label class="custom-control-label" for="inputs_can_activate_free_esim">
+                                Puede activar su eSIM gratuita
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </form>
         </template>
     </modal>
@@ -65,7 +94,10 @@
                     nombre: '',
                     apellido: '',
                     email: '',
+                    beneficiario_id: null,
+                    can_activate_free_esim: false,
                 },
+                beneficiarios: [],
                 modalId: 'cliente-add-edit-modal',
                 modalTitle: this.$t('add'),
             }
@@ -75,8 +107,22 @@
                 this.modalTitle = this.$t('edit');
                 this.preloader = true;
             }
+            this.loadBeneficiarios();
         },
         methods: {
+            loadBeneficiarios() {
+                this.axiosGet('/app/beneficiarios')
+                    .then(response => {
+                        this.beneficiarios = response.data.data.map(b => ({
+                            id: b.id,
+                            value: b.nombre
+                        }));
+                    })
+                    .catch(error => {
+                        console.error('Error loading beneficiarios:', error);
+                        this.$toastr.e('Error al cargar la lista de beneficiarios');
+                    });
+            },
             submit() {
                 this.save(this.inputs);
             },

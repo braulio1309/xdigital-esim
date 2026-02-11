@@ -5,6 +5,7 @@ namespace App\Http\Controllers\App\Cliente;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\Cliente\Cliente;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Http\Request as HttpRequest;
@@ -36,6 +37,10 @@ class RegistroEsimController extends Controller
 
     /**
      * Mostrar el formulario de registro de eSIM
+     * 
+     * Public form - no authentication required.
+     * Email validation happens on form submission.
+     * 
      * @param \Illuminate\Http\Request $request
      * @param string|null $referralCode
      * @return \Illuminate\View\View
@@ -62,6 +67,14 @@ class RegistroEsimController extends Controller
 
     /**
      * Registrar un nuevo cliente desde el formulario público e intentar activar eSIM
+     * 
+     * Flow:
+     * 1. Validate form data
+     * 2. Check if email already exists:
+     *    - If exists and can_activate_free_esim is false -> redirect to planes
+     *    - If exists and can_activate_free_esim is true -> activate eSIM and disable flag
+     *    - If new email -> register normally
+     * 
      * @param HttpRequest $request
      * @param ClienteService $service
      * @param EsimFxService $esimService
@@ -70,33 +83,49 @@ class RegistroEsimController extends Controller
     public function registrarCliente(HttpRequest $request, ClienteService $service, EsimFxService $esimService)
     {
         try {
-            // 1. Validar datos del formulario
+            // 1. Validar datos del formulario (email sin unique, lo validamos manualmente)
             $validated = $request->validate([
                 'nombre' => 'required|string|max:255',
                 'apellido' => 'required|string|max:255',
-                'email' => 'required|email|unique:clientes,email',
-                'country_code' => 'required|string|max:2', // Nuevo campo
+                'email' => 'required|email',
+                'country_code' => 'required|string|max:2',
                 'referralCode' => 'nullable|string'
             ]);
 
-            // Buscar referralCode si existe
+            // Buscar referralCode si existe (para usarlo en la vista)
             $beneficiario = null;
             if (!empty($validated['referralCode'])) {
                 $codigo = $this->extractCodigoFromReferralCode($validated['referralCode']);
                 $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+            }
+
+            // 2. Verificar si el email ya existe
+            $existingCliente = Cliente::where('email', $validated['email'])->first();
+            
+            if ($existingCliente) {
+                // El cliente ya existe, verificar el flag
+                if (!$existingCliente->can_activate_free_esim) {
+                    // No tiene permiso para activar eSIM gratuita
+                    return redirect()->route('planes.index')
+                        ->with('error', 'No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador.');
+                }
                 
+                // Tiene permiso, usar el cliente existente
+                $cliente = $existingCliente;
+            } else {
+                // Email nuevo, registrar cliente normalmente
                 if ($beneficiario) {
                     $request->merge(['beneficiario_id' => $beneficiario->id]);
                 }
-            }
 
-            // Guardar cliente (el servicio lee de request()->all())
-            $cliente = $service->save();
+                // Guardar cliente (el servicio lee de request()->all())
+                $cliente = $service->save();
+            }
 
             // Variable para almacenar datos de eSIM
             $esimDataView = null;
 
-            // 2. Buscar producto por país
+            // 3. Buscar producto por país
             if ($request->filled('country_code')) {
                 try {
                     $countryCode = strtoupper($validated['country_code']);
@@ -184,6 +213,12 @@ class RegistroEsimController extends Controller
                                 'code' => $parts[2] ?? 'N/A',
                                 'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
                             ];
+
+                            // If this client has the can_activate_free_esim flag, deactivate it after successful activation
+                            if ($cliente->can_activate_free_esim) {
+                                $cliente->can_activate_free_esim = false;
+                                $cliente->save();
+                            }
 
                             Log::info("eSIM activada exitosamente para cliente ID: {$cliente->id}");
                         } else {

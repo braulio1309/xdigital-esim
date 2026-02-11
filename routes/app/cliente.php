@@ -5,6 +5,7 @@ use App\Http\Controllers\App\Cliente\ClienteDashboardController;
 
 Route::view('/admin/clientes', 'clientes.index')->name('clientes.view');
 Route::resource('clientes', ClienteController::class);
+Route::post('clientes/{cliente}/toggle-free-esim', [ClienteController::class, 'toggleFreeEsim'])->name('clientes.toggle-free-esim');
 
 // Cliente dashboard routes
 Route::get('cliente/dashboard', [ClienteDashboardController::class, 'index'])->name('cliente.dashboard');

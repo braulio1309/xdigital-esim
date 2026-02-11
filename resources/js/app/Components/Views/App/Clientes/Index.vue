@@ -73,6 +73,24 @@
                             key: 'email',
                         },
                         {
+                            title: 'Beneficiario',
+                            type: 'custom-html',
+                            key: 'beneficiario',
+                            modifier: (value) => {
+                                return value && value.nombre ? value.nombre : '<span class="text-muted">N/A</span>';
+                            }
+                        },
+                        {
+                            title: 'eSIM Gratuita',
+                            type: 'custom-html',
+                            key: 'can_activate_free_esim',
+                            modifier: (value, row) => {
+                                const status = value ? 'Permitido' : 'No permitido';
+                                const badgeClass = value ? 'badge-success' : 'badge-secondary';
+                                return `<span class="badge ${badgeClass}">${status}</span>`;
+                            }
+                        },
+                        {
                             title: this.$t('action'),
                             type: 'action',
                             key: 'invoice',
@@ -86,7 +104,13 @@
                             type: 'none',
                             component: 'app-add-modal',
                             modalId: 'cliente-add-edit-modal',
-                        }, {
+                        }, 
+                        {
+                            title: 'Toggle eSIM',
+                            icon: 'toggle-right',
+                            type: 'none',
+                        },
+                        {
                             title: this.$t('delete'),
                             icon: 'trash',
                             type: 'none',
@@ -134,6 +158,29 @@
                 } else if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.CLIENTES}/${rowData.id}`;
                     this.openAddEditModal();
+                } else if (actionObj.title == 'Toggle eSIM') {
+                    this.toggleFreeEsim(rowData);
+                }
+            },
+
+            /**
+             * Toggle the can_activate_free_esim flag for a client
+             */
+            toggleFreeEsim(rowData) {
+                const url = `/app/clientes/${rowData.id}/toggle-free-esim`;
+                const newStatus = !rowData.can_activate_free_esim;
+                const action = newStatus ? 'activar' : 'desactivar';
+                
+                if (confirm(`¿Está seguro que desea ${action} el permiso de eSIM gratuita para ${rowData.nombre}?`)) {
+                    this.axiosPost(url)
+                        .then(response => {
+                            this.$toastr.s(response.data.message);
+                            this.$hub.$emit('reload-' + this.tableId);
+                        })
+                        .catch(error => {
+                            this.$toastr.e('Error al cambiar el permiso');
+                            console.error('Error toggling free eSIM:', error);
+                        });
                 }
             },
 
