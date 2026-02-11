@@ -2,7 +2,7 @@
 
 ## Resumen
 
-Este documento describe la implementación del sistema de permisos para eSIM gratuita, que permite controlar qué clientes pueden activar su eSIM gratuita a través del portal de registro público.
+Este documento describe la implementación del sistema de permisos para eSIM gratuita, que permite controlar qué clientes pueden activar su eSIM gratuita a través del portal de registro público **sin necesidad de autenticación**.
 
 ## Cambios en la Base de Datos
 
@@ -48,44 +48,84 @@ public function store(Request $request)
 }
 ```
 
-## Flujo de Activación de eSIM Gratuita
+## Flujo de Activación de eSIM Gratuita (Sin Login)
 
-### Acceso a `/registro/esim`
+### Acceso Público a `/registro/esim`
 
-Cuando un usuario autenticado (tipo `cliente`) intenta acceder a `/registro/esim`:
+**NO se requiere autenticación**. El formulario es completamente público.
 
-1. **Si NO tiene el flag activo**:
-   - Redirige a `/planes-disponibles`
-   - Muestra mensaje: "No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador."
+### Proceso de Validación en Form Submit
 
-2. **Si tiene el flag activo**:
-   - Permite completar el proceso de activación
-   - Al activar exitosamente la eSIM, desactiva automáticamente el flag
-   - El cliente solo puede usar su eSIM gratuita una vez
+Cuando un usuario envía el formulario en `/registro/esim`:
+
+1. **Validación de datos del formulario** (nombre, apellido, email, país)
+
+2. **Verificación de email**:
+   - Sistema busca si el email ya existe en la tabla `clientes`
+   
+3. **Si el email YA EXISTE**:
+   - **Flag `can_activate_free_esim = false`**:
+     - ❌ Redirige a `/planes-disponibles`
+     - Muestra mensaje: "No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador."
+   
+   - **Flag `can_activate_free_esim = true`**:
+     - ✅ Usa el cliente existente
+     - Continúa con el proceso de activación de eSIM
+     - Después de activar exitosamente, desactiva el flag automáticamente
+     - El cliente solo puede usar su eSIM gratuita **una vez**
+
+4. **Si el email es NUEVO**:
+   - ✅ Registra nuevo cliente normalmente
+   - Asocia al beneficiario si hay referralCode
+   - Activa eSIM inmediatamente (comportamiento original para registros públicos)
 
 **Archivo**: `app/Http/Controllers/App/Cliente/RegistroEsimController.php`
 
 ```php
 public function mostrarFormulario(HttpRequest $request, $referralCode = null)
 {
-    // Check if user is authenticated and is a cliente
-    if (auth()->check() && auth()->user()->user_type === 'cliente') {
-        $cliente = Cliente::where('user_id', auth()->id())->first();
-        
-        // If cliente doesn't have permission to activate free eSIM
-        if ($cliente && !$cliente->can_activate_free_esim) {
-            return redirect()->route('planes.index')
-                ->with('error', 'No tienes permiso para activar una eSIM gratuita...');
-        }
-    }
-    // ...
+    // Public form - no authentication required
+    // Email validation happens on form submission
+    
+    return view('clientes.registro-esim', [
+        'beneficiario' => $beneficiario,
+        'referralCode' => $referralCode,
+        'parametro' => $request->query('parametro', ''),
+        'affordableCountries' => $affordableCountries
+    ]);
 }
 
 public function registrarCliente(HttpRequest $request, ...)
 {
-    // ... after successful eSIM activation ...
+    // Validate form (email without unique constraint)
+    $validated = $request->validate([
+        'nombre' => 'required|string|max:255',
+        'apellido' => 'required|string|max:255',
+        'email' => 'required|email', // No unique check here
+        'country_code' => 'required|string|max:2',
+        'referralCode' => 'nullable|string'
+    ]);
+
+    // Check if email already exists
+    $existingCliente = Cliente::where('email', $validated['email'])->first();
     
-    // If this client has the can_activate_free_esim flag, deactivate it
+    if ($existingCliente) {
+        // Email exists - check flag
+        if (!$existingCliente->can_activate_free_esim) {
+            return redirect()->route('planes.index')
+                ->with('error', 'No tienes permiso...');
+        }
+        
+        // Has permission - use existing cliente
+        $cliente = $existingCliente;
+    } else {
+        // New email - register normally
+        $cliente = $service->save();
+    }
+    
+    // ... activate eSIM ...
+    
+    // Deactivate flag after successful activation
     if ($cliente->can_activate_free_esim) {
         $cliente->can_activate_free_esim = false;
         $cliente->save();
@@ -237,25 +277,34 @@ Route::post('clientes/{cliente}/toggle-free-esim', [ClienteController::class, 't
    - ✅ Permitir eSIM Gratuita
 4. Cliente creado con `can_activate_free_esim = true`
 5. Cliente NO recibe eSIM automáticamente
-6. Cliente debe ir a `/registro/esim` con su cuenta para activarla
+6. Se le debe informar al cliente que vaya a `/registro/esim` y use su email
 
-### Caso 2: Cliente intenta activar eSIM sin permiso
+### Caso 2: Cliente existente con flag=false intenta activar eSIM
 
-1. Cliente inicia sesión en el sistema
-2. Intenta acceder a `/registro/esim`
-3. Sistema verifica: `can_activate_free_esim = false`
+1. Cliente con `can_activate_free_esim = false` accede a `/registro/esim`
+2. Completa el formulario con su email (juan@example.com)
+3. Sistema verifica: email existe y `can_activate_free_esim = false`
 4. Redirige a `/planes-disponibles`
 5. Muestra mensaje: "No tienes permiso para activar una eSIM gratuita..."
 
-### Caso 3: Cliente activa su eSIM gratuita
+### Caso 3: Cliente existente con flag=true activa su eSIM gratuita
 
 1. Cliente con `can_activate_free_esim = true` accede a `/registro/esim`
-2. Completa el formulario de activación
-3. eSIM se activa exitosamente
-4. Sistema automáticamente cambia `can_activate_free_esim = false`
-5. Cliente ya no puede volver a activar eSIM gratuita
+2. Completa formulario con su email (juan@example.com) y selecciona país
+3. Sistema verifica: email existe y `can_activate_free_esim = true`
+4. eSIM se activa exitosamente
+5. Sistema automáticamente cambia `can_activate_free_esim = false`
+6. Cliente ya no puede volver a activar eSIM gratuita
 
-### Caso 4: Beneficiario administra sus clientes
+### Caso 4: Usuario nuevo registra eSIM por primera vez
+
+1. Usuario nuevo accede a `/registro/esim` (con o sin referralCode)
+2. Completa formulario con email nuevo (maria@example.com)
+3. Sistema verifica: email NO existe
+4. Registra nuevo cliente y activa eSIM inmediatamente
+5. Comportamiento normal de registro público (sin flag)
+
+### Caso 5: Beneficiario administra sus clientes
 
 1. Beneficiario inicia sesión
 2. Accede a `/admin/clientes`
@@ -298,12 +347,12 @@ Muestra alertas de sesión flash:
 
 ### Pruebas Manuales
 
-1. ✅ Crear cliente sin flag → Verificar que no pueda acceder a registro/esim
-2. ✅ Crear cliente con flag → Verificar que pueda activar eSIM
-3. ✅ Activar eSIM gratuita → Verificar que flag se desactive
-4. ✅ Toggle flag desde listado → Verificar cambio inmediato
-5. ✅ Login como beneficiario → Verificar que solo ve sus clientes
-6. ✅ Beneficiario crea cliente → Verificar asociación automática
+1. ✅ **Nuevo usuario** en registro/esim → Verificar registro normal y activación
+2. ✅ **Cliente existente sin flag** en registro/esim → Verificar redirección a planes
+3. ✅ **Cliente existente con flag** en registro/esim → Verificar activación y desactivación de flag
+4. ✅ **Toggle flag** desde listado admin → Verificar cambio inmediato
+5. ✅ **Login como beneficiario** → Verificar que solo ve sus clientes
+6. ✅ **Beneficiario crea cliente** → Verificar asociación automática
 
 ### Pruebas de Base de Datos
 
@@ -318,6 +367,47 @@ php artisan migrate
 # Toggle flag
 curl -X POST http://localhost/app/clientes/1/toggle-free-esim \
   -H "Authorization: Bearer {token}"
+
+# Registro público con email existente (sin flag)
+curl -X POST http://localhost/registro/esim \
+  -d "nombre=Juan&apellido=Perez&email=existing@example.com&country_code=US"
+# Resultado esperado: Redirección a planes-disponibles
+
+# Registro público con email existente (con flag)
+curl -X POST http://localhost/registro/esim \
+  -d "nombre=Juan&apellido=Perez&email=withflag@example.com&country_code=US"
+# Resultado esperado: Activación exitosa + flag desactivado
+
+# Registro público con email nuevo
+curl -X POST http://localhost/registro/esim \
+  -d "nombre=Maria&apellido=Garcia&email=new@example.com&country_code=ES"
+# Resultado esperado: Registro y activación normal
+```
+
+### Escenarios de Prueba Detallados
+
+#### Escenario 1: Email nuevo (registro público normal)
+```
+Entrada: Email que NO existe en BD
+Acción: Enviar formulario /registro/esim
+Resultado: ✅ Nuevo cliente creado + eSIM activada
+Verificar: Cliente en BD sin flag activado
+```
+
+#### Escenario 2: Email existente con flag=true (activación permitida)
+```
+Entrada: Email que existe con can_activate_free_esim=true
+Acción: Enviar formulario /registro/esim
+Resultado: ✅ eSIM activada + flag cambiado a false
+Verificar: Flag ahora es false en BD
+```
+
+#### Escenario 3: Email existente con flag=false (sin permiso)
+```
+Entrada: Email que existe con can_activate_free_esim=false
+Acción: Enviar formulario /registro/esim
+Resultado: ❌ Redirección a /planes-disponibles + mensaje error
+Verificar: Cliente no recibió eSIM
 ```
 
 ## Archivos Modificados
@@ -333,7 +423,10 @@ curl -X POST http://localhost/app/clientes/1/toggle-free-esim \
 
 ## Notas Adicionales
 
-- El sistema es compatible con el flujo existente de registro público
-- No afecta a los clientes que se registran por sí mismos en `/registro/esim`
-- Los clientes creados manualmente ahora tienen control más granular
-- Los beneficiarios tienen mejor gestión de sus clientes asociados
+- ✅ **Formulario público**: NO requiere autenticación, completamente accesible
+- ✅ **Validación en backend**: El email se valida al enviar el formulario, no al mostrar
+- ✅ **Compatible con registro público**: Los nuevos usuarios siguen registrándose normalmente
+- ✅ **Control granular**: Los clientes creados manualmente pueden tener o no el permiso
+- ✅ **Uso único**: El flag se desactiva automáticamente después de usar la eSIM gratuita
+- ✅ **Sin pasos adicionales**: El flujo es directo, sin requerir login ni autenticación
+- ✅ **Gestión por beneficiarios**: Cada beneficiario administra sus propios clientes
