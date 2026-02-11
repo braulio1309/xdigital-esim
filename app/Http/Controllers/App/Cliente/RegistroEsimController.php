@@ -100,6 +100,8 @@ class RegistroEsimController extends Controller
             }
 
             // 2. Verificar si el email ya existe
+            //
+
             $existingCliente = Cliente::where('email', $validated['email'])->first();
             
             if ($existingCliente) {
@@ -119,14 +121,14 @@ class RegistroEsimController extends Controller
                 }
 
                 // Guardar cliente (el servicio lee de request()->all())
-                $cliente = $service->save();
+                //$cliente = $service->save();
             }
 
             // Variable para almacenar datos de eSIM
             $esimDataView = null;
 
             // 3. Buscar producto por país
-            if ($request->filled('country_code')) {
+            if ($request->filled('country_code') && $existingCliente) {
                 try {
                     $countryCode = strtoupper($validated['country_code']);
 
