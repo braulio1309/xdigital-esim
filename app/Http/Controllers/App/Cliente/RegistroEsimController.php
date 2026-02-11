@@ -103,26 +103,14 @@ class RegistroEsimController extends Controller
             //
 
             $existingCliente = Cliente::where('email', $validated['email'])->first();
-            
-            if ($existingCliente) {
-                // El cliente ya existe, verificar el flag
-                if (!$existingCliente->can_activate_free_esim) {
-                    // No tiene permiso para activar eSIM gratuita
-                    return redirect()->route('planes.index')
-                        ->with('error', 'No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador.');
-                }
+            // agrega la validacion de que si no encontro el cliente te mande tambien a la vista de planes, esto para evitar que alguien pueda usar un email existente para activar la eSIM gratuita
+            if ($existingCliente || !$existingCliente->can_activate_free_esim) {
                 
-                // Tiene permiso, usar el cliente existente
-                $cliente = $existingCliente;
-            } else {
-                // Email nuevo, registrar cliente normalmente
-                if ($beneficiario) {
-                    $request->merge(['beneficiario_id' => $beneficiario->id]);
-                }
-
-                // Guardar cliente (el servicio lee de request()->all())
-                //$cliente = $service->save();
-            }
+                // No tiene permiso para activar eSIM gratuita
+                return redirect()->route('planes.index')
+                    ->with('error', 'No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador.');
+                
+            } 
 
             // Variable para almacenar datos de eSIM
             $esimDataView = null;
