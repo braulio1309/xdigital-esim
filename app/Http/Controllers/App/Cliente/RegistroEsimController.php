@@ -38,7 +38,7 @@ class RegistroEsimController extends Controller
      * Mostrar el formulario de registro de eSIM
      * @param \Illuminate\Http\Request $request
      * @param string|null $referralCode
-     * @return \Illuminate\View\View
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function mostrarFormulario(HttpRequest $request, $referralCode = null)
     {
@@ -47,6 +47,17 @@ class RegistroEsimController extends Controller
         if ($referralCode) {
             $codigo = $this->extractCodigoFromReferralCode($referralCode);
             $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+        }
+        
+        // Check if user is authenticated and is a cliente
+        if (auth()->check() && auth()->user()->user_type === 'cliente') {
+            $cliente = Cliente::where('user_id', auth()->id())->first();
+            
+            // If cliente doesn't have permission to activate free eSIM
+            if ($cliente && !$cliente->can_activate_free_esim) {
+                return redirect()->route('planes.index')
+                    ->with('error', 'No puedes activar la eSIM gratuita en este momento.');
+            }
         }
         
         // Get affordable countries (tariff <= $0.67)
@@ -184,6 +195,12 @@ class RegistroEsimController extends Controller
                                 'code' => $parts[2] ?? 'N/A',
                                 'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
                             ];
+
+                            // If this client has the can_activate_free_esim flag, deactivate it after successful activation
+                            if ($cliente->can_activate_free_esim) {
+                                $cliente->can_activate_free_esim = false;
+                                $cliente->save();
+                            }
 
                             Log::info("eSIM activada exitosamente para cliente ID: {$cliente->id}");
                         } else {

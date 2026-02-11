@@ -7,85 +7,60 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Models\App\Cliente\Cliente;
 use App\Services\App\Cliente\ClienteService;
-// Importamos el servicio de eSIM
-use App\Services\EsimFxService; 
-use Illuminate\Support\Facades\Log;
-use App\Models\App\Transaction\Transaction;
 
 class ClienteController extends Controller
 {
-    protected $esimService;
-
     /**
      * ClienteController constructor.
      * @param ClienteService $service
      * @param ClienteFilter $filter
-     * @param EsimFxService $esimService  <-- Inyección de dependencia
      */
-    public function __construct(ClienteService $service, ClienteFilter $filter, EsimFxService $esimService)
+    public function __construct(ClienteService $service, ClienteFilter $filter)
     {
         $this->service = $service;
         $this->filter = $filter;
-        $this->esimService = $esimService; // Asignación a la propiedad
     }
 
     /**
+     * Display a listing of clientes.
+     * 
+     * If authenticated user is a beneficiario, only show their clients.
+     * 
      * @return mixed
      */
     public function index()
     {
-        return $this->service
-            ->filters($this->filter)
-            ->latest()
-            ->paginate(request()->get('per_page', 10));
+        $query = $this->service->filters($this->filter)->latest();
+        
+        // Filter by beneficiario_id if user is a beneficiario
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            
+            if ($beneficiario) {
+                $query = $query->where('beneficiario_id', $beneficiario->id);
+            }
+        }
+        
+        return $query->with('beneficiario:id,nombre')->paginate(request()->get('per_page', 10));
     }
 
     /**
      * Store a newly created resource in storage.
+     * 
+     * When creating a client manually from admin panel:
+     * - Do NOT activate eSIM automatically
+     * - Do NOT create orders or subscriptions
+     * - Just create the client record
+     * - The can_activate_free_esim flag controls access to free eSIM
      *
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\Response
      */
     public function store(Request $request)
     {
-        // 1. Guardamos el cliente en la BD local primero
+        // Simply save the client without automatic eSIM activation
+        // The flag can_activate_free_esim controls whether they can activate it later
         $cliente = $this->service->save();
-
-        // 2. Integramos el servicio de eSIM
-        // Verificamos si en el request viene el ID del producto (Plan)
-        if ($request->has('product_id') || true) {
-            try {
-                $productId = '04d964be-3747-4b02-90b2-afd2cc4dbf44' ;
-                
-                // Usamos el ID del cliente recién creado para generar un Transaction ID único
-                $transactionId = 'CLI-' . $cliente->id . '-' . time();
-
-                // Llamamos al servicio 'createOrder' que definiste
-                $esimData = $this->esimService->createOrder($productId, $transactionId, [
-                    'operation_type' => 'NEW'
-                ]);
-                // 3. Actualizamos el cliente con la respuesta de la API
-                if (isset($esimData['esim'])) {
-
-                    // 4. Guardamos la transacción en la tabla transactions
-                    Transaction::create([
-                        'order_id' => $esimData['id'], // Asumiendo que no hay una orden asociada en este contexto
-                        'transaction_id' => $transactionId,
-                        'status' => $esimData['status'] ?? 'completed',
-                        'iccid' => $esimData['esim']['iccid'] ?? null,
-                        'esim_qr' => $esimData['esim']['esim_qr'] ?? null,
-                        'creation_time' => now(),
-                        'cliente_id' => $cliente->id
-                    ]);
-                }
-
-            } catch (\Exception $e) {
-                // Si falla la API, logueamos el error pero no fallamos el request HTTP 
-                // para asegurar que el cliente se haya creado al menos.
-                Log::error("Error activando eSIM para cliente ID {$cliente->id}: " . $e->getMessage());
-                
-            }
-        }
 
         return created_responses('cliente');
     }
@@ -128,5 +103,25 @@ class ClienteController extends Controller
             return deleted_responses('cliente');
         }
         return failed_responses();
+    }
+
+    /**
+     * Toggle the can_activate_free_esim flag for a client.
+     * 
+     * @param Cliente $cliente
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function toggleFreeEsim(Cliente $cliente)
+    {
+        $cliente->can_activate_free_esim = !$cliente->can_activate_free_esim;
+        $cliente->save();
+        
+        $status = $cliente->can_activate_free_esim ? 'activado' : 'desactivado';
+        
+        return response()->json([
+            'status' => true,
+            'message' => "Permiso de eSIM gratuita {$status} exitosamente.",
+            'data' => $cliente
+        ]);
     }
 }
