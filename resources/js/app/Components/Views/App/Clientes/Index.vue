@@ -34,7 +34,7 @@
 <script>
     import CoreLibrary from "../../../../../core/helpers/CoreLibrary.js";
     import * as actions from "../../../../Config/ApiUrl";
-    
+    import axios from "axios";
     import AddModal from "./AddModal"; 
 
     export default {
@@ -106,9 +106,11 @@
                             modalId: 'cliente-add-edit-modal',
                         }, 
                         {
-                            title: 'Toggle eSIM',
+                            title: 'eSIM Gratis',
                             icon: 'toggle-right',
                             type: 'none',
+                            component: 'dummy-component', 
+                            modalId: 'dummy-modal-id',
                         },
                         {
                             title: this.$t('delete'),
@@ -158,7 +160,7 @@
                 } else if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.CLIENTES}/${rowData.id}`;
                     this.openAddEditModal();
-                } else if (actionObj.title == 'Toggle eSIM') {
+                } else if (actionObj.title == 'eSIM Gratis') {
                     this.toggleFreeEsim(rowData);
                 }
             },
@@ -167,21 +169,22 @@
              * Toggle the can_activate_free_esim flag for a client
              */
             toggleFreeEsim(rowData) {
-                const url = `/app/clientes/${rowData.id}/toggle-free-esim`;
+                const url = `/clientes/${rowData.id}/toggle-free-esim`;
                 const newStatus = !rowData.can_activate_free_esim;
                 const action = newStatus ? 'activar' : 'desactivar';
                 
                 if (confirm(`¿Está seguro que desea ${action} el permiso de eSIM gratuita para ${rowData.nombre}?`)) {
-                    this.axiosPost(url)
+                    console.log(`Toggling free eSIM for client ID ${rowData.id} to ${newStatus}`);
+                    axios.post(url, {}) 
                         .then(response => {
                             this.$toastr.s(response.data.message);
                             this.$hub.$emit('reload-' + this.tableId);
                         })
                         .catch(error => {
-                            this.$toastr.e('Error al cambiar el permiso');
-                            console.error('Error toggling free eSIM:', error);
+                            console.error("EL ERROR REAL ES:", error); // Aquí verás el culpable
+                            this.$toastr.e('Error en la petición');
                         });
-                }
+                                }
             },
 
             /**

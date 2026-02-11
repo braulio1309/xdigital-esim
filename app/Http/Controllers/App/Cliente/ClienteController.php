@@ -60,6 +60,13 @@ class ClienteController extends Controller
     {
         // Simply save the client without automatic eSIM activation
         // The flag can_activate_free_esim controls whether they can activate it later
+        //Valida si es un beneficiario que lo esta creando, si es asi asigna el beneficiario_id del cliente al beneficiario del usuario
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if ($beneficiario) {
+                $request->merge(['beneficiario_id' => $beneficiario->id]);
+            }
+        }
         $cliente = $this->service->save();
 
         return created_responses('cliente');

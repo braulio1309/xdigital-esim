@@ -15,6 +15,8 @@ class SidebarComposer
         // Determinar el tipo de usuario
         $isAdmin = !in_array($user->user_type ?? '', ['beneficiario', 'cliente']);
 
+        $isPartner = $user->user_type === 'beneficiario';
+
         // Si es admin, mostrar solo el dashboard de métricas
         if ($isAdmin) {
             $menu = [
@@ -55,9 +57,24 @@ class SidebarComposer
                     'permission' => true,
                 ],
             ];
+        } else if ($isPartner) {
+            $menu = [
+                //Agrega el dashboard de métricas para beneficiarios
+                [
+                    'icon' => 'bar-chart-2',
+                    'name' => 'Dashboard',
+                    'url' => request()->root() . '/admin/dashboard',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'users',
+                    'name' => 'Mis Clientes',
+                    'url' => request()->root() . '/admin/clientes',
+                    'permission' => true,
+                ],
+            ];
         } else {
-            // Para beneficiarios y clientes, mantener el menú vacío
-            $menu = [];
+            $menu = [];   
         }
 
         $view->with(['data' => $menu]);
