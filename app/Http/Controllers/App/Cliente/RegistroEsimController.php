@@ -56,7 +56,7 @@ class RegistroEsimController extends Controller
             // If cliente doesn't have permission to activate free eSIM
             if ($cliente && !$cliente->can_activate_free_esim) {
                 return redirect()->route('planes.index')
-                    ->with('error', 'No puedes activar la eSIM gratuita en este momento.');
+                    ->with('error', 'No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador.');
             }
         }
         

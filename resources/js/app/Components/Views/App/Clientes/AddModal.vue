@@ -120,6 +120,7 @@
                     })
                     .catch(error => {
                         console.error('Error loading beneficiarios:', error);
+                        this.$toastr.e('Error al cargar la lista de beneficiarios');
                     });
             },
             submit() {
