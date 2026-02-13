@@ -23,7 +23,7 @@ class SidebarComposer
                 [
                     'icon' => 'bar-chart-2',
                     'name' => 'Dashboard de Métricas',
-                    'url' => request()->root() . '/admin/metrics',
+                    'url' => request()->root() . '/report',
                     'permission' => true,
                 ],
                 [
@@ -45,9 +45,15 @@ class SidebarComposer
                     'permission' => true,
                 ],
                 [
+                    'icon' => 'users',
+                    'name' => 'Transacciones',
+                    'url' => request()->root() . '/admin/transactions',
+                    'permission' => true,
+                ],
+                [
                     'icon' => 'file-text',
                     'name' => 'Reportes',
-                    'url' => request()->root() . '/app/report-view',
+                    'url' => request()->root() . '/report-view',
                     'permission' => true,
                 ],
                 [
@@ -70,6 +76,12 @@ class SidebarComposer
                     'icon' => 'users',
                     'name' => 'Mis Clientes',
                     'url' => request()->root() . '/admin/clientes',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'users',
+                    'name' => 'Transacciones',
+                    'url' => request()->root() . '/admin/transactions',
                     'permission' => true,
                 ],
             ];

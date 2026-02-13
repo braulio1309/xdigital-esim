@@ -30,6 +30,8 @@ class RedirectBasedOnUserType
                 if ($request->is('admin/dashboard*') || $request->is('admin')) {
                     return redirect()->route('cliente.dashboard');
                 }
+            }else{
+                return redirect()->route('report-view');
             }
         }
         

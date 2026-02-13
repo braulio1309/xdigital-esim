@@ -9,7 +9,7 @@
                         type="select"
                         v-model="selectedBeneficiario"
                         :list="beneficiarios"
-                        list-value-field="id"
+                        list-value-field="value"
                         placeholder="Todos los Beneficiarios"
                         @input="onBeneficiarioChange"/>
                 </div>
@@ -82,7 +82,7 @@ export default {
             // Report Table
             reportTableId: 'report-table-transactions',
             options: {
-                url: '/app/report-transactions/basic-report',
+                url: '/report-transactions/basic-report',
                 tableShadow: false,
                 datatableWrapper: false,
                 showFilter: false,
@@ -126,7 +126,7 @@ export default {
     },
     methods: {
         loadBeneficiarios() {
-            return this.axiosGet('/app/report-transactions/beneficiarios')
+            return this.axiosGet('/report-transactions/beneficiarios')
                 .then(response => {
                     this.beneficiarios = response.data;
                 })

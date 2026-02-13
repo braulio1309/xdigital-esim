@@ -112,9 +112,9 @@ class RegistroEsimController extends Controller
                 
             } 
 
+            $cliente =  $existingCliente;
             // Variable para almacenar datos de eSIM
             $esimDataView = null;
-
             // 3. Buscar producto por país
             if ($request->filled('country_code') && $existingCliente) {
                 try {
@@ -123,27 +123,27 @@ class RegistroEsimController extends Controller
                     // Obtener productos del país desde la API
                     Log::info("Buscando productos para país: {$countryCode}");
                     $products = $esimService->getProducts([
-                        'country' => $countryCode
+                        'countries' => $countryCode
                     ]);
 
                     // Filtrar el producto de 1GB con 7 días de duración
                     $selectedProduct = null;
-                    
+
                     if (is_array($products) && !empty($products)) {
                         foreach ($products as $product) {
                             // Buscar producto con 1GB y 7 días
-                            if (isset($product['data_amount']) && 
-                                isset($product['data_unit']) && 
-                                isset($product['validity_period']) &&
-                                isset($product['validity_unit'])) {
+                            if (isset($product['amount']) && 
+                                isset($product['amount_unit']) && 
+                                isset($product['duration']) &&
+                                isset($product['duration_unit'])) {
                                 
                                 // Verificar si es 1GB
-                                $isOneGb = ($product['data_amount'] === 1 && 
-                                           strtoupper($product['data_unit']) === 'GB');
+                                $isOneGb = ($product['amount'] === 1 && 
+                                           strtoupper($product['amount_unit']) === 'GB');
                                 
                                 // Verificar si es 7 días
-                                $isSevenDays = ($product['validity_period'] === 7 && 
-                                               strtoupper($product['validity_unit']) === 'DAYS');
+                                $isSevenDays = ($product['duration'] === 7 && 
+                                               strtoupper($product['duration_unit']) === 'DAY');
                                 
                                 if ($isOneGb && $isSevenDays) {
                                     $selectedProduct = $product;
@@ -152,7 +152,6 @@ class RegistroEsimController extends Controller
                             }
                         }
                     }
-
                     // Si no se encontró producto de 1GB/7días, usar el primero disponible
                     if (!$selectedProduct && isset($products[0])) {
                         $selectedProduct = $products[0];
@@ -225,7 +224,6 @@ class RegistroEsimController extends Controller
 
                 } catch (\Exception $e) {
                     Log::error("Error al activar eSIM: " . $e->getMessage());
-                    // No lanzamos la excepción para que el registro se complete
                 }
             }
 

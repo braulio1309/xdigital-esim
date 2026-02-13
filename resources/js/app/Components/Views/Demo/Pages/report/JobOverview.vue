@@ -2,7 +2,6 @@
     <div>
         <app-overlay-loader v-if="preloader" />
         <div v-else>
-            <!-- Beneficiario Filter -->
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
@@ -11,7 +10,7 @@
                             type="select"
                             v-model="selectedBeneficiario"
                             :list="beneficiarios"
-                            list-value-field="id"
+                            list-value-field="value"
                             placeholder="Todos los Beneficiarios"
                             @input="onBeneficiarioChange"/>
                     </div>
@@ -21,7 +20,7 @@
             <div class="row">
                 <div class="col-12 col-md-4">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">{{ $t('Total Beneficiarios') }}({{ $t('all_time') }})</div>
                                 <div class="h1">{{ total_beneficiarios }}</div>
@@ -31,7 +30,7 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">{{ $t('Beneficiarios Activos') }}</div>
                                 <div class="h1">{{ active_beneficiarios }}</div>
@@ -41,7 +40,7 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">{{ $t('Promedio Ventas por Beneficiario') }}</div>
                                 <div class="h1">{{ avg_transactions_per_beneficiario }}</div>
@@ -57,7 +56,6 @@
                             <h4>Ventas por Beneficiario</h4>
                             <app-chart class="mb-primary" type="horizontal-line-chart" :height="230"
                                 :labels="transactionsByBeneficiario.labels" :data-sets="transactionsByBeneficiario.dataSet" />
-
                         </div>
                     </div>
                 </div>
@@ -76,9 +74,14 @@
         </div>
     </div>
 </template>
+
 <script>
+import axios from 'axios';
 import { colorArray } from '../../../../../../app/Helpers/ColorHelper';
+import {FormMixin} from "../../../../../../core/mixins/form/FormMixin";
+
 export default {
+    mixins: [FormMixin],
     data() {
         return {
             preloader: false,
@@ -111,7 +114,7 @@ export default {
             ]
         },
         loadBeneficiarios() {
-            return this.axiosGet('/app/report-transactions/beneficiarios')
+            return axios.get('/report-transactions/beneficiarios')
                 .then(response => {
                     this.beneficiarios = response.data;
                 })
@@ -126,7 +129,7 @@ export default {
             this.preloader = true;
             const params = this.selectedBeneficiario ? { beneficiario_id: this.selectedBeneficiario } : {};
             
-            return this.axiosGet('/app/report-transactions/beneficiary-overview', { params })
+            return axios.get('/report-transactions/beneficiary-overview', { params })
                 .then(res => {
                     this.total_beneficiarios = res.data.total_beneficiarios;
                     this.active_beneficiarios = res.data.active_beneficiarios;
@@ -137,6 +140,9 @@ export default {
                     
                     this.salesByPlan.labels = res.data.sales_by_plan.map(i => i.plan);
                     this.salesByPlan.dataSet = this.genChartData(res.data.sales_by_plan.map(i => ({ value: i.transaction_count })));
+                })
+                .catch(error => {
+                    console.error('Error loading overview:', error);
                 })
                 .finally(() => {
                     this.preloader = false;

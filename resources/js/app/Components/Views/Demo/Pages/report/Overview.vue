@@ -2,7 +2,6 @@
     <div>
         <app-overlay-loader v-if="preloader" />
         <div v-else>
-            <!-- Beneficiario Filter -->
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
@@ -11,7 +10,7 @@
                             type="select"
                             v-model="selectedBeneficiario"
                             :list="beneficiarios"
-                            list-value-field="id"
+                            list-value-field="value"
                             placeholder="Todos los Beneficiarios"
                             @input="onBeneficiarioChange"/>
                     </div>
@@ -21,7 +20,7 @@
             <div class="row">
                 <div class="col-12 col-md-6 col-lg-3">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">Transacciones esta Semana</div>
                                 <div class="h1">{{ overview.total_transactions_this_week }}</div>
@@ -31,7 +30,7 @@
                 </div>
                 <div class="col-12 col-md-6 col-lg-3">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">Ingresos Totales</div>
                                 <div class="h1">${{ overview.total_revenue }}</div>
@@ -41,7 +40,7 @@
                 </div>
                 <div class="col-12 col-md-6 col-lg-3">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">eSIMs Gratuitas (Todo el Tiempo)</div>
                                 <div class="h1">{{ overview.free_esims }}</div>
@@ -51,7 +50,7 @@
                 </div>
                 <div class="col-12 col-md-6 col-lg-3">
                     <div class="card card-with-shadow border-0">
-                        <div class="card-body d-flex justifycontent-center align-items-center">
+                        <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
                                 <div class="text-muted">{{ $t('Planes Activos') }}</div>
                                 <div class="h1">{{ overview.active_plans }}</div>
@@ -94,9 +93,14 @@
         </div>
     </div>
 </template>
+
 <script>
 import moment from 'moment';
+import axios from 'axios';
+import {FormMixin} from "../../../../../../core/mixins/form/FormMixin";
+
 export default {
+    mixins: [FormMixin],
     data() {
         return {
             labels: [],
@@ -178,7 +182,7 @@ export default {
             ]
         },
         loadBeneficiarios() {
-            return this.axiosGet('/app/report-transactions/beneficiarios')
+            return axios.get('/report-transactions/beneficiarios')
                 .then(response => {
                     this.beneficiarios = response.data;
                 })
@@ -193,7 +197,7 @@ export default {
             this.preloader = true;
             const params = this.selectedBeneficiario ? { beneficiario_id: this.selectedBeneficiario } : {};
             
-            return this.axiosGet('/app/report-transactions/overview', { params })
+            return axios.get('/report-transactions/overview', { params })
                 .then(res => {
                     this.overview = res.data;
 
@@ -206,6 +210,9 @@ export default {
 
                     this.performance.labels = (res.data.transaction_trends || []).map(i => `${moment(i.start).format('DD MMM')} - ${moment(i.end).format('DD MMM')}`);
                     this.performance.dataSet = this.genPerformanceChartData(res.data.transaction_trends || []);
+                })
+                .catch(error => {
+                    console.error('Error loading overview:', error);
                 })
                 .finally(() => {
                     this.preloader = false;
