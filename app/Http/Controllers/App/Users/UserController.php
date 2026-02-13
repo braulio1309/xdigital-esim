@@ -72,9 +72,15 @@ class UserController extends Controller
 
         // Create Beneficiario record if user type is beneficiario
         if ($request->user_type === 'beneficiario') {
-            // Generate unique codigo
+            // Generate unique codigo with maximum retry limit
+            $maxRetries = 10;
+            $retryCount = 0;
             do {
                 $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
+                $retryCount++;
+                if ($retryCount >= $maxRetries) {
+                    throw new \App\Exceptions\GeneralException('Unable to generate unique code for beneficiario');
+                }
             } while (\App\Models\App\Beneficiario\Beneficiario::where('codigo', $codigo)->exists());
             
             \App\Models\App\Beneficiario\Beneficiario::create([

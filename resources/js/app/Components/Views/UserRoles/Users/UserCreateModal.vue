@@ -7,7 +7,7 @@
            @close-modal="closeModal">
         <template slot="body">
             <app-overlay-loader v-if="preloader"/>
-            <form ref="form" data-url="/app/user-list"
+            <form ref="form" :data-url="actions.CREATE_USER"
                   :class="{'loading-opacity': preloader}">
                 <div class="form-group row align-items-center">
                     <label for="firstName" class="col-sm-3 mb-0">
@@ -144,6 +144,7 @@
         mixins: [FormMixin, ModalMixin, UserAndRoleMixin],
         data() {
             return {
+                actions,
                 user: {
                     first_name: '',
                     last_name: '',
