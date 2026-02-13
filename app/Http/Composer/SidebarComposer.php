@@ -45,9 +45,9 @@ class SidebarComposer
                     'permission' => true,
                 ],
                 [
-                    'icon' => 'user-check',
-                    'name' => 'Clientes',
-                    'url' => request()->root() . '/admin/clientes',
+                    'icon' => 'file-text',
+                    'name' => 'Reportes',
+                    'url' => request()->root() . '/app/report-view',
                     'permission' => true,
                 ],
                 [
