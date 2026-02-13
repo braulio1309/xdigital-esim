@@ -17,7 +17,12 @@ class Transaction extends AppModel
         'esim_qr',
         'creation_time',
         'cliente_id',
-        'order_id'
+        'order_id',
+        'plan_name',
+        'data_amount',
+        'duration_days',
+        'purchase_amount',
+        'currency'
     ];
 
     protected $casts = [

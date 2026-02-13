@@ -702,7 +702,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Procesar activación de eSIM
                     const activationResponse = await axios.post('/planes/procesar-pago', {
                         product_id: this.selectedPlan.id,
-                        payment_intent_id: this.paymentIntentId
+                        payment_intent_id: this.paymentIntentId,
+                        plan_name: this.selectedPlan.name,
+                        data_amount: this.selectedPlan.amount,
+                        duration: this.selectedPlan.duration,
+                        purchase_amount: this.selectedPlan.price,
+                        currency: this.selectedPlan.price_unit
                     });
 
                     if (activationResponse.data.success) {
@@ -728,7 +733,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.loading = true;
                     // Llamar al endpoint de activación gratuita (reutilizando registro)
                     const response = await axios.post('/planes/activar-gratis', {
-                        product_id: this.selectedPlan.id
+                        product_id: this.selectedPlan.id,
+                        plan_name: this.selectedPlan.name,
+                        data_amount: this.selectedPlan.amount,
+                        duration: this.selectedPlan.duration
                     });
 
                     if (response.data.success) {

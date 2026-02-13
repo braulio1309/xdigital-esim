@@ -26,10 +26,22 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        return $this->service
+        $query = $this->service
             ->filters($this->filter)
-            ->with('cliente')
-            ->latest()
+            ->with('cliente');
+        
+        // Filter by beneficiario_id if user is a beneficiario
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            
+            if ($beneficiario) {
+                $query = $query->whereHas('cliente', function ($q) use ($beneficiario) {
+                    $q->where('beneficiario_id', $beneficiario->id);
+                });
+            }
+        }
+        
+        return $query->latest()
             ->paginate(request()->get('per_page', 10));
     }
 
