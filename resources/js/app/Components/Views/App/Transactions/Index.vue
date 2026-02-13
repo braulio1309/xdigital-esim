@@ -88,7 +88,7 @@
                             type: 'custom-html',
                             key: 'duration_days',
                             modifier: (value) => {
-                                return value ? `${value} días` : 'N/A';
+                                return value ? `${value} ${this.$t('days')}` : 'N/A';
                             }
                         },
                         {
@@ -97,7 +97,7 @@
                             key: 'purchase_amount',
                             modifier: (value, row) => {
                                 if (value == 0) {
-                                    return '<span class="badge badge-success">Gratis</span>';
+                                    return `<span class="badge badge-success">${this.$t('free')}</span>`;
                                 }
                                 return value ? `$${parseFloat(value).toFixed(2)}` : 'N/A';
                             }

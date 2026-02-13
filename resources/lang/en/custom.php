@@ -940,4 +940,6 @@ return [
     'client_name' => 'Client Name',
     'iccid' => 'ICCID',
     'date' => 'Date',
+    'days' => 'days',
+    'free' => 'Free',
 ];
