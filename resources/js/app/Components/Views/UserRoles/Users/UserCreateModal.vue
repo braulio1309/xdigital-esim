@@ -158,9 +158,9 @@
                 roles: [],
                 roleLists: [],
                 userTypeOptions: [
-                    {id: 'admin', name: 'Admin'},
-                    {id: 'beneficiario', name: 'Beneficiario'},
-                    {id: 'cliente', name: 'Cliente'}
+                    {id: 'admin', name: this.$t('admin')},
+                    {id: 'beneficiario', name: this.$t('beneficiario')},
+                    {id: 'cliente', name: this.$t('cliente')}
                 ]
             }
         },

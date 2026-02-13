@@ -50,6 +50,10 @@ class UserController extends Controller
 
         // Get active status
         $status = \App\Models\Core\Status::findByNameAndType('status_active', 'user');
+        
+        if (!$status) {
+            throw new \App\Exceptions\GeneralException('Active status not found in the system');
+        }
 
         // Create user
         $user = $this->service->create([
@@ -58,7 +62,7 @@ class UserController extends Controller
             'email' => $request->email,
             'password' => bcrypt($request->password),
             'user_type' => $request->user_type,
-            'status_id' => $status ? $status->id : 1,
+            'status_id' => $status->id,
         ]);
 
         // Assign roles if provided
@@ -68,11 +72,16 @@ class UserController extends Controller
 
         // Create Beneficiario record if user type is beneficiario
         if ($request->user_type === 'beneficiario') {
+            // Generate unique codigo
+            do {
+                $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
+            } while (\App\Models\App\Beneficiario\Beneficiario::where('codigo', $codigo)->exists());
+            
             \App\Models\App\Beneficiario\Beneficiario::create([
                 'user_id' => $user->model->id,
                 'nombre' => $request->beneficiario_nombre,
                 'descripcion' => $request->beneficiario_descripcion,
-                'codigo' => strtoupper(substr(md5(uniqid(rand(), true)), 0, 8)),
+                'codigo' => $codigo,
             ]);
         }
 
