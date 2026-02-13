@@ -929,4 +929,17 @@ return [
     "tax_no" => "Tax no",
     'job-post' => 'Job Post',
     'loader' => 'Loader',
+    
+    // Transactions
+    'transactions' => 'Transactions',
+    'transaction_id' => 'Transaction ID',
+    'plan' => 'Plan',
+    'data_amount' => 'Data',
+    'duration' => 'Duration',
+    'amount' => 'Amount',
+    'client_name' => 'Client Name',
+    'iccid' => 'ICCID',
+    'date' => 'Date',
+    'days' => 'days',
+    'free' => 'Free',
 ];

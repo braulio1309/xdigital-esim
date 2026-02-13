@@ -63,9 +63,44 @@
                             key: 'transaction_id',
                         },
                         {
-                            title: this.$t('status'),
+                            title: this.$t('date'),
                             type: 'text',
-                            key: 'status',
+                            key: 'creation_time',
+                        },
+                        {
+                            title: this.$t('plan'),
+                            type: 'text',
+                            key: 'plan_name',
+                            modifier: (value) => {
+                                return value || 'N/A';
+                            }
+                        },
+                        {
+                            title: this.$t('data_amount'),
+                            type: 'custom-html',
+                            key: 'data_amount',
+                            modifier: (value) => {
+                                return value ? `${value} GB` : 'N/A';
+                            }
+                        },
+                        {
+                            title: this.$t('duration'),
+                            type: 'custom-html',
+                            key: 'duration_days',
+                            modifier: (value) => {
+                                return value ? `${value} ${this.$t('days')}` : 'N/A';
+                            }
+                        },
+                        {
+                            title: this.$t('amount'),
+                            type: 'custom-html',
+                            key: 'purchase_amount',
+                            modifier: (value, row) => {
+                                if (value == 0) {
+                                    return `<span class="badge badge-success">${this.$t('free')}</span>`;
+                                }
+                                return value ? `$${parseFloat(value).toFixed(2)}` : 'N/A';
+                            }
                         },
                         {
                             title: this.$t('client_name'),
@@ -76,14 +111,9 @@
                             }
                         },
                         {
-                            title: this.$t('iccid'),
+                            title: this.$t('status'),
                             type: 'text',
-                            key: 'iccid',
-                        },
-                        {
-                            title: this.$t('creation_time'),
-                            type: 'text',
-                            key: 'creation_time',
+                            key: 'status',
                         },
                         {
                             title: this.$t('action'),
@@ -107,8 +137,8 @@
                             modalId: 'transaction-delete',
                         }
                     ],
-                    showFilter: false,
-                    showSearch: false,
+                    showFilter: true,
+                    showSearch: true,
                     paginationType: "pagination",
                     responsive: true,
                     rowLimit: 10,

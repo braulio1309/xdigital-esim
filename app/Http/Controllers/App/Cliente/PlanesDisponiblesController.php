@@ -134,6 +134,11 @@ class PlanesDisponiblesController extends Controller
             $request->validate([
                 'product_id' => 'required|string',
                 'payment_intent_id' => 'required|string',
+                'plan_name' => 'nullable|string',
+                'data_amount' => 'nullable|numeric',
+                'duration' => 'nullable|integer',
+                'purchase_amount' => 'nullable|numeric',
+                'currency' => 'nullable|string|max:3',
             ]);
 
             // Verificar que el usuario esté autenticado
@@ -206,6 +211,11 @@ class PlanesDisponiblesController extends Controller
                 'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
                 'creation_time' => now(),
                 'cliente_id' => $cliente->id,
+                'plan_name' => $request->plan_name,
+                'data_amount' => $request->data_amount,
+                'duration_days' => $request->duration,
+                'purchase_amount' => $request->purchase_amount,
+                'currency' => $request->currency ?? 'USD',
             ]);
 
             return response()->json([
@@ -284,6 +294,9 @@ class PlanesDisponiblesController extends Controller
         try {
             $request->validate([
                 'product_id' => 'required|string',
+                'plan_name' => 'nullable|string',
+                'data_amount' => 'nullable|numeric',
+                'duration' => 'nullable|integer',
             ]);
 
             // Verificar que el usuario esté autenticado
@@ -340,6 +353,11 @@ class PlanesDisponiblesController extends Controller
                 'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
                 'creation_time' => now(),
                 'cliente_id' => $cliente->id,
+                'plan_name' => $request->plan_name,
+                'data_amount' => $request->data_amount,
+                'duration_days' => $request->duration,
+                'purchase_amount' => 0,
+                'currency' => 'USD',
             ]);
 
             return response()->json([

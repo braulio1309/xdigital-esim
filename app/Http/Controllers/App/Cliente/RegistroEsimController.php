@@ -181,7 +181,12 @@ class RegistroEsimController extends Controller
                                 'iccid' => $apiResponse['esim']['iccid'] ?? null,
                                 'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
                                 'creation_time' => now(),
-                                'cliente_id' => $cliente->id
+                                'cliente_id' => $cliente->id,
+                                'plan_name' => $selectedProduct['name'] ?? null,
+                                'data_amount' => $selectedProduct['data_amount'] ?? null,
+                                'duration_days' => $selectedProduct['validity_period'] ?? null,
+                                'purchase_amount' => 0,
+                                'currency' => 'USD',
                             ]);
 
                             // Generar código QR
