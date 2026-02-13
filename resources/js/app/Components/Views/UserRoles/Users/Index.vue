@@ -132,3 +132,17 @@
         }
     }
 </script>
+
+<style scoped>
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        display: block;
+        width: 100%;
+    }
+}
+</style>
