@@ -8,25 +8,25 @@ export default {
         return {
             tabs: {
                 global: {
-                    label: 'Report',
+                    label: 'Reportes de Transacciones',
                     items: [
                         {
-                            name: this.$t('basic_report'),
-                            title: this.$t('basic_report'),
+                            name: 'Reporte por Plan',
+                            title: 'Reporte por Plan',
                             component: "basic-report",
                             props: {},
                             headerHide: true
                         },
                         {
-                            name: this.$t('overview'),
-                            title: this.$t('overview'),
+                            name: 'Resumen General',
+                            title: 'Resumen General',
                             component: "overview",
                             props: {},
                             headerHide: true
                         },
                         {
-                            name: this.$t('job_overview'),
-                            title: this.$t('job_overview'),
+                            name: 'Desempeño de Beneficiarios',
+                            title: 'Desempeño de Beneficiarios',
                             component: "job-overview",
                             props: {},
                             headerHide: true

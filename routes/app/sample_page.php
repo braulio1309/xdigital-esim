@@ -4,6 +4,7 @@ use App\Http\Controllers\App\PaymentMethod\PaypalController;
 use App\Http\Controllers\App\PaymentMethod\RazorpayController;
 use App\Http\Controllers\App\PaymentMethod\StripeController;
 use App\Http\Controllers\App\SamplePage\ReportController;
+use App\Http\Controllers\App\SamplePage\ReportTransactionController;
 use App\Http\Controllers\App\SamplePage\CalendarController;
 use App\Http\Controllers\App\SamplePage\KanbanView\TaskController;
 use App\Http\Controllers\App\SamplePage\KanbanView\StageController;
@@ -23,6 +24,12 @@ Route::resource('calendars', CalendarController::class);
 
 // Report
 Route::get('reports', [ReportController::class, 'index'])->name('report.index');
+
+// Report Transaction endpoints
+Route::get('report-transactions/overview', [ReportTransactionController::class, 'overview'])->name('report-transactions.overview');
+Route::get('report-transactions/basic-report', [ReportTransactionController::class, 'basicReport'])->name('report-transactions.basic-report');
+Route::get('report-transactions/beneficiary-overview', [ReportTransactionController::class, 'beneficiaryOverview'])->name('report-transactions.beneficiary-overview');
+Route::get('report-transactions/beneficiarios', [ReportTransactionController::class, 'beneficiarios'])->name('report-transactions.beneficiarios');
 
 // Kanban-view task management
 Route::get('stages', [StageController::class, 'index'])->name('stages.index');
