@@ -40,7 +40,8 @@ class UserService extends BaseService
             'first_name',
             'last_name',
             'email',
-            'password'
+            'password',
+            'user_type'
         ), $attributes)));
 
         return $this;
