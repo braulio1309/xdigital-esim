@@ -15,7 +15,7 @@ class TransactionFilter extends FilterBuilder
      */
     public function search($search = null)
     {
-        return $this->builder->when($search, function ($query) use ($search) {
+        $this->builder->when($search, function ($query) use ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('transaction_id', 'like', "%{$search}%")
                     ->orWhere('plan_name', 'like', "%{$search}%")
@@ -34,7 +34,7 @@ class TransactionFilter extends FilterBuilder
      */
     public function status($status = null)
     {
-        return $this->builder->when($status, function ($query) use ($status) {
+        $this->builder->when($status, function ($query) use ($status) {
             $query->where('status', $status);
         });
     }
