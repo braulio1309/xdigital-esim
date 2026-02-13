@@ -17,12 +17,14 @@
             </ul>
         </div>
         <div class="card-body px-primary">
-            <app-table :id="data.tableId"
-                       class="remove-datatable-x-padding"
-                       :options="userTableOptions"
-                       :filtered-data="filteredData"
-                       :search="search"
-                       @action="action"/>
+            <div class="table-responsive">
+                <app-table :id="data.tableId"
+                           class="remove-datatable-x-padding"
+                           :options="userTableOptions"
+                           :filtered-data="filteredData"
+                           :search="search"
+                           @action="action"/>
+            </div>
         </div>
     </div>
 </template>
@@ -82,18 +84,16 @@
                     rowLimit: 10,
                     showAction: true,
                     orderBy: 'desc',
-                    actionType: "dropdown",
+                    actionType: "default",
                     actions: [
                         {
                             title: this.$t('edit'),
-                            type: 'none',
-                        },
-                        {
-                            title: this.$t('delete'),
+                            icon: 'edit',
                             type: 'none',
                         },
                         {
                             title: this.$t('active'),
+                            icon: 'check-circle',
                             type: 'none',
                             modifier: (row) => {
                                 const {status} = row;
@@ -102,6 +102,7 @@
                         },
                         {
                             title: this.$t('de_activate'),
+                            icon: 'x-circle',
                             type: 'none',
                             modifier: (row) => {
                                 const {status} = row;
@@ -109,38 +110,39 @@
                             }
                         },
                         {
-                            title: this.$t('manage_role'),
+                            title: this.$t('delete'),
+                            icon: 'trash-2',
                             type: 'none',
                         },
                     ],
                 },
                 userFilterOptions: [
                     {id: '', name: 'all_users', translated_name: 'All Users'},
+                    {id: 1, name: 'active', translated_name: 'Active'},
+                    {id: 2, name: 'inactive', translated_name: 'Inactive'},
                 ],
             }
-        },
-        mounted(){
-            this.getStatuses();
         },
         methods: {
             getFilterValue(item) {
                 this.value = item;
                 this.filteredData['status-id'] = item;
                 this.$hub.$emit('reload-' + this.data.tableId);
-            },
-            getStatuses(){
-                let url = `${actions.GET_STATUSES}?type=user`;
-
-                this.axiosGet(url).then(response => {
-
-                    this.userFilterOptions = [...this.userFilterOptions, ...response.data];
-
-                }).catch(({response}) => {
-
-                }).finally(() => {
-
-                });
             }
         }
     }
 </script>
+
+<style scoped>
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        display: block;
+        width: 100%;
+    }
+}
+</style>

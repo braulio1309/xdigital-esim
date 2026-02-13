@@ -9,8 +9,8 @@
                     <button type="button"
                             class="btn btn-success btn-with-shadow mr-2"
                             data-toggle="modal"
-                            @click="operationForUserInvitation">
-                        {{ $t('invite_users') }}
+                            @click="operationForUserCreate">
+                        {{ $t('create_user') }}
                     </button>
                     <button type="button"
                             class="btn btn-primary btn-with-shadow"
@@ -33,6 +33,9 @@
 
         <user-invitation-modal v-if="userAndRoles.users.isInviteModalActive"
                                @close-modal="closeInviteModal"/>
+
+        <user-create-modal v-if="userAndRoles.users.isCreateModalActive"
+                          @close-modal="closeCreateModal"/>
 
         <user-modal v-if="userAndRoles.users.isUserModalActive"
                     @close-modal="closeUserModal"/>
@@ -58,6 +61,7 @@
 
     import UserModal from "./Users/UserModal";
     import UserInvitationModal from "./Users/UserInvitationModal";
+    import UserCreateModal from "./Users/UserCreateModal";
     import ManageUsersModal from "./Users/ManageUsersModal";
     import User from "./Users/Index";
 
@@ -76,6 +80,7 @@
         components: {
             UserModal,
             UserInvitationModal,
+            UserCreateModal,
             RolesAddEditModal,
             User,
             ManageUsersModal,
@@ -219,6 +224,22 @@
             closeInviteModal() {
                 $('#' + this.userAndRoles.users.inviteModalId).modal('hide');
                 this.operationForUserInvitation(false);
+                this.resetData();
+            },
+
+            /**
+             * OPEN CREATE MODAL
+             * */
+            operationForUserCreate(isActive=true){
+                this.$store.dispatch('operationForUserCreate', isActive);
+            },
+
+            /**
+             * CLOSE CREATE MODAL
+             * */
+            closeCreateModal() {
+                $('#' + this.userAndRoles.users.createModalId).modal('hide');
+                this.operationForUserCreate(false);
                 this.resetData();
             },
 

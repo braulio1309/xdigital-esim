@@ -74,6 +74,7 @@ export const TRANSACTIONS = 'transactions';
 export const ROLES = 'admin/auth/roles';
 export const USERS = 'admin/auth/users';
 export const USERS_LIST = 'user-list';
+export const CREATE_USER = '/app/user-list';
 export const ALL_USERS = 'all-users';
 export const GET_USERS = 'get/users';
 export const GET_STATUSES = 'admin/app/statuses';
