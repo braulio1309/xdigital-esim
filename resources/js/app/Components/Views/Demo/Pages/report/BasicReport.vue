@@ -126,7 +126,7 @@ export default {
     },
     methods: {
         loadBeneficiarios() {
-            this.axiosGet('/app/report-transactions/beneficiarios')
+            return this.axiosGet('/app/report-transactions/beneficiarios')
                 .then(response => {
                     this.beneficiarios = response.data;
                 })

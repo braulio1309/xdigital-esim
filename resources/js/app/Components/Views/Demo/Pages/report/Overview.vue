@@ -178,7 +178,7 @@ export default {
             ]
         },
         loadBeneficiarios() {
-            this.axiosGet('/app/report-transactions/beneficiarios')
+            return this.axiosGet('/app/report-transactions/beneficiarios')
                 .then(response => {
                     this.beneficiarios = response.data;
                 })
@@ -214,8 +214,9 @@ export default {
     },
     mounted() {
         this.preloader = true;
-        this.loadBeneficiarios();
-        this.getOverview();
+        Promise.all([this.loadBeneficiarios(), this.getOverview()]).finally(() => {
+            this.preloader = false;
+        });
     }
 }
 </script>

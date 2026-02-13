@@ -111,7 +111,7 @@ export default {
             ]
         },
         loadBeneficiarios() {
-            this.axiosGet('/app/report-transactions/beneficiarios')
+            return this.axiosGet('/app/report-transactions/beneficiarios')
                 .then(response => {
                     this.beneficiarios = response.data;
                 })
@@ -135,8 +135,8 @@ export default {
                     this.transactionsByBeneficiario.labels = res.data.transactions_by_beneficiario.map(i => i.name);
                     this.transactionsByBeneficiario.dataSet = this.genChartData(res.data.transactions_by_beneficiario.map(i => ({ value: i.value })));
                     
-                    this.salesByPlan.labels = res.data.sales_by_plan.map(i => i.month);
-                    this.salesByPlan.dataSet = this.genChartData(res.data.sales_by_plan.map(i => ({ value: i.active_jobs })));
+                    this.salesByPlan.labels = res.data.sales_by_plan.map(i => i.plan);
+                    this.salesByPlan.dataSet = this.genChartData(res.data.sales_by_plan.map(i => ({ value: i.transaction_count })));
                 })
                 .finally(() => {
                     this.preloader = false;
@@ -145,8 +145,9 @@ export default {
     },
     mounted() {
         this.preloader = true;
-        this.loadBeneficiarios();
-        this.getBeneficiaryOverview();
+        Promise.all([this.loadBeneficiarios(), this.getBeneficiaryOverview()]).finally(() => {
+            this.preloader = false;
+        });
     }
 }
 </script>

@@ -70,7 +70,7 @@ class ReportTransactionController extends Controller
             ->groupBy('cliente.beneficiario.nombre')
             ->map(function ($transactions, $beneficiarioName) {
                 return [
-                    'name' => $beneficiarioName ?: 'Sin Beneficiario',
+                    'name' => $beneficiarioName ?: 'No Beneficiary',
                     'total_transactions' => $transactions->count(),
                 ];
             })
@@ -109,7 +109,7 @@ class ReportTransactionController extends Controller
             ->get()
             ->map(function ($item) {
                 return [
-                    'name' => $item->name ?: 'Sin Plan',
+                    'name' => $item->name ?: 'No Plan',
                     'count' => $item->count,
                     'value' => round($item->value, 2),
                 ];
@@ -167,14 +167,14 @@ class ReportTransactionController extends Controller
                 ->groupBy('plan_name')
                 ->map(function ($transactions, $planName) {
                     return [
-                        'plan' => $planName ?: 'Sin Plan',
+                        'plan' => $planName ?: 'No Plan',
                         'count' => $transactions->count(),
                     ];
                 });
         })->groupBy('plan')->map(function ($plans, $planName) {
             return [
-                'month' => $planName,
-                'active_jobs' => $plans->sum('count'),
+                'plan' => $planName,
+                'transaction_count' => $plans->sum('count'),
             ];
         })->values()->toArray();
 
