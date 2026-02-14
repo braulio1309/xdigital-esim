@@ -59,7 +59,7 @@
                                         
                                         {{-- Botón de Activación Automática --}}
                                         <div class="mt-3">
-                                            <button type="button" class="btn btn-success btn-lg" onclick="activarEsimDesdeDashboard('{{ $active_plan->esim_qr }}')">
+                                            <button type="button" class="btn btn-success btn-lg" onclick="activarEsimDesdeDashboard('{{ e($active_plan->esim_qr) }}')">
                                                 <i class="mdi mdi-cellphone-check mr-2"></i>Activar eSIM Automáticamente
                                             </button>
                                             <p class="small text-muted mt-2">Si no sabes usar el QR, haz clic aquí para activar tu eSIM</p>
@@ -132,7 +132,7 @@
                                                                         
                                                                         {{-- Botón de Activación Automática --}}
                                                                         <div class="mt-3">
-                                                                            <button type="button" class="btn btn-success" onclick="activarEsimDesdeDashboard('{{ $transaction->esim_qr }}')">
+                                                                            <button type="button" class="btn btn-success" onclick="activarEsimDesdeDashboard('{{ e($transaction->esim_qr) }}')">
                                                                                 <i class="mdi mdi-cellphone-check mr-2"></i>Activar eSIM Automáticamente
                                                                             </button>
                                                                             <p class="small text-muted mt-2">Si no sabes usar el QR, haz clic aquí</p>
