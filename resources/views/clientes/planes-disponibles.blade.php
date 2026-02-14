@@ -483,6 +483,14 @@
                         {{-- QR Code --}}
                         <div class="qr-code-container" v-html="esimData.qr_svg"></div>
 
+                        {{-- Botón de Activación Automática --}}
+                        <div class="my-3">
+                            <button type="button" class="btn btn-success btn-lg" @click="activarEsimAutomaticamente">
+                                <i class="mdi mdi-cellphone-check mr-2"></i>Activar eSIM Automáticamente
+                            </button>
+                            <p class="small text-muted mt-2">Si no sabes usar el QR, haz clic aquí para activar tu eSIM</p>
+                        </div>
+
                         {{-- Datos manuales --}}
                         <div class="text-left mt-4 p-3 bg-light rounded">
                             <h5 class="mb-3">Instalación Manual</h5>
@@ -806,6 +814,123 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 } else {
                     alert(message);
+                }
+            },
+            activarEsimAutomaticamente() {
+                if (!this.esimData) {
+                    this.showErrorMessage('Error: No hay datos de eSIM disponibles.');
+                    return;
+                }
+                
+                // Validar que existen las propiedades necesarias
+                if (!this.esimData.smdp || !this.esimData.code) {
+                    this.showErrorMessage('Error: Los datos de activación no están completos.');
+                    return;
+                }
+                
+                // Validar que los datos no sean 'N/A'
+                if (this.esimData.smdp === 'N/A' || this.esimData.code === 'N/A') {
+                    this.showErrorMessage('Error: Los datos de activación no son válidos.');
+                    return;
+                }
+                
+                // Construir el string LPA completo
+                var smdp = this.esimData.smdp;
+                var code = this.esimData.code;
+                var lpaString = 'LPA:1$' + smdp + '$' + code;
+                
+                // Detectar el tipo de dispositivo
+                var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                var isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+                var isAndroid = /android/i.test(userAgent);
+                
+                if (isIOS) {
+                    this.mostrarInstruccionesIOS(smdp, code);
+                } else if (isAndroid) {
+                    this.activarEnAndroid(lpaString, smdp, code);
+                } else {
+                    this.mostrarInstruccionesDesktop(smdp, code);
+                }
+            },
+            mostrarInstruccionesIOS(smdp, code) {
+                var mensaje = '📱 INSTRUCCIONES PARA iOS:\n\n' +
+                    '1. Ve a Configuración\n' +
+                    '2. Toca "Celular" o "Datos móviles"\n' +
+                    '3. Toca "Agregar plan celular"\n' +
+                    '4. Toca "Usar código QR" (escanea el QR arriba) o "Introducir información manualmente"\n' +
+                    '5. Si eliges manual, introduce:\n\n' +
+                    '   SM-DP+: ' + smdp + '\n' +
+                    '   Código: ' + code + '\n\n' +
+                    '6. Sigue las instrucciones en pantalla\n\n' +
+                    '💡 Consejo: Los códigos ya están copiables arriba para facilitar el proceso.';
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Instrucciones para iOS',
+                        html: mensaje.replace(/\n/g, '<br>'),
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(mensaje);
+                }
+            },
+            activarEnAndroid(lpaString, smdp, code) {
+                // Intentar abrir la configuración de eSIM en Android
+                var intentUrl = 'intent://esim#Intent;scheme=esim;package=com.android.settings;S.activation_code=' + 
+                                encodeURIComponent(lpaString) + ';end';
+                
+                // Intentar abrir con el intent
+                window.location.href = intentUrl;
+                
+                // Mostrar instrucciones de respaldo después de un breve delay
+                // (si el intent funciona, el usuario habrá cambiado de app; si no, verá las instrucciones)
+                setTimeout(() => {
+                    this.mostrarInstruccionesAndroid(smdp, code);
+                }, 2000);
+            },
+            mostrarInstruccionesAndroid(smdp, code) {
+                var mensaje = '📱 INSTRUCCIONES PARA ANDROID:\n\n' +
+                    '1. Ve a Configuración\n' +
+                    '2. Busca "Red móvil" o "Conexiones"\n' +
+                    '3. Toca "Administrador de SIM" o "SIM"\n' +
+                    '4. Toca "Agregar eSIM" o "Descargar eSIM"\n' +
+                    '5. Escanea el código QR de arriba o introduce manualmente:\n\n' +
+                    '   SM-DP+: ' + smdp + '\n' +
+                    '   Código: ' + code + '\n\n' +
+                    '6. Confirma la instalación\n\n' +
+                    '💡 Nota: Los pasos pueden variar según tu modelo de teléfono.';
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Instrucciones para Android',
+                        html: mensaje.replace(/\n/g, '<br>'),
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(mensaje);
+                }
+            },
+            mostrarInstruccionesDesktop(smdp, code) {
+                var mensaje = '💻 ACTIVACIÓN DESDE COMPUTADORA:\n\n' +
+                    'Para activar tu eSIM necesitas hacerlo desde tu teléfono móvil.\n\n' +
+                    '📋 Opciones:\n\n' +
+                    '1. Escanea el código QR mostrado arriba con tu teléfono\n' +
+                    '2. Copia los datos manualmente y ábrelos en tu teléfono:\n\n' +
+                    '   SM-DP+: ' + smdp + '\n' +
+                    '   Código: ' + code + '\n\n' +
+                    '3. Envía esta página a tu teléfono y activa desde allí';
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Activación desde Computadora',
+                        html: mensaje.replace(/\n/g, '<br>'),
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(mensaje);
                 }
             }
         }
