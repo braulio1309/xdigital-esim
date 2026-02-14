@@ -93,6 +93,11 @@ class TransactionController extends Controller
      */
     public function markAsPaid(\Illuminate\Http\Request $request)
     {
+        // Authorization check - only admin users can mark transactions as paid
+        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+            return response()->json(['message' => 'Unauthorized. Only administrators can mark transactions as paid.'], 403);
+        }
+
         $validated = $request->validate([
             'beneficiario_id' => 'required|exists:beneficiarios,id',
             'start_date' => 'required|date',
