@@ -52,6 +52,10 @@ export const GET_EMAIL_SETTINGS = '/admin/app/settings/delivery-settings';
 export const GET_PLAN_MARGINS = '/admin/app/settings/plan-margins';
 export const UPDATE_PLAN_MARGINS = '/admin/app/settings/plan-margins';
 
+//Beneficiary Plan Margins
+export const GET_BENEFICIARY_PLAN_MARGINS = '/admin/app/beneficiario/plan-margins';
+export const UPDATE_BENEFICIARY_PLAN_MARGINS = '/admin/app/beneficiario/plan-margins';
+
 //DataTable
 export const DATATABLE_DATA = 'crud';
 export const DATATABLE_EXPORT = 'export-crud';

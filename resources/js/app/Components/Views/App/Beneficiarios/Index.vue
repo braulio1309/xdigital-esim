@@ -23,6 +23,12 @@
                    :selected-url="selectedUrl"
                    @close-modal="closeAddEditModal"/>
 
+        <beneficiary-plan-margins-modal 
+            v-if="isMarginModalActive"
+            :beneficiario-id="selectedBeneficiario.id"
+            :beneficiario-name="selectedBeneficiario.nombre"
+            @close="closeMarginModal"/>
+
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
                           modal-id="beneficiario-delete"
@@ -49,6 +55,8 @@
             return {
                 deleteLoader: false,
                 isAddEditModalActive: false,
+                isMarginModalActive: false,
+                selectedBeneficiario: {},
                 deleteConfirmationModalActive: false,
                 selectedUrl: '',
                 tableId: 'beneficiarios-table',
@@ -103,7 +111,13 @@
                             type: 'none',
                             component: 'app-add-modal',
                             modalId: 'beneficiario-add-edit-modal',
-                        }, {
+                        },
+                        {
+                            title: this.$t('manage_commissions'),
+                            icon: 'dollar-sign',
+                            type: 'none',
+                        },
+                        {
                             title: this.$t('delete'),
                             icon: 'trash',
                             type: 'none',
@@ -154,7 +168,25 @@
                 } else if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.BENEFICIARIOS}/${rowData.id}`;
                     this.openAddEditModal();
+                } else if (actionObj.title == this.$t('manage_commissions')) {
+                    this.openMarginModal(rowData);
                 }
+            },
+
+            /**
+             * Open margin modal for beneficiary
+             */
+            openMarginModal(rowData) {
+                this.selectedBeneficiario = rowData;
+                this.isMarginModalActive = true;
+            },
+
+            /**
+             * Close margin modal
+             */
+            closeMarginModal() {
+                this.isMarginModalActive = false;
+                this.selectedBeneficiario = {};
             },
 
             /**
