@@ -98,6 +98,29 @@
                             }
                         },
                         {
+                            title: this.$t('unpaid_transactions'),
+                            type: 'custom-html',
+                            key: 'unpaid_transactions_count',
+                            modifier: (value, row) => {
+                                if (!value || value === 0) {
+                                    return '<span class="badge badge-success">0</span>';
+                                }
+                                return `<span class="badge badge-warning">${value}</span>`;
+                            }
+                        },
+                        {
+                            title: this.$t('total_owed'),
+                            type: 'custom-html',
+                            key: 'total_owed',
+                            modifier: (value, row) => {
+                                const amount = parseFloat(value || 0).toFixed(2);
+                                if (amount === '0.00') {
+                                    return `<span class="text-success">$0.00</span>`;
+                                }
+                                return `<span class="text-danger font-weight-bold">$${amount}</span>`;
+                            }
+                        },
+                        {
                             title: this.$t('action'),
                             type: 'action',
                             key: 'invoice',

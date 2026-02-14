@@ -26,10 +26,27 @@ class BeneficiarioController extends Controller
      */
     public function index()
     {
-        return $this->service
+        $beneficiarios = $this->service
             ->filters($this->filter)
             ->latest()
             ->paginate(request()->get('per_page', 10));
+        
+        // Add unpaid transactions count and total owed for each beneficiary
+        $beneficiarios->getCollection()->transform(function ($beneficiario) {
+            $unpaidCount = \App\Models\App\Transaction\Transaction::where('purchase_amount', 0)
+                ->where('is_paid', false)
+                ->whereHas('cliente', function ($q) use ($beneficiario) {
+                    $q->where('beneficiario_id', $beneficiario->id);
+                })
+                ->count();
+            
+            $beneficiario->unpaid_transactions_count = $unpaidCount;
+            $beneficiario->total_owed = $unpaidCount * 0.85;
+            
+            return $beneficiario;
+        });
+        
+        return $beneficiarios;
     }
 
     /**
