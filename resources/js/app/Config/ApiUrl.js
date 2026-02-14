@@ -73,6 +73,8 @@ export const CLIENTES = 'clientes';
 
 //Transactions
 export const TRANSACTIONS = 'transactions';
+export const TRANSACTIONS_PAYMENT_STATS = 'transactions/payment-stats';
+export const TRANSACTIONS_MARK_AS_PAID = 'transactions/mark-as-paid';
 
 //roles and users
 export const ROLES = 'admin/auth/roles';

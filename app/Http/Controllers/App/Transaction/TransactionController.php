@@ -28,7 +28,7 @@ class TransactionController extends Controller
     {
         $query = $this->service
             ->filters($this->filter)
-            ->with('cliente');
+            ->with('cliente.beneficiario.planMargins');
         
         // Filter by beneficiario_id if user is a beneficiario
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
@@ -41,8 +41,82 @@ class TransactionController extends Controller
             }
         }
         
-        return $query->latest()
-            ->paginate(request()->get('per_page', 10));
+        $transactions = $query->latest()->paginate(request()->get('per_page', 10));
+        
+        // Add commission calculations to each transaction
+        $transactions->getCollection()->transform(function ($transaction) {
+            $transaction->commission_amount = $transaction->getCommissionAmount();
+            $transaction->commission_percentage = $transaction->getCommissionPercentage();
+            $transaction->beneficiario = $transaction->cliente->beneficiario ?? null;
+            return $transaction;
+        });
+        
+        return $transactions;
+    }
+
+    /**
+     * Get payment statistics for unpaid transactions
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function paymentStats()
+    {
+        $query = Transaction::with('cliente.beneficiario')
+            ->where('is_paid', false)
+            ->where('purchase_amount', 0); // Only free eSIMs
+        
+        // Filter by beneficiario if not admin
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            
+            if ($beneficiario) {
+                $query = $query->whereHas('cliente', function ($q) use ($beneficiario) {
+                    $q->where('beneficiario_id', $beneficiario->id);
+                });
+            }
+        }
+        
+        $unpaidCount = $query->count();
+        $totalOwed = $unpaidCount * 0.85;
+        
+        return response()->json([
+            'unpaid_count' => $unpaidCount,
+            'total_owed' => $totalOwed
+        ]);
+    }
+
+    /**
+     * Mark transactions as paid
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function markAsPaid(\Illuminate\Http\Request $request)
+    {
+        $validated = $request->validate([
+            'beneficiario_id' => 'required|exists:beneficiarios,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $updated = Transaction::where('purchase_amount', 0) // Only free eSIMs
+            ->where('is_paid', false)
+            ->whereHas('cliente', function ($q) use ($validated) {
+                $q->where('beneficiario_id', $validated['beneficiario_id']);
+            })
+            ->whereBetween('creation_time', [
+                $validated['start_date'],
+                $validated['end_date'] . ' 23:59:59'
+            ])
+            ->update([
+                'is_paid' => true,
+                'paid_at' => now()
+            ]);
+
+        return response()->json([
+            'message' => "Successfully marked {$updated} transactions as paid",
+            'updated_count' => $updated
+        ]);
     }
 
     /**
