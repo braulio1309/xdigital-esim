@@ -54,13 +54,17 @@
 </template>
 
 <script>
+    import axios from 'axios';
     import * as actions from "../../../../Config/ApiUrl";
+    import {FormMixin} from '../../../../../core/mixins/form/FormMixin.js';
 
     export default {
         name: "MarkAsPaidModal",
         props: {
             tableId: String
         },
+        mixins: [FormMixin],
+
         data() {
             return {
                 preloader: false,
@@ -78,7 +82,8 @@
         },
         methods: {
             loadBeneficiarios() {
-                this.axiosGet(actions.BENEFICIARIOS + '?per_page=1000')
+                this.preloader = true;
+                axios.get('/beneficiarios?per_page=1000')
                     .then(response => {
                         this.beneficiariosList = response.data.data.map(beneficiario => ({
                             id: beneficiario.id,
@@ -87,6 +92,9 @@
                     })
                     .catch(error => {
                         this.$toastr.e(this.$t('error_loading_beneficiaries'));
+                    })
+                    .finally(() => {
+                        this.preloader = false;
                     });
             },
 
@@ -97,7 +105,7 @@
                 }
 
                 this.preloader = true;
-                this.axiosPost(actions.TRANSACTIONS_MARK_AS_PAID, this.inputs)
+                axios.post('/transactions/mark-as-paid', this.inputs)
                     .then(response => {
                         this.$toastr.s(response.data.message);
                         this.$hub.$emit('reload-' + this.tableId);
