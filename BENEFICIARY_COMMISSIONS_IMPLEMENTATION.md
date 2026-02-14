@@ -140,12 +140,12 @@ Added exports:
 **File**: `resources/lang/en/default.php`
 
 Added translations:
-- `beneficiary_plan_margins`: "Comisiones por Planes"
-- `beneficiary_profit_margin_configuration`: "Configuración de Comisiones del Beneficiario"
-- `configure_beneficiary_margins_explanation`: "Configura tus propios márgenes de ganancia sobre los precios establecidos por el administrador."
-- `if_admin_price`: "Si el precio del admin es"
-- `confirm_reset_beneficiary_margins`: "¿Está seguro de que desea restablecer todos los márgenes a 0%?"
-- `manage_commissions`: "Gestionar Comisiones"
+- `beneficiary_plan_margins`: "Plan Commissions"
+- `beneficiary_profit_margin_configuration`: "Beneficiary Commission Configuration"
+- `configure_beneficiary_margins_explanation`: "Configure your own profit margins on top of the prices set by the administrator."
+- `if_admin_price`: "If the admin price is"
+- `confirm_reset_beneficiary_margins`: "Are you sure you want to reset all margins to 0%?"
+- `manage_commissions`: "Manage Commissions"
 
 ### Model Updates
 
