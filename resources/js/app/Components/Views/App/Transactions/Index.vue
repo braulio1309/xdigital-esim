@@ -289,7 +289,11 @@
         },
         computed: {
             isAdmin() {
-                return this.$store.state.user && this.$store.state.user.user_type === 'admin';
+                // Check if the logged in user is admin by checking their role
+                return this.$store.state.user && 
+                       this.$store.state.user.loggedInUser && 
+                       (this.$store.state.user.loggedInUser.role === 'Admin' || 
+                        this.$store.state.user.loggedInUser.user_type === 'admin');
             },
             showPaymentStats() {
                 return this.paymentStats.unpaid_count > 0;
