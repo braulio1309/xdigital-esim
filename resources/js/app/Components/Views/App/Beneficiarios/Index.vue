@@ -179,9 +179,6 @@
             openMarginModal(rowData) {
                 this.selectedBeneficiario = rowData;
                 this.isMarginModalActive = true;
-                this.$nextTick(() => {
-                    $('#beneficiary-plan-margins-modal').modal('show');
-                });
             },
 
             /**

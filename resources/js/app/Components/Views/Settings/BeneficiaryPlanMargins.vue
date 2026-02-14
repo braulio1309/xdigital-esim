@@ -223,7 +223,6 @@
              */
             closeModal() {
                 this.$emit('close');
-                $('#beneficiary-plan-margins-modal').modal('hide');
             }
         }
     }
