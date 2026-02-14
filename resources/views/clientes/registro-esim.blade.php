@@ -164,7 +164,16 @@
                                         </div>
                                     </div>
                                 </div>
-                                <p class="small text-muted">Ve a <strong>Configuración > Red Móvil > Agregar eSIM</strong>.</p>
+                                
+                                {{-- Botón de Activación Automática --}}
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-brand-gradient btn-lg" onclick="activarEsimAutomaticamente()" id="btn-activar-esim">
+                                        <i class="mdi mdi-cellphone-check mr-2"></i>Activar eSIM Automáticamente
+                                    </button>
+                                    <p class="small text-muted mt-2">Si no sabes usar el QR, haz clic aquí para activar tu eSIM</p>
+                                </div>
+
+                                <p class="small text-muted">O escanea el código y ve a <strong>Configuración > Red Móvil > Agregar eSIM</strong>.</p>
 
                                 <hr class="my-4">
 
@@ -209,6 +218,101 @@
                                     copyText.setSelectionRange(0, 99999);
                                     document.execCommand("copy");
                                     alert("Copiado: " + copyText.value);
+                                }
+
+                                function activarEsimAutomaticamente() {
+                                    // Construir el string LPA completo desde los datos disponibles
+                                    var smdp = document.getElementById('smdp_input').value;
+                                    var code = document.getElementById('code_input').value;
+                                    var lpaString = 'LPA:1$' + smdp + '$' + code;
+                                    
+                                    // Detectar el tipo de dispositivo
+                                    var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                                    var isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+                                    var isAndroid = /android/i.test(userAgent);
+                                    
+                                    if (isIOS) {
+                                        // Para iOS, intentar abrir la configuración de eSIM
+                                        // iOS no permite deep linking directo a eSIM desde web, mostrar instrucciones
+                                        mostrarInstruccionesIOS(smdp, code);
+                                    } else if (isAndroid) {
+                                        // Para Android, intentar activación automática
+                                        activarEnAndroid(lpaString, smdp, code);
+                                    } else {
+                                        // Para escritorio o dispositivos no compatibles
+                                        mostrarInstruccionesDesktop(smdp, code);
+                                    }
+                                }
+
+                                function mostrarInstruccionesIOS(smdp, code) {
+                                    var mensaje = '📱 INSTRUCCIONES PARA iOS:\n\n' +
+                                        '1. Ve a Configuración\n' +
+                                        '2. Toca "Celular" o "Datos móviles"\n' +
+                                        '3. Toca "Agregar plan celular"\n' +
+                                        '4. Toca "Usar código QR" (escanea el QR arriba) o "Introducir información manualmente"\n' +
+                                        '5. Si eliges manual, introduce:\n\n' +
+                                        '   SM-DP+: ' + smdp + '\n' +
+                                        '   Código: ' + code + '\n\n' +
+                                        '6. Sigue las instrucciones en pantalla\n\n' +
+                                        '💡 Consejo: Los códigos ya están copiables arriba para facilitar el proceso.';
+                                    
+                                    alert(mensaje);
+                                }
+
+                                function activarEnAndroid(lpaString, smdp, code) {
+                                    // Intentar abrir la configuración de eSIM en Android
+                                    // Usar el intent de Android para eSIM si está disponible
+                                    var intentUrl = 'intent://esim#Intent;scheme=esim;package=com.android.settings;S.activation_code=' + 
+                                                    encodeURIComponent(lpaString) + ';end';
+                                    
+                                    // Intentar abrir con el intent
+                                    var opened = false;
+                                    try {
+                                        window.location.href = intentUrl;
+                                        opened = true;
+                                        
+                                        // Si se abrió, mostrar mensaje de éxito después de un breve delay
+                                        setTimeout(function() {
+                                            alert('✅ Se abrió la configuración de eSIM. Sigue las instrucciones en tu dispositivo.');
+                                        }, 500);
+                                    } catch (e) {
+                                        opened = false;
+                                    }
+                                    
+                                    // Si no se pudo abrir automáticamente, mostrar instrucciones
+                                    if (!opened) {
+                                        setTimeout(function() {
+                                            mostrarInstruccionesAndroid(smdp, code);
+                                        }, 1000);
+                                    }
+                                }
+
+                                function mostrarInstruccionesAndroid(smdp, code) {
+                                    var mensaje = '📱 INSTRUCCIONES PARA ANDROID:\n\n' +
+                                        '1. Ve a Configuración\n' +
+                                        '2. Busca "Red móvil" o "Conexiones"\n' +
+                                        '3. Toca "Administrador de SIM" o "SIM"\n' +
+                                        '4. Toca "Agregar eSIM" o "Descargar eSIM"\n' +
+                                        '5. Escanea el código QR de arriba o introduce manualmente:\n\n' +
+                                        '   SM-DP+: ' + smdp + '\n' +
+                                        '   Código: ' + code + '\n\n' +
+                                        '6. Confirma la instalación\n\n' +
+                                        '💡 Nota: Los pasos pueden variar según tu modelo de teléfono.';
+                                    
+                                    alert(mensaje);
+                                }
+
+                                function mostrarInstruccionesDesktop(smdp, code) {
+                                    var mensaje = '💻 ACTIVACIÓN DESDE COMPUTADORA:\n\n' +
+                                        'Para activar tu eSIM necesitas hacerlo desde tu teléfono móvil.\n\n' +
+                                        '📋 Opciones:\n\n' +
+                                        '1. Escanea el código QR mostrado arriba con tu teléfono\n' +
+                                        '2. Copia los datos manualmente y ábrelos en tu teléfono:\n\n' +
+                                        '   SM-DP+: ' + smdp + '\n' +
+                                        '   Código: ' + code + '\n\n' +
+                                        '3. Envía esta página a tu teléfono y activa desde allí';
+                                    
+                                    alert(mensaje);
                                 }
                             </script>
 
