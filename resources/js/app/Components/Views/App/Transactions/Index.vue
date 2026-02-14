@@ -203,7 +203,7 @@
                             type: 'custom-html',
                             key: 'purchase_amount',
                             modifier: (value, row) => {
-                                if (value == 0) {
+                                if (value === 0 || value === '0' || value === 0.0) {
                                     return `<span class="badge badge-success">${this.$t('free')}</span>`;
                                 }
                                 return value ? `$${parseFloat(value).toFixed(2)}` : 'N/A';
@@ -216,7 +216,7 @@
                             modifier: (value, row) => {
                                 const commission = parseFloat(value || 0).toFixed(2);
                                 const percentage = row.commission_percentage || 0;
-                                if (row.purchase_amount == 0) {
+                                if (row.purchase_amount === 0 || row.purchase_amount === '0' || row.purchase_amount === 0.0) {
                                     return `$${commission}`;
                                 }
                                 return `$${commission} (${percentage}%)`;

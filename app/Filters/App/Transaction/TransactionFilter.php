@@ -73,9 +73,10 @@ class TransactionFilter extends FilterBuilder
     public function payment_status($paymentStatus = null)
     {
         $this->builder->when($paymentStatus !== null, function ($query) use ($paymentStatus) {
-            if ($paymentStatus === 'paid' || $paymentStatus === true || $paymentStatus === '1') {
+            // Convert to boolean for strict comparison
+            if ($paymentStatus === 'paid' || $paymentStatus === true || $paymentStatus === 1 || $paymentStatus === '1') {
                 $query->where('is_paid', true);
-            } elseif ($paymentStatus === 'unpaid' || $paymentStatus === false || $paymentStatus === '0') {
+            } elseif ($paymentStatus === 'unpaid' || $paymentStatus === false || $paymentStatus === 0 || $paymentStatus === '0') {
                 $query->where('is_paid', false);
             }
         });
