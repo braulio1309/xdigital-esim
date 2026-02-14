@@ -53,8 +53,8 @@ export const GET_PLAN_MARGINS = '/admin/app/settings/plan-margins';
 export const UPDATE_PLAN_MARGINS = '/admin/app/settings/plan-margins';
 
 //Beneficiary Plan Margins
-export const GET_BENEFICIARY_PLAN_MARGINS = '/admin/app/beneficiario/plan-margins';
-export const UPDATE_BENEFICIARY_PLAN_MARGINS = '/admin/app/beneficiario/plan-margins';
+export const GET_BENEFICIARY_PLAN_MARGINS = '/beneficiario/plan-margins';
+export const UPDATE_BENEFICIARY_PLAN_MARGINS = '/beneficiario/plan-margins';
 
 //DataTable
 export const DATATABLE_DATA = 'crud';

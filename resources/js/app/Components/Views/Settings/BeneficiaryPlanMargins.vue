@@ -15,7 +15,6 @@
             <app-overlay-loader v-if="preloader"/>
             <form v-else ref="form" class="mb-0" :class="{'loading-opacity': preloader}">
                 
-                <!-- Introduction -->
                 <div class="form-group mb-4">
                     <div class="alert alert-info">
                         <strong>{{ $t('beneficiary_profit_margin_configuration') }}</strong>
@@ -24,7 +23,6 @@
                     </div>
                 </div>
 
-                <!-- Plan Margins Table -->
                 <div class="table-responsive">
                     <table class="table table-hover table-sm">
                         <thead>
@@ -64,7 +62,6 @@
                     </table>
                 </div>
 
-                <!-- Action Buttons -->
                 <div class="mt-4 d-flex justify-content-between">
                     <button class="btn btn-secondary" @click.prevent="resetToDefaults">
                         {{ $t('reset_to_defaults') }}
@@ -84,8 +81,9 @@
 </template>
 
 <script>
+    import axios from 'axios';
     import {FormMixin} from "../../../../core/mixins/form/FormMixin";
-    import {ModalMixin} from "../../../../core/mixins/ModalMixin";
+    import {ModalMixin} from "../../../Mixins/ModalMixin";
     import * as actions from "../../../Config/ApiUrl";
 
     export default {
@@ -119,55 +117,43 @@
             this.getMargins();
         },
         methods: {
-            /**
-             * Get current margin configuration from API
-             */
             getMargins() {
                 this.preloader = true;
-                const url = actions.GET_BENEFICIARY_PLAN_MARGINS;
-
-                this.axiosGet({
-                    url: url,
+                axios.get(actions.GET_BENEFICIARY_PLAN_MARGINS, {
                     params: {
                         beneficiario_id: this.beneficiarioId
                     }
                 })
-                    .then(response => {
-                        if (response.data && response.data.margins) {
-                            // Merge API data with default structure
-                            Object.keys(response.data.margins).forEach(plan => {
-                                if (this.margins[plan]) {
-                                    this.margins[plan] = {
-                                        ...this.margins[plan],
-                                        ...response.data.margins[plan]
-                                    };
-                                }
-                            });
-                        }
-                    })
-                    .catch(({response}) => {
-                        this.$toastr.e(response?.data?.message || this.$t('error_loading_margins'));
-                    })
-                    .finally(() => {
-                        this.preloader = false;
-                    });
+                .then(response => {
+                    if (response.data && response.data.margins) {
+                        Object.keys(response.data.margins).forEach(plan => {
+                            if (this.margins[plan]) {
+                                this.margins[plan] = {
+                                    ...this.margins[plan],
+                                    ...response.data.margins[plan]
+                                };
+                            }
+                        });
+                    }
+                })
+                .catch(error => {
+                    const message = error.response?.data?.message || this.$t('error_loading_margins');
+                    this.$toastr.e(message);
+                })
+                .finally(() => {
+                    this.preloader = false;
+                });
             },
 
-            /**
-             * Submit form to update margins
-             */
             submit() {
                 this.preloader = true;
-                const url = actions.UPDATE_BENEFICIARY_PLAN_MARGINS;
                 const data = { 
                     beneficiario_id: this.beneficiarioId,
                     margins: this.margins 
                 };
 
-                this.axiosPost({
-                    url: url,
-                    data: data
-                }).then(response => {
+                axios.post(actions.UPDATE_BENEFICIARY_PLAN_MARGINS, data)
+                .then(response => {
                     this.$toastr.s(response.data.message || this.$t('margins_updated_successfully'));
                     if (response.data && response.data.margins) {
                         Object.keys(response.data.margins).forEach(plan => {
@@ -179,20 +165,19 @@
                             }
                         });
                     }
-                    // Close modal after successful save
                     setTimeout(() => {
                         this.closeModal();
                     }, 1000);
-                }).catch(({response}) => {
-                    this.$toastr.e(response?.data?.message || this.$t('error_updating_margins'));
-                }).finally(() => {
+                })
+                .catch(error => {
+                    const message = error.response?.data?.message || this.$t('error_updating_margins');
+                    this.$toastr.e(message);
+                })
+                .finally(() => {
                     this.preloader = false;
                 });
             },
 
-            /**
-             * Reset all margins to default 0%
-             */
             resetToDefaults() {
                 if (confirm(this.$t('confirm_reset_beneficiary_margins'))) {
                     this.planCapacities.forEach(plan => {
@@ -202,10 +187,6 @@
                 }
             },
 
-            /**
-             * Calculate example final price for a given margin
-             * Formula: Final Price = Admin Price / (1 - Margin)
-             */
             calculateExample(marginPercentage) {
                 const adminPrice = 100;
                 const marginDecimal = parseFloat(marginPercentage) / 100;
@@ -218,9 +199,6 @@
                 return finalPrice.toFixed(2);
             },
 
-            /**
-             * Close modal and emit event
-             */
             closeModal() {
                 this.$emit('close');
             }
