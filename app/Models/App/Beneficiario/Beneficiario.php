@@ -4,6 +4,7 @@ namespace App\Models\App\Beneficiario;
 
 use App\Models\App\AppModel;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\Settings\BeneficiaryPlanMargin;
 use App\Models\Core\Auth\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -46,6 +47,16 @@ class Beneficiario extends AppModel
     public function clientes()
     {
         return $this->hasMany(Cliente::class);
+    }
+
+    /**
+     * Relationship with BeneficiaryPlanMargin model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function planMargins()
+    {
+        return $this->hasMany(BeneficiaryPlanMargin::class);
     }
 
     /**

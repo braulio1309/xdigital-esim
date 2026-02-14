@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use App\Services\App\Settings\PlanMarginService;
+use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use App\Services\EsimFxService;
 use App\Services\StripeService;
 use Illuminate\Http\Request;
@@ -25,17 +26,20 @@ class PlanesDisponiblesController extends Controller
     protected $stripeService;
     protected $clienteService;
     protected $planMarginService;
+    protected $beneficiaryPlanMarginService;
 
     public function __construct(
         EsimFxService $esimService, 
         StripeService $stripeService,
         ClienteService $clienteService,
-        PlanMarginService $planMarginService
+        PlanMarginService $planMarginService,
+        BeneficiaryPlanMarginService $beneficiaryPlanMarginService
     ) {
         $this->esimService = $esimService;
         $this->stripeService = $stripeService;
         $this->clienteService = $clienteService;
         $this->planMarginService = $planMarginService;
+        $this->beneficiaryPlanMarginService = $beneficiaryPlanMarginService;
     }
 
     /**
@@ -79,12 +83,32 @@ class PlanesDisponiblesController extends Controller
                 'countries' => $country
             ]);
 
+            // Get the authenticated user's cliente and beneficiario
+            $user = Auth::user();
+            $cliente = $user ? $user->cliente : null;
+            $beneficiarioId = $cliente && $cliente->beneficiario_id ? $cliente->beneficiario_id : null;
+
             // Formatear los productos para el frontend
-            $formattedProducts = collect($products)->map(function ($product) {
-                // Apply profit margin to price
+            $formattedProducts = collect($products)->map(function ($product) use ($beneficiarioId) {
+                // Apply admin profit margin to price
                 $originalPrice = $product['price'];
                 $planCapacity = $product['amount']; // Amount is in GB (e.g., 1, 3, 5, 10, 20, 50)
-                $finalPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $planCapacity);
+                
+                // First, apply admin margin
+                $priceWithAdminMargin = $this->planMarginService->calculateFinalPrice($originalPrice, $planCapacity);
+                
+                // Then, if the cliente has a beneficiario, apply beneficiary margin on top
+                $finalPrice = $priceWithAdminMargin;
+                $beneficiaryMarginApplied = false;
+                
+                if ($beneficiarioId) {
+                    $finalPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice(
+                        $priceWithAdminMargin, 
+                        $planCapacity, 
+                        $beneficiarioId
+                    );
+                    $beneficiaryMarginApplied = ($finalPrice != $priceWithAdminMargin);
+                }
                 
                 return [
                     'id' => $product['id'],
@@ -99,6 +123,7 @@ class PlanesDisponiblesController extends Controller
                     'coverage' => $product['coverage'] ?? [],
                     'is_free' => $originalPrice == 0,
                     'margin_applied' => $finalPrice != $originalPrice,
+                    'beneficiary_margin_applied' => $beneficiaryMarginApplied,
                 ];
             })
             // Filter to only show 3GB, 5GB, and 10GB plans
