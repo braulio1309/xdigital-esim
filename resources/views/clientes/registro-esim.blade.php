@@ -221,9 +221,25 @@
                                 }
 
                                 function activarEsimAutomaticamente() {
+                                    // Validar que los elementos existen
+                                    var smdpInput = document.getElementById('smdp_input');
+                                    var codeInput = document.getElementById('code_input');
+                                    
+                                    if (!smdpInput || !codeInput) {
+                                        alert('Error: No se encontraron los datos de activación. Por favor, recarga la página.');
+                                        return;
+                                    }
+                                    
                                     // Construir el string LPA completo desde los datos disponibles
-                                    var smdp = document.getElementById('smdp_input').value;
-                                    var code = document.getElementById('code_input').value;
+                                    var smdp = smdpInput.value;
+                                    var code = codeInput.value;
+                                    
+                                    // Validar que los datos no estén vacíos
+                                    if (!smdp || !code || smdp === 'N/A' || code === 'N/A') {
+                                        alert('Error: Los datos de activación no están disponibles.');
+                                        return;
+                                    }
+                                    
                                     var lpaString = 'LPA:1$' + smdp + '$' + code;
                                     
                                     // Detectar el tipo de dispositivo
@@ -266,25 +282,13 @@
                                                     encodeURIComponent(lpaString) + ';end';
                                     
                                     // Intentar abrir con el intent
-                                    var opened = false;
-                                    try {
-                                        window.location.href = intentUrl;
-                                        opened = true;
-                                        
-                                        // Si se abrió, mostrar mensaje de éxito después de un breve delay
-                                        setTimeout(function() {
-                                            alert('✅ Se abrió la configuración de eSIM. Sigue las instrucciones en tu dispositivo.');
-                                        }, 500);
-                                    } catch (e) {
-                                        opened = false;
-                                    }
+                                    window.location.href = intentUrl;
                                     
-                                    // Si no se pudo abrir automáticamente, mostrar instrucciones
-                                    if (!opened) {
-                                        setTimeout(function() {
-                                            mostrarInstruccionesAndroid(smdp, code);
-                                        }, 1000);
-                                    }
+                                    // Mostrar instrucciones de respaldo después de un breve delay
+                                    // (si el intent funciona, el usuario habrá cambiado de app; si no, verá las instrucciones)
+                                    setTimeout(function() {
+                                        mostrarInstruccionesAndroid(smdp, code);
+                                    }, 2000);
                                 }
 
                                 function mostrarInstruccionesAndroid(smdp, code) {

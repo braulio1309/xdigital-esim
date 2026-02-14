@@ -183,11 +183,24 @@
 @push('scripts')
 <script>
 function activarEsimDesdeDashboard(lpaString) {
+    // Validar el formato del LPA string
+    if (!lpaString || typeof lpaString !== 'string') {
+        alert('Error: Datos de eSIM no válidos.');
+        return;
+    }
+    
     // Separar datos del LPA string
     // Formato: LPA:1$smdp.address$activationCode
     var parts = lpaString.split('$');
-    var smdp = parts[1] || 'N/A';
-    var code = parts[2] || 'N/A';
+    
+    // Validar que tenemos todas las partes necesarias
+    if (parts.length < 3 || !parts[1] || !parts[2]) {
+        alert('Error: El formato de los datos de eSIM no es válido. Por favor, contacta al soporte.');
+        return;
+    }
+    
+    var smdp = parts[1];
+    var code = parts[2];
     
     // Detectar el tipo de dispositivo
     var userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -222,23 +235,14 @@ function activarEnAndroid(lpaString, smdp, code) {
     var intentUrl = 'intent://esim#Intent;scheme=esim;package=com.android.settings;S.activation_code=' + 
                     encodeURIComponent(lpaString) + ';end';
     
-    var opened = false;
-    try {
-        window.location.href = intentUrl;
-        opened = true;
-        
-        setTimeout(function() {
-            alert('✅ Se abrió la configuración de eSIM. Sigue las instrucciones en tu dispositivo.');
-        }, 500);
-    } catch (e) {
-        opened = false;
-    }
+    // Intentar abrir con el intent
+    window.location.href = intentUrl;
     
-    if (!opened) {
-        setTimeout(function() {
-            mostrarInstruccionesAndroid(smdp, code);
-        }, 1000);
-    }
+    // Mostrar instrucciones de respaldo después de un breve delay
+    // (si el intent funciona, el usuario habrá cambiado de app; si no, verá las instrucciones)
+    setTimeout(function() {
+        mostrarInstruccionesAndroid(smdp, code);
+    }, 2000);
 }
 
 function mostrarInstruccionesAndroid(smdp, code) {

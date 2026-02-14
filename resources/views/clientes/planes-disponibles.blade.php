@@ -817,7 +817,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             activarEsimAutomaticamente() {
-                if (!this.esimData) return;
+                if (!this.esimData) {
+                    this.showErrorMessage('Error: No hay datos de eSIM disponibles.');
+                    return;
+                }
+                
+                // Validar que existen las propiedades necesarias
+                if (!this.esimData.smdp || !this.esimData.code) {
+                    this.showErrorMessage('Error: Los datos de activación no están completos.');
+                    return;
+                }
+                
+                // Validar que los datos no sean 'N/A'
+                if (this.esimData.smdp === 'N/A' || this.esimData.code === 'N/A') {
+                    this.showErrorMessage('Error: Los datos de activación no son válidos.');
+                    return;
+                }
                 
                 // Construir el string LPA completo
                 var smdp = this.esimData.smdp;
@@ -865,23 +880,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 var intentUrl = 'intent://esim#Intent;scheme=esim;package=com.android.settings;S.activation_code=' + 
                                 encodeURIComponent(lpaString) + ';end';
                 
-                var opened = false;
-                try {
-                    window.location.href = intentUrl;
-                    opened = true;
-                    
-                    setTimeout(() => {
-                        this.showSuccessMessage('✅ Se abrió la configuración de eSIM. Sigue las instrucciones en tu dispositivo.');
-                    }, 500);
-                } catch (e) {
-                    opened = false;
-                }
+                // Intentar abrir con el intent
+                window.location.href = intentUrl;
                 
-                if (!opened) {
-                    setTimeout(() => {
-                        this.mostrarInstruccionesAndroid(smdp, code);
-                    }, 1000);
-                }
+                // Mostrar instrucciones de respaldo después de un breve delay
+                // (si el intent funciona, el usuario habrá cambiado de app; si no, verá las instrucciones)
+                setTimeout(() => {
+                    this.mostrarInstruccionesAndroid(smdp, code);
+                }, 2000);
             },
             mostrarInstruccionesAndroid(smdp, code) {
                 var mensaje = '📱 INSTRUCCIONES PARA ANDROID:\n\n' +
