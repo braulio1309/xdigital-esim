@@ -52,7 +52,7 @@
                                type="select"
                                v-model="inputs.beneficiario_id"
                                :list="beneficiarios"
-                               list-value-field="id"
+                               list-value-field="value"
                                :placeholder="'Seleccionar beneficiario (opcional)'"
                                :required="false"/>
                 </div>
@@ -111,7 +111,7 @@
         },
         methods: {
             loadBeneficiarios() {
-                this.axiosGet('/app/beneficiarios')
+                this.axiosGet('/beneficiarios')
                     .then(response => {
                         this.beneficiarios = response.data.data.map(b => ({
                             id: b.id,

@@ -34,7 +34,7 @@ class SidebarComposer
                 ],
                 [
                     'icon' => 'users',
-                    'name' => 'Beneficiarios',
+                    'name' => 'Partners',
                     'url' => request()->root() . '/admin/beneficiarios',
                     'permission' => true,
                 ],
