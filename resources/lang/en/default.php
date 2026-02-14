@@ -449,6 +449,14 @@ return array_merge([
     'confirm_reset_margins' => 'Are you sure you want to reset all margins to 30%?',
     'margins_reset_to_defaults' => 'Margins have been reset to default values',
 
+    // Beneficiary Plan Margins
+    'beneficiary_plan_margins' => 'Comisiones por Planes',
+    'beneficiary_profit_margin_configuration' => 'Configuración de Comisiones del Beneficiario',
+    'configure_beneficiary_margins_explanation' => 'Configura tus propios márgenes de ganancia sobre los precios establecidos por el administrador.',
+    'if_admin_price' => 'Si el precio del admin es',
+    'confirm_reset_beneficiary_margins' => '¿Está seguro de que desea restablecer todos los márgenes a 0%?',
+    'manage_commissions' => 'Gestionar Comisiones',
+
      'user_registration_completed' => 'User registration completed!',
      'enter_email' => 'Enter email',
      'verify' => 'Verify',
