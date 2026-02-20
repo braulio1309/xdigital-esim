@@ -51,6 +51,12 @@ class SidebarComposer
                     'permission' => true,
                 ],
                 [
+                    'icon' => 'credit-card',
+                    'name' => 'Historial de Pagos',
+                    'url' => request()->root() . '/admin/payment-histories',
+                    'permission' => true,
+                ],
+                [
                     'icon' => 'file-text',
                     'name' => 'Reportes',
                     'url' => request()->root() . '/report-view',
@@ -82,6 +88,12 @@ class SidebarComposer
                     'icon' => 'users',
                     'name' => 'Transacciones',
                     'url' => request()->root() . '/admin/transactions',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'credit-card',
+                    'name' => 'Historial de Pagos',
+                    'url' => request()->root() . '/admin/payment-histories',
                     'permission' => true,
                 ],
             ];
