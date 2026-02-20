@@ -5,8 +5,10 @@ namespace App\Http\Controllers\App\Transaction;
 use App\Filters\App\Transaction\TransactionFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\TransactionRequest as Request;
+use App\Models\App\PaymentHistory\PaymentHistory;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
+use Illuminate\Support\Facades\Storage;
 
 class TransactionController extends Controller
 {
@@ -102,6 +104,10 @@ class TransactionController extends Controller
             'beneficiario_id' => 'required|exists:beneficiarios,id',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
+            'reference' => 'nullable|string|max:255',
+            'payment_date' => 'required|date',
+            'support' => 'nullable|file|mimes:jpg,jpeg,png,pdf,webp|max:5120',
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         $updated = Transaction::where('purchase_amount', 0) // Only free eSIMs
@@ -117,6 +123,26 @@ class TransactionController extends Controller
                 'is_paid' => true,
                 'paid_at' => now()
             ]);
+
+        // Save payment history record
+        $supportPath = null;
+        $supportOriginalName = null;
+        if ($request->hasFile('support')) {
+            $file = $request->file('support');
+            $supportOriginalName = $file->getClientOriginalName();
+            $supportPath = $file->store('payment-supports', 'public');
+        }
+
+        PaymentHistory::create([
+            'beneficiario_id' => $validated['beneficiario_id'],
+            'reference' => $validated['reference'] ?? null,
+            'payment_date' => $validated['payment_date'],
+            'support_path' => $supportPath,
+            'support_original_name' => $supportOriginalName,
+            'amount' => $updated * 0.85, // $0.85 is the commission rate per free eSIM transaction
+            'transactions_count' => $updated,
+            'notes' => $validated['notes'] ?? null,
+        ]);
 
         return response()->json([
             'message' => "Successfully marked {$updated} transactions as paid",

@@ -8,7 +8,8 @@
             <app-overlay-loader v-if="preloader"/>
             <form class="mb-0"
                   :class="{'loading-opacity': preloader}"
-                  ref="form">
+                  ref="form"
+                  enctype="multipart/form-data">
                 <div class="form-group row align-items-center">
                     <label for="beneficiario_id" class="col-sm-3 mb-0">
                         {{ $t('beneficiary') }} <span class="text-danger">*</span>
@@ -36,7 +37,7 @@
                     </div>
                 </div>
 
-                <div class="form-group row align-items-center mb-0">
+                <div class="form-group row align-items-center">
                     <label for="end_date" class="col-sm-3 mb-0">
                         {{ $t('end_date') }} <span class="text-danger">*</span>
                     </label>
@@ -46,6 +47,60 @@
                                    v-model="inputs.end_date"
                                    :placeholder="$t('end_date')"
                                    :required="true"/>
+                    </div>
+                </div>
+
+                <hr/>
+
+                <div class="form-group row align-items-center">
+                    <label for="payment_date" class="col-sm-3 mb-0">
+                        {{ $t('payment_date') }} <span class="text-danger">*</span>
+                    </label>
+                    <div class="col-sm-9">
+                        <app-input id="payment_date"
+                                   type="date"
+                                   v-model="inputs.payment_date"
+                                   :placeholder="$t('payment_date')"
+                                   :required="true"/>
+                    </div>
+                </div>
+
+                <div class="form-group row align-items-center">
+                    <label for="reference" class="col-sm-3 mb-0">
+                        {{ $t('reference') }}
+                    </label>
+                    <div class="col-sm-9">
+                        <app-input id="reference"
+                                   type="text"
+                                   v-model="inputs.reference"
+                                   :placeholder="$t('payment_reference_placeholder')"/>
+                    </div>
+                </div>
+
+                <div class="form-group row align-items-center">
+                    <label for="support" class="col-sm-3 mb-0">
+                        {{ $t('payment_support') }}
+                    </label>
+                    <div class="col-sm-9">
+                        <input id="support"
+                               type="file"
+                               class="form-control-file"
+                               ref="supportFile"
+                               accept=".jpg,.jpeg,.png,.pdf,.webp"
+                               @change="onFileChange"/>
+                        <small class="text-muted">{{ $t('payment_support_hint') }}</small>
+                    </div>
+                </div>
+
+                <div class="form-group row align-items-center mb-0">
+                    <label for="notes" class="col-sm-3 mb-0">
+                        {{ $t('notes') }}
+                    </label>
+                    <div class="col-sm-9">
+                        <app-input id="notes"
+                                   type="textarea"
+                                   v-model="inputs.notes"
+                                   :placeholder="$t('notes')"/>
                     </div>
                 </div>
             </form>
@@ -72,7 +127,11 @@
                     beneficiario_id: '',
                     start_date: '',
                     end_date: '',
+                    payment_date: '',
+                    reference: '',
+                    notes: '',
                 },
+                supportFile: null,
                 modalId: 'mark-as-paid-modal',
                 beneficiariosList: []
             }
@@ -98,14 +157,36 @@
                     });
             },
 
+            onFileChange(event) {
+                this.supportFile = event.target.files[0] || null;
+            },
+
             submit() {
-                if (!this.inputs.beneficiario_id || !this.inputs.start_date || !this.inputs.end_date) {
+                if (!this.inputs.beneficiario_id || !this.inputs.start_date || !this.inputs.end_date || !this.inputs.payment_date) {
                     this.$toastr.e(this.$t('please_fill_all_required_fields'));
                     return;
                 }
 
                 this.preloader = true;
-                axios.post('/transactions/mark-as-paid', this.inputs)
+
+                const formData = new FormData();
+                formData.append('beneficiario_id', this.inputs.beneficiario_id);
+                formData.append('start_date', this.inputs.start_date);
+                formData.append('end_date', this.inputs.end_date);
+                formData.append('payment_date', this.inputs.payment_date);
+                if (this.inputs.reference) {
+                    formData.append('reference', this.inputs.reference);
+                }
+                if (this.inputs.notes) {
+                    formData.append('notes', this.inputs.notes);
+                }
+                if (this.supportFile) {
+                    formData.append('support', this.supportFile);
+                }
+
+                axios.post('/transactions/mark-as-paid', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                })
                     .then(response => {
                         this.$toastr.s(response.data.message);
                         this.$hub.$emit('reload-' + this.tableId);
@@ -125,7 +206,14 @@
                     beneficiario_id: '',
                     start_date: '',
                     end_date: '',
+                    payment_date: '',
+                    reference: '',
+                    notes: '',
                 };
+                this.supportFile = null;
+                if (this.$refs.supportFile) {
+                    this.$refs.supportFile.value = '';
+                }
             }
         }
     }

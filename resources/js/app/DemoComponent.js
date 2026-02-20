@@ -101,3 +101,6 @@ Vue.component('app-clientes', require('./Components/Views/App/Clientes/Index').d
 
 // Transactions
 Vue.component('app-transactions', require('./Components/Views/App/Transactions/Index').default);
+
+// Payment Histories
+Vue.component('app-payment-histories', require('./Components/Views/App/PaymentHistories/Index').default);

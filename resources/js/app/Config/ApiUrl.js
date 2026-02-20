@@ -76,6 +76,9 @@ export const TRANSACTIONS = 'transactions';
 export const TRANSACTIONS_PAYMENT_STATS = 'transactions/payment-stats';
 export const TRANSACTIONS_MARK_AS_PAID = 'transactions/mark-as-paid';
 
+//Payment Histories
+export const PAYMENT_HISTORIES = 'payment-histories';
+
 //roles and users
 export const ROLES = 'admin/auth/roles';
 export const USERS = 'admin/auth/users';

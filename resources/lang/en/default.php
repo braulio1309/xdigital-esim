@@ -545,5 +545,14 @@ return array_merge([
     'app_overlay_loader' => 'Overlay loader',
     'app_skeleton_loade' => 'Skeleton loader',
     'enable_registration_warning' => 'The registration page must be enabled in the settings.',
+    'payment_histories' => 'Payment Histories',
+    'payment_history' => 'Payment History',
+    'payment_date' => 'Payment Date',
+    'reference' => 'Reference',
+    'payment_reference_placeholder' => 'e.g. TXN-2024-001',
+    'payment_support' => 'Payment Support',
+    'payment_support_hint' => 'Accepted formats: JPG, PNG, PDF, WEBP (max 5MB)',
+    'transactions_count' => 'Transactions',
+    'support' => 'Support',
 
 ], include 'custom.php');
