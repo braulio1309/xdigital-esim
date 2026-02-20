@@ -42,6 +42,7 @@ class UserController extends Controller
                 ->filters($this->filter)
                 ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at'])
                 ->with('roles:id,name,is_admin,is_default,type_id', 'status', 'profilePicture')
+                ->where('user_type', 'admin')
                 ->latest()
         ))->filter()
             ->paginate(request()->get('per_page', 10));
