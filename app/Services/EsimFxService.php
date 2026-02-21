@@ -103,6 +103,50 @@ class EsimFxService
     }
     
     /**
+     * Get eSIM status from external API.
+     * GET /order/api/v1/get_esim_status
+     *
+     * @param string $iccid The eSIM identifier
+     * @return array
+     */
+    public function getEsimStatus($iccid)
+    {
+        $response = Http::withHeaders($this->getHeaders())
+                        ->get("{$this->baseUrl}/order/api/v1/get_esim_status", [
+                            'iccid' => $iccid,
+                        ]);
+
+        if ($response->failed()) {
+            Log::error('Error getEsimStatus eSIMfx: ' . $response->body());
+            throw new Exception("Error retrieving eSIM status");
+        }
+
+        return $response->json()['data'];
+    }
+
+    /**
+     * Terminate eSIM subscription.
+     * POST /order/api/v1/terminate_subscription
+     *
+     * @param string $orderId The order identifier
+     * @return array
+     */
+    public function terminateSubscription($orderId)
+    {
+        $response = Http::withHeaders($this->getHeaders())
+                        ->post("{$this->baseUrl}/order/api/v1/terminate_subscription", [
+                            'order_id' => $orderId,
+                        ]);
+
+        if ($response->failed()) {
+            Log::error('Error terminateSubscription eSIMfx: ' . $response->body());
+            throw new Exception("Error terminating subscription");
+        }
+
+        return $response->json()['data'];
+    }
+
+    /**
      * (Opcional) Obtener catálogo de productos
      * Útil si quieres listar los planes dinámicamente en tu frontend.
      */

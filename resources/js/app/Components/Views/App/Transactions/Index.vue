@@ -95,6 +95,10 @@
                    :selected-url="selectedUrl"
                    @close-modal="closeAddEditModal"/>
 
+        <detail-modal v-if="isDetailModalActive"
+                      :transaction-id="rowData.id"
+                      @close-modal="closeDetailModal"/>
+
         <mark-as-paid-modal v-if="isMarkAsPaidModalActive"
                            :table-id="tableId"
                            @close-modal="closeMarkAsPaidModal"/>
@@ -104,6 +108,12 @@
                           modal-id="transaction-delete"
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
+
+        <app-delete-modal v-if="terminateConfirmationModalActive"
+                          :preloader="terminateLoader"
+                          modal-id="transaction-terminate"
+                          @confirmed="confirmedTerminate"
+                          @cancelled="cancelledTerminate"/>
     </div>
 </template>
 
@@ -112,6 +122,7 @@
     import * as actions from "../../../../Config/ApiUrl";
     
     import AddModal from "./AddModal"; 
+    import DetailModal from "./DetailModal";
     import MarkAsPaidModal from "./MarkAsPaidModal"; 
 
     export default {
@@ -119,14 +130,18 @@
         name: "TransactionsList",
         components: {
             AddModal,
+            DetailModal,
             MarkAsPaidModal
         },
         data() {
             return {
                 deleteLoader: false,
+                terminateLoader: false,
                 isAddEditModalActive: false,
+                isDetailModalActive: false,
                 isMarkAsPaidModalActive: false,
                 deleteConfirmationModalActive: false,
+                terminateConfirmationModalActive: false,
                 selectedUrl: '',
                 tableId: 'transactions-table',
                 rowData: {},
@@ -263,6 +278,12 @@
                     ],
                     actions: [
                         {
+                            title: this.$t('details'),
+                            icon: 'eye',
+                            type: 'none',
+                            component: 'app-detail-modal',
+                            modalId: 'transaction-detail-modal',
+                        }, {
                             title: this.$t('edit'),
                             icon: 'edit',
                             type: 'none',
@@ -274,6 +295,12 @@
                             type: 'none',
                             component: 'app-confirmation-modal',
                             modalId: 'transaction-delete',
+                        }, {
+                            title: this.$t('terminate_subscription'),
+                            icon: 'slash',
+                            type: 'none',
+                            component: 'app-confirmation-modal',
+                            modalId: 'transaction-terminate',
                         }
                     ],
                     showFilter: true,
@@ -380,7 +407,48 @@
                 } else if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.TRANSACTIONS}/${rowData.id}`;
                     this.openAddEditModal();
+                } else if (actionObj.title == this.$t('details')) {
+                    this.openDetailModal();
+                } else if (actionObj.title == this.$t('terminate_subscription')) {
+                    this.openTerminateModal();
                 }
+            },
+
+            openDetailModal() {
+                this.isDetailModalActive = true;
+            },
+
+            closeDetailModal() {
+                $("#transaction-detail-modal").modal('hide');
+                this.isDetailModalActive = false;
+                this.reSetData();
+            },
+
+            openTerminateModal() {
+                this.terminateConfirmationModalActive = true;
+            },
+
+            confirmedTerminate() {
+                this.terminateLoader = true;
+                this.axiosPost({
+                    url: actions.TRANSACTIONS_TERMINATE(this.rowData.id),
+                    data: {}
+                }).then(response => {
+                    this.terminateLoader = false;
+                    $("#transaction-terminate").modal('hide');
+                    this.cancelledTerminate();
+                    this.$toastr.s(response.data.message);
+                }).catch(error => {
+                    this.terminateLoader = false;
+                    this.$toastr.e(error.response?.data?.message || this.$t('error_terminating_subscription'));
+                }).finally(() => {
+                    this.$hub.$emit('reload-' + this.tableId);
+                });
+            },
+
+            cancelledTerminate() {
+                this.terminateConfirmationModalActive = false;
+                this.reSetData();
             },
 
             openDeleteModal() {

@@ -963,4 +963,11 @@ return [
     'error_loading_beneficiaries' => 'Error loading beneficiaries',
     'error_marking_transactions' => 'Error marking transactions as paid',
     'total_owed' => 'Total Owed',
+    'details' => 'Details',
+    'esim_details' => 'eSIM Details',
+    'terminate_subscription' => 'Terminate Subscription',
+    'confirm_terminate_subscription' => 'Are you sure you want to terminate this subscription? This action cannot be undone.',
+    'error_loading_esim_status' => 'Error loading eSIM status',
+    'error_terminating_subscription' => 'Error terminating subscription',
+    'customer_service_number' => 'Customer Service Number',
 ];
