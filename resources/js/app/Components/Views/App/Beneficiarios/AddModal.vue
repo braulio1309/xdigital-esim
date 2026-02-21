@@ -19,9 +19,19 @@
                                v-model="inputs.nombre"
                                :placeholder="$t('nombre')"
                                :required="true"/>
-
                 </div>
-                <div class="form-group row align-items-center mb-0">
+                <div class="form-group row align-items-center">
+                    <label for="inputs_apellido" class="col-sm-3 mb-0">
+                        {{ $t('apellido') || 'Apellido' }}
+                    </label>
+                    <app-input id="inputs_apellido"
+                               class="col-sm-9"
+                               type="text"
+                               v-model="inputs.apellido"
+                               :placeholder="'Apellido'"
+                               :required="false"/>
+                </div>
+                <div class="form-group row align-items-center">
                     <label for="inputs_descripcion" class="col-sm-3 mb-0">
                         {{ $t('descripcion') }}
                     </label>
@@ -31,6 +41,29 @@
                                v-model="inputs.descripcion"
                                :placeholder="$t('descripcion')"
                                :required="true"/>
+                </div>
+                <div class="form-group row align-items-center">
+                    <label for="inputs_email" class="col-sm-3 mb-0">
+                        {{ $t('email') || 'Email' }}
+                    </label>
+                    <app-input id="inputs_email"
+                               class="col-sm-9"
+                               type="email"
+                               v-model="inputs.email"
+                               :placeholder="'Email'"
+                               :required="!selectedUrl"/>
+                </div>
+                <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_password" class="col-sm-3 mb-0">
+                        {{ $t('password') || 'Contraseña' }}
+                        <span v-if="selectedUrl" class="text-muted small d-block">(opcional)</span>
+                    </label>
+                    <app-input id="inputs_password"
+                               class="col-sm-9"
+                               type="password"
+                               v-model="inputs.password"
+                               :placeholder="selectedUrl ? 'Nueva contraseña (opcional)' : 'Contraseña'"
+                               :required="!selectedUrl"/>
                 </div>
             </form>
         </template>
@@ -52,7 +85,10 @@
                 preloader: false,
                 inputs: {
                     nombre: '',
+                    apellido: '',
                     descripcion: '',
+                    email: '',
+                    password: '',
                 },
                 modalId: 'beneficiario-add-edit-modal',
                 modalTitle: this.$t('add'),
@@ -74,7 +110,15 @@
             },
 
             afterSuccessFromGetEditData(response) {
-                this.inputs = response.data;
+                const data = response.data;
+                this.inputs = {
+                    id: data.id,
+                    nombre: data.nombre,
+                    apellido: data.user ? data.user.last_name : '',
+                    descripcion: data.descripcion,
+                    email: data.user ? data.user.email : '',
+                    password: '',
+                };
                 this.preloader = false;
             },
         },

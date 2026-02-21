@@ -51,19 +51,19 @@ class ClienteService extends AppService
         // Use the cliente's email
         $email = $cliente->email;
         
-        // Generate password: nombre + "123"
-        $password = $cliente->nombre . '123';
+        // Use the provided password
+        $password = $attributes['password'];
         
         // Get active status
         $status = Status::findByNameAndType('status_active', 'user');
         
         $user = User::create([
             'first_name' => $cliente->nombre,
-            'last_name' => $cliente->apellido ?? '',
-            'email' => $email,
-            'password' => Hash::make($password),
-            'user_type' => 'cliente',
-            'status_id' => $status->id,
+            'last_name'  => $cliente->apellido ?? '',
+            'email'      => $email,
+            'password'   => Hash::make($password),
+            'user_type'  => 'cliente',
+            'status_id'  => $status->id,
         ]);
         $user->assignRole('Moderator');
         
@@ -77,11 +77,18 @@ class ClienteService extends AppService
      */
     public function update(Cliente $cliente)
     {
-        $cliente->fill(request()->all());
+        $cliente->fill(request()->only(['nombre', 'apellido', 'email', 'beneficiario_id', 'can_activate_free_esim']));
 
         $this->model = $cliente;
 
         $cliente->save();
+
+        // Update linked user's password if provided
+        if ($cliente->user_id && request()->filled('password')) {
+            User::where('id', $cliente->user_id)->update([
+                'password' => Hash::make(request('password')),
+            ]);
+        }
 
         return $cliente;
     }
