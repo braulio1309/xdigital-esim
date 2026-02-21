@@ -456,6 +456,7 @@ return array_merge([
     'if_admin_price' => 'If the admin price is',
     'confirm_reset_beneficiary_margins' => 'Are you sure you want to reset all margins to 0%?',
     'manage_commissions' => 'Manage Commissions',
+    'download_commissions' => 'Download Commissions Excel',
 
      'user_registration_completed' => 'User registration completed!',
      'enter_email' => 'Enter email',

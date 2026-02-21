@@ -40,6 +40,7 @@
 <script>
     import CoreLibrary from "../../../../../core/helpers/CoreLibrary.js";
     import * as actions from "../../../../Config/ApiUrl";
+    import {urlGenerator} from "../../../../Helpers/AxiosHelper";
     
     // CAMBIO 1: Importamos el modal local desde la misma carpeta
     import AddModal from "./AddModal"; 
@@ -141,6 +142,11 @@
                             type: 'none',
                         },
                         {
+                            title: this.$t('download_commissions'),
+                            icon: 'download',
+                            type: 'none',
+                        },
+                        {
                             title: this.$t('delete'),
                             icon: 'trash',
                             type: 'none',
@@ -193,7 +199,16 @@
                     this.openAddEditModal();
                 } else if (actionObj.title == this.$t('manage_commissions')) {
                     this.openMarginModal(rowData);
+                } else if (actionObj.title == this.$t('download_commissions')) {
+                    this.downloadCommissions(rowData);
                 }
+            },
+
+            /**
+             * Download Excel with commissions for a beneficiary
+             */
+            downloadCommissions(rowData) {
+                window.location.href = urlGenerator(actions.BENEFICIARIOS_EXPORT_COMMISSIONS(rowData.id));
             },
 
             /**
