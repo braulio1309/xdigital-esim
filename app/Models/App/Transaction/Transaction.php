@@ -24,13 +24,15 @@ class Transaction extends AppModel
         'purchase_amount',
         'currency',
         'is_paid',
-        'paid_at'
+        'paid_at',
+        'terminated_at'
     ];
 
     protected $casts = [
         'creation_time' => 'datetime',
         'is_paid' => 'boolean',
         'paid_at' => 'datetime',
+        'terminated_at' => 'datetime',
     ];
 
     /**

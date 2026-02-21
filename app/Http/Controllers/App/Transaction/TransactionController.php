@@ -8,6 +8,7 @@ use App\Http\Requests\App\TransactionRequest as Request;
 use App\Models\App\PaymentHistory\PaymentHistory;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
+use App\Services\EsimFxService;
 use Illuminate\Support\Facades\Storage;
 
 class TransactionController extends Controller
@@ -188,6 +189,49 @@ class TransactionController extends Controller
         $transaction = $this->service->update($transaction);
 
         return updated_responses('transaction');
+    }
+
+    /**
+     * Get eSIM status from external API
+     *
+     * @param Transaction $transaction
+     * @return \Illuminate\Http\Response
+     */
+    public function esimStatus(Transaction $transaction)
+    {
+        if (empty($transaction->iccid)) {
+            return response()->json(['message' => 'This transaction does not have an ICCID.'], 422);
+        }
+
+        try {
+            $esimService = app(EsimFxService::class);
+            $data = $esimService->getEsimStatus($transaction->iccid);
+            return response()->json(['data' => $data]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Terminate eSIM subscription via external API and store terminated_at
+     *
+     * @param Transaction $transaction
+     * @return \Illuminate\Http\Response
+     */
+    public function terminateSubscription(Transaction $transaction)
+    {
+        if (empty($transaction->order_id)) {
+            return response()->json(['message' => 'This transaction does not have an order ID.'], 422);
+        }
+
+        try {
+            $esimService = app(EsimFxService::class);
+            $esimService->terminateSubscription($transaction->order_id);
+            $transaction->update(['terminated_at' => now()]);
+            return response()->json(['message' => 'Subscription terminated successfully.', 'terminated_at' => $transaction->terminated_at]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
     }
 
     /**
