@@ -14,11 +14,13 @@ class ClienteRequest extends AppRequest
     public function rules()
     {
         $clienteId = $this->route('cliente') ? $this->route('cliente')->id : null;
+        $isCreate = $this->isMethod('post');
         
         return [
-            'nombre' => 'required|string|max:255',
+            'nombre'   => 'required|string|max:255',
             'apellido' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:clientes,email,' . $clienteId,
+            'email'    => 'required|email|max:255|unique:clientes,email,' . $clienteId,
+            'password' => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
         ];
     }
 }

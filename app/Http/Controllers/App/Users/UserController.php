@@ -34,18 +34,12 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate input
+        // Validate input — only admin users are created from this section
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:8',
-            'user_type' => 'required|in:admin,beneficiario,cliente',
-            'roles' => 'nullable|array',
-            'beneficiario_nombre' => 'required_if:user_type,beneficiario',
-            'beneficiario_descripcion' => 'required_if:user_type,beneficiario',
-            'cliente_nombre' => 'required_if:user_type,cliente',
-            'cliente_apellido' => 'required_if:user_type,cliente',
         ]);
 
         // Get active status
@@ -55,51 +49,15 @@ class UserController extends Controller
             throw new \App\Exceptions\GeneralException('Active status not found in the system');
         }
 
-        // Create user
-        $user = $this->service->create([
+        // Create admin user — user_type is always 'admin' from this section
+        $this->service->create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'user_type' => $request->user_type,
+            'user_type' => 'admin',
             'status_id' => $status->id,
         ]);
-
-        // Assign roles if provided
-        if ($request->roles) {
-            $user->model->roles()->sync($request->roles);
-        }
-
-        // Create Beneficiario record if user type is beneficiario
-        if ($request->user_type === 'beneficiario') {
-            // Generate unique codigo with maximum retry limit
-            $maxRetries = 10;
-            $retryCount = 0;
-            do {
-                $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
-                $retryCount++;
-                if ($retryCount >= $maxRetries) {
-                    throw new \App\Exceptions\GeneralException('Unable to generate unique code for beneficiario');
-                }
-            } while (\App\Models\App\Beneficiario\Beneficiario::where('codigo', $codigo)->exists());
-            
-            \App\Models\App\Beneficiario\Beneficiario::create([
-                'user_id' => $user->model->id,
-                'nombre' => $request->beneficiario_nombre,
-                'descripcion' => $request->beneficiario_descripcion,
-                'codigo' => $codigo,
-            ]);
-        }
-
-        // Create Cliente record if user type is cliente
-        if ($request->user_type === 'cliente') {
-            \App\Models\App\Cliente\Cliente::create([
-                'user_id' => $user->model->id,
-                'nombre' => $request->cliente_nombre,
-                'apellido' => $request->cliente_apellido,
-                'email' => $request->email,
-            ]);
-        }
 
         return created_responses('user');
     }

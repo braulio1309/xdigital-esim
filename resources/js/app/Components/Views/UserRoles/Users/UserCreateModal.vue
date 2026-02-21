@@ -42,7 +42,7 @@
                                :placeholder="$t('enter_user_email')"
                                :required="true"/>
                 </div>
-                <div class="form-group row align-items-center">
+                <div class="form-group row align-items-center mb-0">
                     <label for="userPassword" class="col-sm-3 mb-0">
                         {{ $t('password') }}
                     </label>
@@ -52,81 +52,6 @@
                                v-model="user.password"
                                :placeholder="$t('enter_password')"
                                :required="true"/>
-                </div>
-                <div class="form-group row align-items-center">
-                    <label for="userType" class="col-sm-3 mb-0">
-                        {{ $t('user_type') }}
-                    </label>
-                    <app-input id="userType"
-                               class="col-sm-9"
-                               type="select"
-                               :list="userTypeOptions"
-                               list-value-field="name"
-                               v-model="user.user_type"
-                               :required="true"/>
-                </div>
-                <div class="form-group row align-items-center mb-0" v-if="user.user_type">
-                    <label for="roles" class="col-sm-3 mb-0">
-                        {{ $t('role') }}
-                    </label>
-                    <app-input id="roles"
-                               class="col-sm-9"
-                               type="multi-select"
-                               :list="roleLists"
-                               list-value-field="name"
-                               :isAnimatedDropdown="true"
-                               v-model="roles"
-                               :required="true"/>
-                </div>
-                <!-- Additional fields for Beneficiario -->
-                <div v-if="user.user_type === 'beneficiario'">
-                    <div class="form-group row align-items-center mt-3">
-                        <label for="beneficiarioNombre" class="col-sm-3 mb-0">
-                            {{ $t('nombre') }}
-                        </label>
-                        <app-input id="beneficiarioNombre"
-                                   class="col-sm-9"
-                                   type="text"
-                                   v-model="user.beneficiario_nombre"
-                                   :placeholder="$t('enter_nombre')"
-                                   :required="true"/>
-                    </div>
-                    <div class="form-group row align-items-center">
-                        <label for="beneficiarioDescripcion" class="col-sm-3 mb-0">
-                            {{ $t('descripcion') }}
-                        </label>
-                        <app-input id="beneficiarioDescripcion"
-                                   class="col-sm-9"
-                                   type="textarea"
-                                   v-model="user.beneficiario_descripcion"
-                                   :placeholder="$t('enter_descripcion')"
-                                   :required="true"/>
-                    </div>
-                </div>
-                <!-- Additional fields for Cliente -->
-                <div v-if="user.user_type === 'cliente'">
-                    <div class="form-group row align-items-center mt-3">
-                        <label for="clienteNombre" class="col-sm-3 mb-0">
-                            {{ $t('nombre') }}
-                        </label>
-                        <app-input id="clienteNombre"
-                                   class="col-sm-9"
-                                   type="text"
-                                   v-model="user.cliente_nombre"
-                                   :placeholder="$t('enter_nombre')"
-                                   :required="true"/>
-                    </div>
-                    <div class="form-group row align-items-center">
-                        <label for="clienteApellido" class="col-sm-3 mb-0">
-                            {{ $t('apellido') }}
-                        </label>
-                        <app-input id="clienteApellido"
-                                   class="col-sm-9"
-                                   type="text"
-                                   v-model="user.cliente_apellido"
-                                   :placeholder="$t('enter_apellido')"
-                                   :required="true"/>
-                    </div>
                 </div>
             </form>
         </template>
@@ -150,27 +75,11 @@
                     last_name: '',
                     email: '',
                     password: '',
-                    user_type: '',
-                    beneficiario_nombre: '',
-                    beneficiario_descripcion: '',
-                    cliente_nombre: '',
-                    cliente_apellido: ''
                 },
-                roles: [],
-                roleLists: [],
-                userTypeOptions: [
-                    {id: 'admin', name: this.$t('admin')},
-                    {id: 'beneficiario', name: this.$t('beneficiario')},
-                    {id: 'cliente', name: this.$t('cliente')}
-                ]
             }
-        },
-        created() {
-            this.getRoles();
         },
         methods: {
             submit() {
-                this.user.roles = this.roles;
                 this.save(this.user);
             },
 
@@ -178,18 +87,6 @@
                 this.$toastr.s(res.data.message);
                 this.reLoadTable();
             },
-
-            getRoles() {
-                let url = actions.ROLES;
-
-                this.axiosGet(url).then(response => {
-                    this.roleLists = response.data.data;
-                }).catch(({response}) => {
-                    // Handle error
-                }).finally(() => {
-                    this.preloader = false;
-                });
-            }
         }
     }
 </script>

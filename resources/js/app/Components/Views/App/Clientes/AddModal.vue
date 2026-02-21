@@ -44,6 +44,18 @@
                                :required="true"/>
                 </div>
                 <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_password" class="col-sm-3 mb-0">
+                        {{ $t('password') || 'Contraseña' }}
+                        <span v-if="selectedUrl" class="text-muted small d-block">(opcional)</span>
+                    </label>
+                    <app-input id="inputs_password"
+                               class="col-sm-9"
+                               type="password"
+                               v-model="inputs.password"
+                               :placeholder="selectedUrl ? 'Nueva contraseña (opcional)' : 'Contraseña'"
+                               :required="!selectedUrl"/>
+                </div>
+                <div class="form-group row align-items-center mb-0">
                     <label for="inputs_beneficiario_id" class="col-sm-3 mb-0">
                         Beneficiario
                     </label>
@@ -94,6 +106,7 @@
                     nombre: '',
                     apellido: '',
                     email: '',
+                    password: '',
                     beneficiario_id: null,
                     can_activate_free_esim: false,
                 },
@@ -132,7 +145,10 @@
             },
 
             afterSuccessFromGetEditData(response) {
-                this.inputs = response.data;
+                this.inputs = {
+                    ...response.data,
+                    password: '',
+                };
                 this.preloader = false;
             },
         },

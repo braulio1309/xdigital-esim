@@ -70,7 +70,7 @@ class BeneficiarioController extends Controller
      */
     public function show($id)
     {
-        return $this->service->find($id);
+        return $this->service->find($id)->load('user:id,email,last_name');
     }
 
     /**

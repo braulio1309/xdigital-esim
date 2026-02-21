@@ -71,22 +71,22 @@ class BeneficiarioService extends AppService
      */
     protected function createUserForBeneficiario(Beneficiario $beneficiario, array $attributes)
     {
-        // Generate email from request or create from name
-        $email = $attributes['email'] ?? strtolower(str_replace(' ', '.', $beneficiario->nombre)) . '@beneficiario.local';
+        // Use provided email from request
+        $email = $attributes['email'];
         
-        // Generate password: nombre + "123"
-        $password = $beneficiario->nombre . '123';
+        // Use provided password from request
+        $password = $attributes['password'];
         
         // Get active status
         $status = Status::findByNameAndType('status_active', 'user');
         
         $user = User::create([
             'first_name' => $beneficiario->nombre,
-            'last_name' => '',
-            'email' => $email,
-            'password' => Hash::make($password),
-            'user_type' => 'beneficiario',
-            'status_id' => $status->id,
+            'last_name'  => $attributes['apellido'] ?? '',
+            'email'      => $email,
+            'password'   => Hash::make($password),
+            'user_type'  => 'beneficiario',
+            'status_id'  => $status->id,
         ]);
         $user->assignRole('Moderator');
         
@@ -100,11 +100,30 @@ class BeneficiarioService extends AppService
      */
     public function update(Beneficiario $beneficiario)
     {
-        $beneficiario->fill(request()->all());
+        $beneficiario->fill(request()->only(['nombre', 'descripcion']));
 
         $this->model = $beneficiario;
 
         $beneficiario->save();
+
+        // Update linked user credentials if provided
+        if ($beneficiario->user_id) {
+            $userUpdates = [];
+
+            if (request()->filled('email')) {
+                $userUpdates['email'] = request('email');
+            }
+            if (request()->filled('apellido')) {
+                $userUpdates['last_name'] = request('apellido');
+            }
+            if (request()->filled('password')) {
+                $userUpdates['password'] = Hash::make(request('password'));
+            }
+
+            if (!empty($userUpdates)) {
+                User::where('id', $beneficiario->user_id)->update($userUpdates);
+            }
+        }
 
         return $beneficiario;
     }
