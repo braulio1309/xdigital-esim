@@ -25,6 +25,11 @@ class CustomRoute extends HookContract
                     'route_name' => 'cliente.dashboard',
                     'route_params' => null
                 ];
+            }else{
+                return [
+                    'route_name' => 'report.view',
+                    'route_params' => null  
+                ];
             }
         }
         

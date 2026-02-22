@@ -5,7 +5,6 @@
       :icon="'bar-chart-2'"
     />
     
-    <!-- Filtros de fecha -->
     <div class="card card-with-shadow mb-4">
       <div class="card-body">
         <div class="row">
@@ -36,7 +35,6 @@
       </div>
     </div>
 
-    <!-- Widgets principales -->
     <app-overlay-loader v-if="loading && mainWidgets.length === 0"/>
     <div class="row mb-4" v-if="mainWidgets.length > 0">
       <div class="col-md-3" v-for="(widget, index) in mainWidgets" :key="'widget-' + index">
@@ -50,7 +48,6 @@
       </div>
     </div>
 
-    <!-- Top Beneficiarios -->
     <div class="row mb-4" v-if="topBeneficiarios.rows && topBeneficiarios.rows.length > 0">
       <div class="col-md-12">
         <div class="card card-with-shadow">
@@ -82,9 +79,7 @@
       </div>
     </div>
 
-    <!-- Gráficos -->
     <div class="row mb-4" v-if="clientsTrend.labels && clientsTrend.labels.length > 0">
-      <!-- Gráfico de tendencia de clientes -->
       <div class="col-md-6">
         <div class="card card-with-shadow">
           <div class="card-header">
@@ -101,7 +96,6 @@
         </div>
       </div>
 
-      <!-- Gráfico de transacciones por estado -->
       <div class="col-md-6" v-if="transactionsByStatus.labels && transactionsByStatus.labels.length > 0">
         <div class="card card-with-shadow">
           <div class="card-header">
@@ -119,7 +113,6 @@
       </div>
     </div>
 
-    <!-- Gráfico de beneficiarios activos -->
     <div class="row mb-4" v-if="beneficiariosActivity.labels && beneficiariosActivity.labels.length > 0">
       <div class="col-md-12">
         <div class="card card-with-shadow">
@@ -141,6 +134,8 @@
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
   name: 'AdminMetrics',
   data() {
@@ -166,24 +161,33 @@ export default {
   methods: {
     loadMetrics() {
       this.loading = true;
-      this.$hub
-        .$get('/admin/metrics/data', {
-          params: this.filters
-        })
-        .then(response => {
-          this.mainWidgets = response.data.widgets || [];
-          this.topBeneficiarios = response.data.topBeneficiarios || { columns: [], rows: [] };
-          this.clientsTrend = response.data.clientsTrend || { labels: [], datasets: [] };
-          this.transactionsByStatus = response.data.transactionsByStatus || { labels: [], datasets: [] };
-          this.beneficiariosActivity = response.data.beneficiariosActivity || { labels: [], datasets: [] };
-        })
-        .catch(error => {
-          console.error('Error loading metrics:', error);
+      
+      axios.get('/admin/metrics/data', {
+        params: this.filters
+      })
+      .then(response => {
+        // Axios guarda la respuesta del servidor dentro del objeto 'data'
+        const responseData = response.data;
+        
+        this.mainWidgets = responseData.widgets || [];
+        this.topBeneficiarios = responseData.topBeneficiarios || { columns: [], rows: [] };
+        this.clientsTrend = responseData.clientsTrend || { labels: [], datasets: [] };
+        this.transactionsByStatus = responseData.transactionsByStatus || { labels: [], datasets: [] };
+        this.beneficiariosActivity = responseData.beneficiariosActivity || { labels: [], datasets: [] };
+      })
+      .catch(error => {
+        console.error('Error loading metrics:', error);
+        // Si tienes configurado toastr de forma global en Vue, puedes mantenerlo así,
+        // de lo contrario, cámbialo por un alert() u otro manejador de errores.
+        if (this.$toastr) {
           this.$toastr.e('Error al cargar métricas. Por favor intenta de nuevo.');
-        })
-        .finally(() => {
-          this.loading = false;
-        });
+        } else {
+          alert('Error al cargar métricas. Por favor intenta de nuevo.');
+        }
+      })
+      .finally(() => {
+        this.loading = false;
+      });
     },
     resetFilters() {
       this.filters.start_date = this.getDefaultStartDate();

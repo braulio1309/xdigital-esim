@@ -12,7 +12,7 @@ use App\Http\Controllers\App\SamplePage\KanbanView\StageController;
 Route::view('chat', 'sample-pages.chat');
 Route::view('maps', 'sample-pages.map');
 Route::view('calendar-view', 'sample-pages.calendar-view');
-Route::view('report-view', 'sample-pages.report');
+Route::view('report-view', 'sample-pages.report')->name('report.view');
 Route::view('template-view', 'sample-pages.template');
 Route::view('job-post-view', 'sample-pages.job-post');
 Route::view('kanban-view', 'sample-pages.kanban-view');
