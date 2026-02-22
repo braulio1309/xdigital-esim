@@ -10,6 +10,7 @@ use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
 use App\Services\EsimFxService;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class TransactionController extends Controller
 {
@@ -101,6 +102,20 @@ class TransactionController extends Controller
             return response()->json(['message' => 'Unauthorized. Only administrators can mark transactions as paid.'], 403);
         }
 
+        $dateFields = ['start_date', 'end_date', 'payment_date'];
+
+        // 2. Iteramos y limpiamos cada uno si existe en el request
+        foreach ($dateFields as $field) {
+            if ($request->filled($field)) {
+                // Quitamos todo lo que esté entre paréntesis, ej: " (hora de Venezuela)"
+                $cleanString = preg_replace('/\s*\(.*?\)/', '', $request->input($field));
+                
+                // Lo parseamos con Carbon y lo devolvemos al request en formato estándar
+                $request->merge([
+                    $field => Carbon::parse($cleanString)->format('Y-m-d H:i:s')
+                ]);
+            }
+        }
         $validated = $request->validate([
             'beneficiario_id' => 'required|exists:beneficiarios,id',
             'start_date' => 'required|date',
@@ -118,7 +133,7 @@ class TransactionController extends Controller
             })
             ->whereBetween('creation_time', [
                 $validated['start_date'],
-                $validated['end_date'] . ' 23:59:59'
+                $validated['end_date']
             ])
             ->update([
                 'is_paid' => true,

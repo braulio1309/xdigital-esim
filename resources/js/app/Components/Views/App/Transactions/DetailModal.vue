@@ -76,7 +76,7 @@
             loadEsimStatus() {
                 this.preloader = true;
                 this.errorMessage = null;
-                axios.get(actions.TRANSACTIONS_ESIM_STATUS(this.transactionId))
+                axios.get(`/transactions/${this.transactionId}/esim-status`)
                     .then(response => {
                         this.esimData = response.data.data;
                     })

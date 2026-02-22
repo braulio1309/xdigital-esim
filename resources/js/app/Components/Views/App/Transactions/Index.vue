@@ -431,7 +431,7 @@
             confirmedTerminate() {
                 this.terminateLoader = true;
                 this.axiosPost({
-                    url: actions.TRANSACTIONS_TERMINATE(this.rowData.id),
+                    url: `/transactions/${this.rowData.id}/terminate-subscription`,
                     data: {}
                 }).then(response => {
                     this.terminateLoader = false;
