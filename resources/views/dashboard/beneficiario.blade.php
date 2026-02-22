@@ -106,6 +106,112 @@
                 </div>
             </div>
         </div>
+
+        <!-- Plan Commissions Section -->
+        <div class="row">
+            <div class="col-12 grid-margin">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="card-title mb-0">Comisiones por Plan</h4>
+                                <p class="card-description mb-0">Porcentaje de comisión configurado para cada plan</p>
+                            </div>
+                            <i class="mdi mdi-currency-usd text-success icon-lg"></i>
+                        </div>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Plan</th>
+                                        <th>Comisión</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach(['3' => '3 GB', '5' => '5 GB', '10' => '10 GB'] as $capacity => $label)
+                                        <tr>
+                                            <td>
+                                                <span class="font-weight-bold">{{ $label }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="font-weight-bold text-success">
+                                                    {{ number_format($plan_commissions[$capacity] ?? 0, 2) }}%
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if(($plan_commissions[$capacity] ?? 0) > 0)
+                                                    <span class="badge badge-success">Configurado</span>
+                                                @else
+                                                    <span class="badge badge-secondary">Sin comisión</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">
+                            <i class="mdi mdi-information-outline mr-1"></i>
+                            Contacta al administrador para modificar tus comisiones.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Free eSIM Clients Section -->
+        <div class="row">
+            <div class="col-12 grid-margin">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="card-title mb-0">eSIMs Gratuitas Pendientes</h4>
+                                <p class="card-description mb-0">Clientes con permiso de eSIM gratuita aún no activada</p>
+                            </div>
+                            <span class="badge badge-pill badge-primary font-weight-bold" style="font-size: 1rem;">
+                                {{ $free_esim_clients->count() }}
+                            </span>
+                        </div>
+
+                        @if($free_esim_clients->count() > 0)
+                            <div class="table-responsive mt-3">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Apellido</th>
+                                            <th>Email</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($free_esim_clients as $cliente)
+                                            <tr>
+                                                <td>{{ $cliente->nombre }}</td>
+                                                <td>{{ $cliente->apellido }}</td>
+                                                <td>{{ $cliente->email }}</td>
+                                                <td>
+                                                    <span class="badge badge-warning">Pendiente</span>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="alert alert-success mt-3 mb-0" role="alert">
+                                <p class="mb-0">
+                                    <i class="mdi mdi-check-circle mr-1"></i>
+                                    No hay eSIMs gratuitas pendientes de activar.
+                                </p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
 
