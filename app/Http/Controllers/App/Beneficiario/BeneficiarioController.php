@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers\App\Beneficiario;
 
+use App\Exports\App\Beneficiario\BeneficiarioCommissionsExport;
 use App\Filters\App\Beneficiario\BeneficiarioFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\BeneficiarioRequest as Request;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Services\App\Beneficiario\BeneficiarioService;
+use App\Services\App\Settings\BeneficiaryPlanMarginService;
+use App\Services\App\Settings\PlanMarginService;
+use App\Services\EsimFxService;
+use Maatwebsite\Excel\Facades\Excel;
 
 class BeneficiarioController extends Controller
 {
@@ -47,6 +52,31 @@ class BeneficiarioController extends Controller
         });
         
         return $beneficiarios;
+    }
+
+    /**
+     * Download Excel file with commissions for a specific beneficiary.
+     *
+     * @param Beneficiario $beneficiario
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function exportCommissions(
+        Beneficiario $beneficiario,
+        EsimFxService $esimService,
+        PlanMarginService $planMarginService,
+        BeneficiaryPlanMarginService $beneficiaryPlanMarginService
+    ) {
+        $export = new BeneficiarioCommissionsExport(
+            $beneficiario->id,
+            $beneficiario->nombre,
+            $esimService,
+            $planMarginService,
+            $beneficiaryPlanMarginService
+        );
+
+        $filename = 'comisiones-' . \Str::slug($beneficiario->nombre) . '.xlsx';
+
+        return Excel::download($export, $filename);
     }
 
     /**

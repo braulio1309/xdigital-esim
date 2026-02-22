@@ -67,6 +67,7 @@ export const CUSTOM_TABLE = 'admin/app/custom-tables';
 
 //Beneficiarios
 export const BENEFICIARIOS = 'beneficiarios';
+export const BENEFICIARIOS_EXPORT_COMMISSIONS = (id) => `beneficiarios/${id}/export-commissions`;
 
 //Clientes
 export const CLIENTES = 'clientes';
