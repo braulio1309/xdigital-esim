@@ -72,13 +72,15 @@ class BeneficiarioCommissionsExport implements FromArray, WithHeadings, WithStyl
             $countryName = $country['name']; // Nombre por defecto desde nuestra lista
 
             foreach ($products as $product) {
-                $rawAmount = $product['amount'] ?? null;
+                // 3. Obtenemos el "nombre del plan" cortando el string hasta el '_'
+                // (Ej: Si viene "3GB_30Days" o "3_GB", $planName será "3GB" o "3")
+                // Nota: Si el string viene en otro campo de la API, cambia 'amount' por ese campo (ej: 'package' o 'slug')
+                $rawPlanString = (string) ($product['amount'] ?? '');
+                $planName = explode('_', $rawPlanString)[0];
                 
-                if (!is_numeric($rawAmount)) {
-                    continue;
-                }
+                // Extraemos solo el dígito para nuestra validación contra PLAN_CAPACITIES (3, 5, 10)
+                $amount = (int) filter_var($planName, FILTER_SANITIZE_NUMBER_INT);
                 
-                $amount = (int) $rawAmount;
                 if (!in_array($amount, self::PLAN_CAPACITIES)) {
                     continue;
                 }
@@ -91,15 +93,16 @@ class BeneficiarioCommissionsExport implements FromArray, WithHeadings, WithStyl
                     $countryName = $product['name'] ?? $countryName;
                 }
 
-                // Calcular precios
+                // Calcular precios ENVIANDO EL STRING ($planName) a los servicios
                 $originalPrice = (float) ($product['price'] ?? 0);
-                $adminPrice = $this->planMarginService->calculateFinalPrice($originalPrice, (string) $amount);
-                $partnerPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice($adminPrice, (string) $amount, $this->beneficiarioId);
+                $adminPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $planName);
+                $partnerPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice($adminPrice, $planName, $this->beneficiarioId);
 
+                // Guardamos usando el número entero ($amount) como llave para que encaje exacto en tus columnas
                 $plansForCountry[$amount] = $partnerPrice;
             }
 
-            // 3. Armamos la fila de este país inmediatamente y la metemos al arreglo
+            // 4. Armamos la fila de este país inmediatamente y la metemos al arreglo
             $rows[] = [
                 $countryName,
                 isset($plansForCountry[3])  ? '$' . number_format($plansForCountry[3],  2) : 'N/A',
@@ -108,7 +111,7 @@ class BeneficiarioCommissionsExport implements FromArray, WithHeadings, WithStyl
             ];
         }
 
-        // 4. Ordenamos alfabéticamente por el nombre del país (índice 0 de cada sub-arreglo)
+        // 5. Ordenamos alfabéticamente por el nombre del país (índice 0 de cada sub-arreglo)
         usort($rows, fn($a, $b) => strcmp($a[0], $b[0]));
 
         return $rows;
