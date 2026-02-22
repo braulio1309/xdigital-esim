@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\App\Cliente\ClienteController;
 use App\Http\Controllers\App\Cliente\ClienteDashboardController;
+use App\Http\Controllers\App\Cliente\ClienteImportController;
 
 Route::view('/admin/clientes', 'clientes.index')->name('clientes.view');
+Route::post('clientes/import', [ClienteImportController::class, 'import'])->name('clientes.import');
 Route::resource('clientes', ClienteController::class);
 Route::post('clientes/{cliente}/toggle-free-esim', [ClienteController::class, 'toggleFreeEsim'])->name('clientes.toggle-free-esim');
 

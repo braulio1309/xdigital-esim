@@ -7,6 +7,11 @@
             <div class="col-sm-12 col-md-6 breadcrumb-side-button">
                 <div class="float-md-right mb-3 mb-sm-3 mb-md-0">
                     <button type="button"
+                            class="btn btn-secondary btn-with-shadow mr-2"
+                            @click="openImportModal">
+                        Importar
+                    </button>
+                    <button type="button"
                             class="btn btn-primary btn-with-shadow"
                             data-toggle="modal"
                             @click="openAddEditModal">
@@ -23,6 +28,11 @@
                    :selected-url="selectedUrl"
                    @close-modal="closeAddEditModal"/>
 
+        <import-modal v-if="isImportModalActive"
+                      :table-id="tableId"
+                      :is-beneficiario="userIsBeneficiario"
+                      @close-modal="closeImportModal"/>
+
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
                           modal-id="cliente-delete"
@@ -35,18 +45,22 @@
     import CoreLibrary from "../../../../../core/helpers/CoreLibrary.js";
     import * as actions from "../../../../Config/ApiUrl";
     import axios from "axios";
-    import AddModal from "./AddModal"; 
+    import AddModal from "./AddModal";
+    import ImportModal from "./ImportModal";
 
     export default {
         extends: CoreLibrary,
         name: "ClientesList",
         components: {
-            AddModal
+            AddModal,
+            ImportModal
         },
         data() {
             return {
                 deleteLoader: false,
                 isAddEditModalActive: false,
+                isImportModalActive: false,
+                userIsBeneficiario: false,
                 deleteConfirmationModalActive: false,
                 selectedUrl: '',
                 tableId: 'clientes-table',
@@ -131,7 +145,26 @@
                 }
             }
         },
+        created() {
+            // Detect if the logged-in user is a beneficiario
+            this.axiosGet('login-user')
+                .then(response => {
+                    this.userIsBeneficiario = response.data.user_type === 'beneficiario';
+                })
+                .catch(() => {
+                    this.userIsBeneficiario = false;
+                });
+        },
         methods: {
+            openImportModal() {
+                this.isImportModalActive = true;
+            },
+
+            closeImportModal() {
+                $("#cliente-import-modal").modal('hide');
+                this.isImportModalActive = false;
+            },
+
             /**
              * for open add edit modal
              */
