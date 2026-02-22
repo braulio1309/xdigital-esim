@@ -135,9 +135,11 @@
 
 <script>
 import axios from 'axios';
+    import {FormMixin} from '../../../../../core/mixins/form/FormMixin.js';
 
 export default {
   name: 'AdminMetrics',
+  mixins: [FormMixin],
   data() {
     return {
       filters: {
