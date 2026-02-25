@@ -31,18 +31,18 @@
                 urlGenerator,
                 profileData: [
                     {
-                        optionName: 'My Profile',
+                        optionName: this.$t('my_profile'),
                         optionIcon: 'user',
                         url: urlGenerator(actions.MY_PROFILE)
                     },
                     {
-                        optionName: 'Notifications',
+                        optionName: this.$t('notifications'),
                         optionIcon: 'bell',
                         url: urlGenerator(actions.All_NOTIFICATION)
                     },
                     
                     {
-                        optionName: 'Logout',
+                        optionName: this.$t('logout'),
                         optionIcon: 'log-out',
                         url: urlGenerator(actions.LOGOUT)
                     },
