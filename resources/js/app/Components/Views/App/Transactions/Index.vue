@@ -64,6 +64,14 @@
                                @input="filterByBeneficiario"/>
                 </div>
 
+                <!-- Beneficiary indicator for beneficiary users -->
+                <div v-else-if="isBeneficiario" class="d-inline-block ml-2">
+                    <span class="badge badge-info p-2" style="font-size: 13px;">
+                        <app-icon name="filter" class="pr-1" style="width:14px;height:14px;"/>
+                        {{ $t('my_transactions') }}
+                    </span>
+                </div>
+
                 <!-- Payment status filter -->
                 <div class="btn-group ml-2" role="group">
                     <button type="button" 
@@ -321,6 +329,11 @@
                        this.$store.state.user.loggedInUser && 
                        (this.$store.state.user.loggedInUser.role === 'Admin' || 
                         this.$store.state.user.loggedInUser.user_type === 'admin');
+            },
+            isBeneficiario() {
+                return this.$store.state.user && 
+                       this.$store.state.user.loggedInUser && 
+                       this.$store.state.user.loggedInUser.user_type === 'beneficiario';
             },
             showPaymentStats() {
                 return this.paymentStats.unpaid_count > 0;

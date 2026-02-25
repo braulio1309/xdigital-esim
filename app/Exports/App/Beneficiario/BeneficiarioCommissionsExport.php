@@ -5,6 +5,7 @@ namespace App\Exports\App\Beneficiario;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use App\Services\App\Settings\PlanMarginService;
 use App\Services\EsimFxService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -60,8 +61,10 @@ class BeneficiarioCommissionsExport implements FromArray, WithHeadings, WithStyl
             $countryCode = $country['code'];
             
             try {
-                // Fetch products from the API enviando solo el código del país actual
-                $products = $this->esimService->getProducts(['countries' => $countryCode]);
+                // Fetch products from the API with 24-hour cache per country to avoid N+1 API calls
+                $products = Cache::remember("esimfx_products_{$countryCode}", 86400, function () use ($countryCode) {
+                    return $this->esimService->getProducts(['countries' => $countryCode]);
+                });
             } catch (\Exception $e) {
                 Log::error("BeneficiarioCommissionsExport: error fetching products for country {$countryCode} - " . $e->getMessage());
                 $products = []; // Si falla un país, continuamos con el siguiente con array vacío

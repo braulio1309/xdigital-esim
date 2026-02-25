@@ -2,6 +2,7 @@
 return [
     // Authentication
     'my_profile' => 'Mi Perfil',
+    'logout' => 'Cerrar sesión',
     'email' => 'Correo electrónico',
     'first_name' => 'Nombre',
     'last_name' => 'Apellido',
@@ -941,6 +942,7 @@ return [
     'beneficiary' => 'Beneficiario',
     'filter_by_beneficiary' => 'Filtrar por Beneficiario',
     'all_beneficiaries' => 'Todos los Beneficiarios',
+    'my_transactions' => 'Mis transacciones',
     'payment_status' => 'Estado de Pago',
     'all_status' => 'Todos los estados',
     'paid' => 'Pagado',
