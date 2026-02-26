@@ -70,7 +70,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
                         'email'          => $email,
                         'user_id'        => $user->id,
                         'beneficiario_id' => $this->beneficiarioId,
-                        'can_activate_free_esim' => false,
+                        'can_activate_free_esim' => true,
                     ]);
                 });
 

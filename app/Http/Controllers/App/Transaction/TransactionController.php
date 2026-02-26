@@ -98,8 +98,25 @@ class TransactionController extends Controller
     public function calculatePaymentAmount(\Illuminate\Http\Request $request)
     {
         $beneficiarioId = $request->get('beneficiario_id');
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
+        $startDateRaw = $request->get('start_date');
+        $endDateRaw = $request->get('end_date');
+
+        
+        $startDateClean = preg_replace('/\s\([^)]+\)/', '', $startDateRaw);
+        $endDateClean = preg_replace('/\s\([^)]+\)/', '', $endDateRaw);
+
+        try {
+            // 3. Parseamos a Carbon para poder manipular la fecha o guardarla en BD
+            $startDate = Carbon::parse($startDateClean);
+            $endDate = Carbon::parse($endDateClean);
+
+            // Opcional: Si necesitas guardarlo en MySQL, usa format('Y-m-d H:i:s')
+            // $dbDate = $startDate->toDateTimeString();
+
+        } catch (\Exception $e) {
+            // Manejo de error si la fecha de plano es ilegible
+            return response()->json(['error' => 'Formato de fecha inválido'], 422);
+        }
 
         $query = Transaction::where('purchase_amount', 0)
             ->where('is_paid', false);

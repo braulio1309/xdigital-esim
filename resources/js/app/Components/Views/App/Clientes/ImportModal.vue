@@ -77,7 +77,7 @@
                 const formData = new FormData();
                 formData.append('file', this.file);
 
-                axios.post(actions.CLIENTES_IMPORT, formData, {
+                axios.post('/clientes/import', formData, {
                     headers: {'Content-Type': 'multipart/form-data'}
                 }).then(response => {
                     this.result = response.data;
