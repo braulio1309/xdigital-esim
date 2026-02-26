@@ -173,8 +173,8 @@ class TransactionController extends Controller
                 $q->where('beneficiario_id', $validated['beneficiario_id']);
             })
             ->whereBetween('creation_time', [
-                $validated['start_date'],
-                $validated['end_date']
+                Carbon::parse($validated['start_date'])->startOfDay(),
+                Carbon::parse($validated['end_date'])->endOfDay()
             ])
             ->update([
                 'is_paid' => true,
