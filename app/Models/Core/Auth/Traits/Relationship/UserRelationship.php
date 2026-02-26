@@ -7,6 +7,7 @@ use App\Models\App\Chat\Message;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\User\SocialLink;
 use App\Models\Core\Auth\PasswordHistory;
+use App\Models\Core\Auth\UsuarioClaveHistorial;
 use App\Models\Core\Auth\Profile;
 use App\Models\Core\Auth\Role;
 use App\Models\Core\Auth\SocialAccount;
@@ -36,6 +37,14 @@ trait UserRelationship
     public function passwordHistories()
     {
         return $this->hasMany(PasswordHistory::class);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function usuariosClaveHistorial()
+    {
+        return $this->hasMany(UsuarioClaveHistorial::class);
     }
 
     public function roles()
