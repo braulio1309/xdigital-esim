@@ -175,6 +175,7 @@ class BeneficiarioCommissionsExport implements FromArray, WithHeadings, WithStyl
             ['code' => 'CZ', 'name' => 'Czech Republic', 'region' => 'EU28', 'tier' => 'Blue', 'price' => 0.67],
             ['code' => 'DE', 'name' => 'Germany', 'region' => 'EU28', 'tier' => 'Blue', 'price' => 0.67],
             ['code' => 'DM', 'name' => 'Dominica', 'region' => 'Latin America', 'tier' => 'Amber', 'price' => 3.67],
+            ['code' => 'NI', 'name' => 'Nicaragua', 'region' => 'Latin America', 'tier' => 'Amber', 'price' => 0.1],
             ['code' => 'DK', 'name' => 'Denmark', 'region' => 'EU28', 'tier' => 'Blue', 'price' => 0.67],
             ['code' => 'DO', 'name' => 'Dominican Republic', 'region' => 'Latin America', 'tier' => 'Lilac', 'price' => 0.1],
             ['code' => 'DZ', 'name' => 'Algeria', 'region' => 'Middle East', 'tier' => 'Neon', 'price' => 0.82],

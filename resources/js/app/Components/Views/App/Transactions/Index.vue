@@ -166,7 +166,8 @@
 <script>
     import CoreLibrary from "../../../../../core/helpers/CoreLibrary.js";
     import * as actions from "../../../../Config/ApiUrl";
-    
+    import {FormMixin} from '../../../../../core/mixins/form/FormMixin.js';
+
     import AddModal from "./AddModal"; 
     import DetailModal from "./DetailModal";
     import MarkAsPaidModal from "./MarkAsPaidModal"; 
@@ -174,6 +175,7 @@
     export default {
         extends: CoreLibrary,
         name: "TransactionsList",
+        mixins: [FormMixin],
         components: {
             AddModal,
             DetailModal,
@@ -384,9 +386,9 @@
         },
         mounted() {
             this.loadPaymentStats();
-            if (this.isAdmin) {
+           // if (this.isAdmin) {
                 this.loadBeneficiarios();
-            }
+           // }
         },
         methods: {
             loadPaymentStats() {

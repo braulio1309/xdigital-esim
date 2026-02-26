@@ -212,7 +212,7 @@
                 if (this.inputs.end_date) params.append('end_date', this.inputs.end_date);
 
                 this.amountLoading = true;
-                this.axiosGet(actions.TRANSACTIONS_CALCULATE_AMOUNT + '?' + params.toString())
+                this.axiosGet('/transactions/calculate-payment-amount' + '?' + params.toString())
                     .then(response => {
                         this.amountResult = response.data;
                     })
