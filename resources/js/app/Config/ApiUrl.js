@@ -71,6 +71,7 @@ export const BENEFICIARIOS_EXPORT_COMMISSIONS = (id) => `beneficiarios/${id}/exp
 
 //Clientes
 export const CLIENTES = 'clientes';
+export const CLIENTES_IMPORT = 'clientes/import';
 
 //Transactions
 export const TRANSACTIONS = 'transactions';

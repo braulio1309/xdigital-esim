@@ -5,8 +5,10 @@ namespace App\Http\Controllers\App\Cliente;
 use App\Filters\App\Cliente\ClienteFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
+use App\Imports\App\ClienteImport;
 use App\Models\App\Cliente\Cliente;
 use App\Services\App\Cliente\ClienteService;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ClienteController extends Controller
 {
@@ -129,6 +131,41 @@ class ClienteController extends Controller
             'status' => true,
             'message' => "Permiso de eSIM gratuita {$status} exitosamente.",
             'data' => $cliente
+        ]);
+    }
+
+    /**
+     * Import clients from an Excel file.
+     * Accepts columns: nombre, apellido, email (any order, extra columns ignored).
+     * Password is set to nombre123*
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function import(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ]);
+
+        $beneficiarioId = null;
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if ($beneficiario) {
+                $beneficiarioId = $beneficiario->id;
+            }
+        } elseif ($request->filled('beneficiario_id')) {
+            $beneficiarioId = $request->input('beneficiario_id');
+        }
+
+        $import = new ClienteImport($beneficiarioId);
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'message' => "Importación completada: {$import->getImported()} clientes importados, {$import->getSkipped()} omitidos.",
+            'imported' => $import->getImported(),
+            'skipped'  => $import->getSkipped(),
+            'errors'   => $import->getErrors(),
         ]);
     }
 }
