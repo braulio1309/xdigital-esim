@@ -81,4 +81,24 @@ class TransactionFilter extends FilterBuilder
             }
         });
     }
+
+    /**
+     * Filter by start date (creation_time >= start_date)
+     */
+    public function start_date($startDate = null)
+    {
+        $this->builder->when($startDate, function ($query) use ($startDate) {
+            $query->where('creation_time', '>=', \Carbon\Carbon::parse($startDate)->startOfDay());
+        });
+    }
+
+    /**
+     * Filter by end date (creation_time <= end_date)
+     */
+    public function end_date($endDate = null)
+    {
+        $this->builder->when($endDate, function ($query) use ($endDate) {
+            $query->where('creation_time', '<=', \Carbon\Carbon::parse($endDate)->endOfDay());
+        });
+    }
 }

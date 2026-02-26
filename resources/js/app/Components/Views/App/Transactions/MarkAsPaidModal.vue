@@ -20,7 +20,8 @@
                                    v-model="inputs.beneficiario_id"
                                    :list="beneficiariosList"
                                    :placeholder="$t('select_beneficiary')"
-                                   :required="true"/>
+                                   :required="true"
+                                   @input="onFilterChange"/>
                     </div>
                 </div>
                 
@@ -33,7 +34,8 @@
                                    type="date"
                                    v-model="inputs.start_date"
                                    :placeholder="$t('start_date')"
-                                   :required="true"/>
+                                   :required="true"
+                                   @input="onFilterChange"/>
                     </div>
                 </div>
 
@@ -46,7 +48,21 @@
                                    type="date"
                                    v-model="inputs.end_date"
                                    :placeholder="$t('end_date')"
-                                   :required="true"/>
+                                   :required="true"
+                                   @input="onFilterChange"/>
+                    </div>
+                </div>
+
+                <!-- Amount owed display -->
+                <div class="form-group row align-items-center" v-if="amountLoading || amountResult !== null">
+                    <label class="col-sm-3 mb-0">{{ $t('amount_owed') }}</label>
+                    <div class="col-sm-9">
+                        <span v-if="amountLoading" class="badge badge-secondary p-2" style="font-size: 14px;">
+                            {{ $t('loading') }}...
+                        </span>
+                        <span v-else class="badge badge-info p-2" style="font-size: 14px;">
+                            ${{ amountResult.amount }} ({{ amountResult.count }} {{ $t('transactions') }})
+                        </span>
                     </div>
                 </div>
 
@@ -116,17 +132,32 @@
     export default {
         name: "MarkAsPaidModal",
         props: {
-            tableId: String
+            tableId: String,
+            prefillBeneficiarioId: {
+                type: [String, Number],
+                default: ''
+            },
+            prefillStartDate: {
+                type: String,
+                default: ''
+            },
+            prefillEndDate: {
+                type: String,
+                default: ''
+            }
         },
         mixins: [FormMixin],
 
         data() {
             return {
                 preloader: false,
+                amountLoading: false,
+                amountResult: null,
+                amountTimer: null,
                 inputs: {
-                    beneficiario_id: '',
-                    start_date: '',
-                    end_date: '',
+                    beneficiario_id: this.prefillBeneficiarioId || '',
+                    start_date: this.prefillStartDate || '',
+                    end_date: this.prefillEndDate || '',
                     payment_date: '',
                     reference: '',
                     notes: '',
@@ -138,6 +169,9 @@
         },
         mounted() {
             this.loadBeneficiarios();
+            if (this.inputs.beneficiario_id || this.inputs.start_date || this.inputs.end_date) {
+                this.fetchAmount();
+            }
         },
         methods: {
             loadBeneficiarios() {
@@ -154,6 +188,39 @@
                     })
                     .finally(() => {
                         this.preloader = false;
+                    });
+            },
+
+            onFilterChange() {
+                if (this.amountTimer) {
+                    clearTimeout(this.amountTimer);
+                }
+                const hasFilters = this.inputs.beneficiario_id || this.inputs.start_date || this.inputs.end_date;
+                if (!hasFilters) {
+                    this.amountResult = null;
+                    return;
+                }
+                this.amountTimer = setTimeout(() => {
+                    this.fetchAmount();
+                }, 500);
+            },
+
+            fetchAmount() {
+                const params = new URLSearchParams();
+                if (this.inputs.beneficiario_id) params.append('beneficiario_id', this.inputs.beneficiario_id);
+                if (this.inputs.start_date) params.append('start_date', this.inputs.start_date);
+                if (this.inputs.end_date) params.append('end_date', this.inputs.end_date);
+
+                this.amountLoading = true;
+                this.axiosGet(actions.TRANSACTIONS_CALCULATE_AMOUNT + '?' + params.toString())
+                    .then(response => {
+                        this.amountResult = response.data;
+                    })
+                    .catch(error => {
+                        console.error('Error calculating amount:', error);
+                    })
+                    .finally(() => {
+                        this.amountLoading = false;
                     });
             },
 
@@ -211,6 +278,7 @@
                     notes: '',
                 };
                 this.supportFile = null;
+                this.amountResult = null;
                 if (this.$refs.supportFile) {
                     this.$refs.supportFile.value = '';
                 }

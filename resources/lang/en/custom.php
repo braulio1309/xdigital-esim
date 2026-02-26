@@ -953,6 +953,8 @@ return [
     'select_beneficiary' => 'Seleccionar Beneficiario',
     'start_date' => 'Fecha de inicio',
     'end_date' => 'Fecha de fin',
+    'amount_owed' => 'Monto a pagar',
+    'transactions_count' => 'Cantidad de transacciones',
     'please_fill_all_required_fields' => 'Por favor completa todos los campos requeridos',
     'error_loading_beneficiaries' => 'Error al cargar beneficiarios',
     'error_marking_transactions' => 'Error al marcar transacciones como pagadas',
