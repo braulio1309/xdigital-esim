@@ -158,6 +158,7 @@ class CountryTariffHelper
             ['code' => 'QA', 'name' => 'Qatar', 'region' => 'Middle East', 'tier' => 'Neon', 'price' => 1.38],
             ['code' => 'RE', 'name' => 'Reunion', 'region' => 'Africa', 'tier' => 'Lilac', 'price' => 0.67],
             ['code' => 'RO', 'name' => 'Romania', 'region' => 'EU28', 'tier' => 'Blue', 'price' => 0.67],
+            ['code' => 'NI', 'name' => 'Nicaragua', 'region' => 'Latin America', 'tier' => 'Blue', 'price' => 0.67],
             ['code' => 'RU', 'name' => 'Russia', 'region' => 'Europe', 'tier' => 'Neon', 'price' => 1.57],
             ['code' => 'RW', 'name' => 'Rwanda', 'region' => 'Africa', 'tier' => 'Sapphire', 'price' => 3.07],
             ['code' => 'SA', 'name' => 'Saudi Arabia', 'region' => 'Middle East', 'tier' => 'Neon', 'price' => 1.58],
