@@ -96,6 +96,41 @@
             </div>
         </div>
 
+        <!-- Date range filter row -->
+        <div class="row mb-3">
+            <div class="col-12 d-flex align-items-center flex-wrap">
+                <div class="mr-2 mb-1" style="min-width: 170px;">
+                    <app-input type="date"
+                               v-model="filterStartDate"
+                               :placeholder="$t('start_date')"
+                               @input="onDateFilterChange"/>
+                </div>
+                <div class="mr-2 mb-1" style="min-width: 170px;">
+                    <app-input type="date"
+                               v-model="filterEndDate"
+                               :placeholder="$t('end_date')"
+                               @input="onDateFilterChange"/>
+                </div>
+                <div v-if="filterAmountLoading" class="mr-2 mb-1">
+                    <span class="badge badge-secondary p-2" style="font-size: 13px;">
+                        <app-icon name="loader" class="pr-1" style="width:14px;height:14px;"/>
+                        {{ $t('loading') }}...
+                    </span>
+                </div>
+                <div v-else-if="filterAmountResult !== null" class="mr-2 mb-1">
+                    <span class="badge badge-info p-2" style="font-size: 14px;">
+                        {{ $t('amount_owed') }}: ${{ filterAmountResult.amount }} ({{ filterAmountResult.count }} {{ $t('transactions') }})
+                    </span>
+                </div>
+                <button v-if="filterStartDate || filterEndDate || beneficiarioFilter"
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary mb-1"
+                        @click="clearFilters">
+                    {{ $t('clear') }}
+                </button>
+            </div>
+        </div>
+
         <app-table :id="tableId" :options="options" @action="getListAction"/>
 
         <add-modal v-if="isAddEditModalActive"
@@ -109,6 +144,9 @@
 
         <mark-as-paid-modal v-if="isMarkAsPaidModalActive"
                            :table-id="tableId"
+                           :prefill-beneficiario-id="beneficiarioFilter"
+                           :prefill-start-date="filterStartDate"
+                           :prefill-end-date="filterEndDate"
                            @close-modal="closeMarkAsPaidModal"/>
 
         <app-delete-modal v-if="deleteConfirmationModalActive"
@@ -156,6 +194,11 @@
                 transactionTypeFilter: null,
                 beneficiarioFilter: '',
                 paymentStatusFilter: null,
+                filterStartDate: '',
+                filterEndDate: '',
+                filterAmountResult: null,
+                filterAmountLoading: false,
+                filterAmountTimer: null,
                 beneficiariosList: [],
                 paymentStats: {
                     unpaid_count: 0,
@@ -383,6 +426,7 @@
                 this.$hub.$emit(`reload-${this.tableId}`, {
                     beneficiario_id: this.beneficiarioFilter
                 });
+                this.fetchFilterAmount();
             },
 
             filterByPaymentStatus(status) {
@@ -404,6 +448,54 @@
 
             openMarkAsPaidModal() {
                 this.isMarkAsPaidModalActive = true;
+            },
+
+            onDateFilterChange() {
+                this.$hub.$emit(`reload-${this.tableId}`, {
+                    start_date: this.filterStartDate,
+                    end_date: this.filterEndDate
+                });
+                this.fetchFilterAmount();
+            },
+
+            fetchFilterAmount() {
+                if (this.filterAmountTimer) {
+                    clearTimeout(this.filterAmountTimer);
+                }
+                const hasFilters = this.beneficiarioFilter || this.filterStartDate || this.filterEndDate;
+                if (!hasFilters) {
+                    this.filterAmountResult = null;
+                    return;
+                }
+                this.filterAmountTimer = setTimeout(() => {
+                    this.filterAmountLoading = true;
+                    const params = {};
+                    if (this.beneficiarioFilter) params.beneficiario_id = this.beneficiarioFilter;
+                    if (this.filterStartDate) params.start_date = this.filterStartDate;
+                    if (this.filterEndDate) params.end_date = this.filterEndDate;
+                    this.axiosGet(actions.TRANSACTIONS_CALCULATE_AMOUNT + '?' + new URLSearchParams(params).toString())
+                        .then(response => {
+                            this.filterAmountResult = response.data;
+                        })
+                        .catch(error => {
+                            console.error('Error calculating payment amount:', error);
+                        })
+                        .finally(() => {
+                            this.filterAmountLoading = false;
+                        });
+                }, 500);
+            },
+
+            clearFilters() {
+                this.filterStartDate = '';
+                this.filterEndDate = '';
+                this.beneficiarioFilter = '';
+                this.filterAmountResult = null;
+                this.$hub.$emit(`reload-${this.tableId}`, {
+                    start_date: null,
+                    end_date: null,
+                    beneficiario_id: null
+                });
             },
 
             closeMarkAsPaidModal() {

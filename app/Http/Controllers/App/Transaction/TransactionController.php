@@ -90,6 +90,47 @@ class TransactionController extends Controller
     }
 
     /**
+     * Calculate payment amount for unpaid free eSIM transactions
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function calculatePaymentAmount(\Illuminate\Http\Request $request)
+    {
+        $beneficiarioId = $request->get('beneficiario_id');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        $query = Transaction::where('purchase_amount', 0)
+            ->where('is_paid', false);
+
+        if ($beneficiarioId) {
+            $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
+                $q->where('beneficiario_id', $beneficiarioId);
+            });
+        }
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('creation_time', [
+                Carbon::parse($startDate)->startOfDay(),
+                Carbon::parse($endDate)->endOfDay()
+            ]);
+        } elseif ($startDate) {
+            $query->where('creation_time', '>=', Carbon::parse($startDate)->startOfDay());
+        } elseif ($endDate) {
+            $query->where('creation_time', '<=', Carbon::parse($endDate)->endOfDay());
+        }
+
+        $count = $query->count();
+        $amount = round($count * 0.85, 2); // $0.85 is the commission rate per free eSIM transaction
+
+        return response()->json([
+            'count' => $count,
+            'amount' => $amount
+        ]);
+    }
+
+    /**
      * Mark transactions as paid
      *
      * @param \Illuminate\Http\Request $request
