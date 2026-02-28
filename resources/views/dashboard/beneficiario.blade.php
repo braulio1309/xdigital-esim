@@ -160,6 +160,89 @@
             </div>
         </div>
 
+        <!-- Debt / Activated Free eSIMs Section -->
+        <div class="row">
+            <div class="col-12 grid-margin">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="card-title mb-0">Deuda por eSIMs Gratuitas Activadas</h4>
+                                <p class="card-description mb-0">
+                                    Resumen de eSIMs gratuitas activadas y deuda pendiente
+                                    @if($filter_start_date || $filter_end_date)
+                                        <span class="badge badge-info ml-1">Filtrado por fecha</span>
+                                    @endif
+                                </p>
+                            </div>
+                            <i class="mdi mdi-credit-card-off text-danger icon-lg"></i>
+                        </div>
+
+                        <!-- Date Filter Form -->
+                        <form method="GET" action="{{ route('beneficiario.dashboard') }}" class="mb-4">
+                            <div class="row align-items-end">
+                                <div class="col-md-4">
+                                    <label class="text-muted small mb-1">Desde</label>
+                                    <input type="date" name="start_date" class="form-control form-control-sm"
+                                           value="{{ $filter_start_date ?? '' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="text-muted small mb-1">Hasta</label>
+                                    <input type="date" name="end_date" class="form-control form-control-sm"
+                                           value="{{ $filter_end_date ?? '' }}">
+                                </div>
+                                <div class="col-md-4 d-flex">
+                                    <button type="submit" class="btn btn-primary btn-sm mr-2">
+                                        <i class="mdi mdi-magnify mr-1"></i> Filtrar
+                                    </button>
+                                    @if($filter_start_date || $filter_end_date)
+                                        <a href="{{ route('beneficiario.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="mdi mdi-close mr-1"></i> Limpiar
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- Debt Summary Cards -->
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="border rounded p-3 text-center">
+                                    <p class="text-muted small mb-1">Total Activadas</p>
+                                    <h3 class="font-weight-bold mb-0">{{ $debt_data['total_activated'] }}</h3>
+                                    <p class="text-muted small mb-0">eSIMs gratuitas</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="border rounded p-3 text-center border-danger">
+                                    <p class="text-muted small mb-1">Pendientes de Pago</p>
+                                    <h3 class="font-weight-bold mb-0 text-danger">{{ $debt_data['total_unpaid'] }}</h3>
+                                    <p class="text-muted small mb-0">eSIMs no pagadas</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="border rounded p-3 text-center border-danger bg-danger-light">
+                                    <p class="text-muted small mb-1">Deuda Total</p>
+                                    <h3 class="font-weight-bold mb-0 text-danger">${{ number_format($debt_data['total_debt'], 2) }}</h3>
+                                    <p class="text-muted small mb-0">USD ({{ $debt_data['total_unpaid'] }} × ${{ number_format($debt_data['rate_per_esim'], 2) }})</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($debt_data['total_paid'] > 0)
+                            <div class="alert alert-success mt-2 mb-0 py-2">
+                                <p class="mb-0 small">
+                                    <i class="mdi mdi-check-circle mr-1"></i>
+                                    {{ $debt_data['total_paid'] }} eSIM(s) ya han sido pagadas
+                                    ({{ ($filter_start_date || $filter_end_date) ? 'en el periodo seleccionado' : 'en total' }}).
+                                </p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Free eSIM Clients Section -->
         <div class="row">
             <div class="col-12 grid-margin">
@@ -227,6 +310,9 @@
     }
     .input-group-text {
         font-weight: bold;
+    }
+    .bg-danger-light {
+        background-color: #fff5f5;
     }
 </style>
 @endpush
