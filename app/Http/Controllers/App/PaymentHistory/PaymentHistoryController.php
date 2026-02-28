@@ -57,6 +57,43 @@ class PaymentHistoryController extends Controller
     }
 
     /**
+     * Void (anular) a payment history: mark it as 'anulada' and revert
+     * all linked transactions back to unpaid so the debt re-appears.
+     *
+     * @param PaymentHistory $paymentHistory
+     * @return \Illuminate\Http\Response
+     */
+    public function cancel(PaymentHistory $paymentHistory)
+    {
+        // Only admins can void payment histories
+        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+            return response()->json(['message' => 'Unauthorized. Only administrators can void payment histories.'], 403);
+        }
+
+        if ($paymentHistory->status === 'anulada') {
+            return response()->json(['message' => 'Este historial ya fue anulado.'], 422);
+        }
+
+        // Mark payment history as voided
+        $paymentHistory->update([
+            'status' => 'anulada',
+            'cancelled_at' => now(),
+        ]);
+
+        // Revert all transactions that were marked paid by this record
+        \App\Models\App\Transaction\Transaction::where('payment_history_id', $paymentHistory->id)
+            ->update([
+                'is_paid' => false,
+                'paid_at' => null,
+                'payment_history_id' => null,
+            ]);
+
+        return response()->json([
+            'message' => 'Historial de pago anulado correctamente. Las transacciones vuelven a aparecer como deuda.',
+        ]);
+    }
+
+    /**
      * Remove the specified payment history from storage.
      *
      * @param PaymentHistory $paymentHistory
@@ -94,3 +131,4 @@ class PaymentHistoryController extends Controller
         );
     }
 }
+

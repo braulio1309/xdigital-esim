@@ -25,6 +25,7 @@ class Transaction extends AppModel
         'currency',
         'is_paid',
         'paid_at',
+        'payment_history_id',
         'terminated_at'
     ];
 

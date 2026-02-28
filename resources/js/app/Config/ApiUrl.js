@@ -80,9 +80,11 @@ export const TRANSACTIONS_CALCULATE_AMOUNT = 'transactions/calculate-payment-amo
 export const TRANSACTIONS_MARK_AS_PAID = 'transactions/mark-as-paid';
 export const TRANSACTIONS_ESIM_STATUS = (id) => `transactions/${id}/esim-status`;
 export const TRANSACTIONS_TERMINATE = (id) => `transactions/${id}/terminate-subscription`;
+export const TRANSACTIONS_EXPORT = 'transactions/export';
 
 //Payment Histories
 export const PAYMENT_HISTORIES = 'payment-histories';
+export const PAYMENT_HISTORIES_CANCEL = (id) => `payment-histories/${id}/cancel`;
 
 //roles and users
 export const ROLES = 'admin/auth/roles';

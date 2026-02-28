@@ -10,12 +10,19 @@
                     <span v-if="showPaymentStats" class="badge badge-warning mr-2 p-2" style="font-size: 14px;">
                         {{ $t('unpaid_transactions') }}: {{ paymentStats.unpaid_count }} (${{ paymentStats.total_owed }})
                     </span>
+
+                    <!-- Export Excel button -->
+                    <a :href="exportUrl"
+                       class="btn btn-info btn-with-shadow mr-2"
+                       target="_blank">
+                        <app-icon name="download" class="mr-1" style="width:16px;height:16px;"/>
+                        {{ $t('export_excel') }}
+                    </a>
                     
-                    <!-- Mark as Paid button for admin -->
-                    <button v-if="isAdmin" 
+                    <!-- Mark as Paid button: only visible when a beneficiary is selected -->
+                    <button v-if="isAdmin && beneficiarioFilter"
                             type="button"
                             class="btn btn-success btn-with-shadow mr-2"
-                            data-toggle="modal"
                             @click="openMarkAsPaidModal">
                         {{ $t('mark_as_paid') }}
                     </button>
@@ -31,41 +38,42 @@
             </div>
         </div>
 
-        <!-- Filter buttons -->
+        <!-- Filter buttons row -->
         <div class="row mb-3">
-            <div class="col-12">
-                <div class="btn-group mr-2" role="group">
+            <div class="col-12 d-flex align-items-center flex-wrap">
+                <!-- Type filter (all / free / paid plans) -->
+                <div class="btn-group mr-2 mb-1" role="group">
                     <button type="button" 
                             class="btn btn-sm"
-                            :class="transactionTypeFilter === null ? 'btn-primary' : 'btn-outline-primary'"
-                            @click="filterByType(null)">
+                            :class="activeFilters.type === null ? 'btn-primary' : 'btn-outline-primary'"
+                            @click="setFilter('type', null)">
                         {{ $t('all') }}
                     </button>
                     <button type="button" 
                             class="btn btn-sm"
-                            :class="transactionTypeFilter === 'free' ? 'btn-primary' : 'btn-outline-primary'"
-                            @click="filterByType('free')">
+                            :class="activeFilters.type === 'free' ? 'btn-primary' : 'btn-outline-primary'"
+                            @click="setFilter('type', 'free')">
                         {{ $t('free') }}
                     </button>
                     <button type="button" 
                             class="btn btn-sm"
-                            :class="transactionTypeFilter === 'paid' ? 'btn-primary' : 'btn-outline-primary'"
-                            @click="filterByType('paid')">
+                            :class="activeFilters.type === 'paid' ? 'btn-primary' : 'btn-outline-primary'"
+                            @click="setFilter('type', 'paid')">
                         {{ $t('payment_plans') }}
                     </button>
                 </div>
 
                 <!-- Beneficiary filter for admin -->
-                <div v-if="isAdmin" class="d-inline-block" style="min-width: 200px;">
+                <div v-if="isAdmin" class="mr-2 mb-1" style="min-width: 200px;">
                     <app-input type="select"
                                v-model="beneficiarioFilter"
                                :list="beneficiariosList"
                                :placeholder="$t('filter_by_beneficiary')"
-                               @input="filterByBeneficiario"/>
+                               @input="onBeneficiarioChange"/>
                 </div>
 
                 <!-- Beneficiary indicator for beneficiary users -->
-                <div v-else-if="isBeneficiario" class="d-inline-block ml-2">
+                <div v-else-if="isBeneficiario" class="d-inline-block mr-2 mb-1">
                     <span class="badge badge-info p-2" style="font-size: 13px;">
                         <app-icon name="filter" class="pr-1" style="width:14px;height:14px;"/>
                         {{ $t('my_transactions') }}
@@ -73,23 +81,23 @@
                 </div>
 
                 <!-- Payment status filter -->
-                <div class="btn-group ml-2" role="group">
+                <div class="btn-group mr-2 mb-1" role="group">
                     <button type="button" 
                             class="btn btn-sm"
-                            :class="paymentStatusFilter === null ? 'btn-secondary' : 'btn-outline-secondary'"
-                            @click="filterByPaymentStatus(null)">
+                            :class="activeFilters.payment_status === null ? 'btn-secondary' : 'btn-outline-secondary'"
+                            @click="setFilter('payment_status', null)">
                         {{ $t('all_status') }}
                     </button>
                     <button type="button" 
                             class="btn btn-sm"
-                            :class="paymentStatusFilter === 'unpaid' ? 'btn-secondary' : 'btn-outline-secondary'"
-                            @click="filterByPaymentStatus('unpaid')">
+                            :class="activeFilters.payment_status === 'unpaid' ? 'btn-secondary' : 'btn-outline-secondary'"
+                            @click="setFilter('payment_status', 'unpaid')">
                         {{ $t('unpaid') }}
                     </button>
                     <button type="button" 
                             class="btn btn-sm"
-                            :class="paymentStatusFilter === 'paid' ? 'btn-secondary' : 'btn-outline-secondary'"
-                            @click="filterByPaymentStatus('paid')">
+                            :class="activeFilters.payment_status === 'paid' ? 'btn-secondary' : 'btn-outline-secondary'"
+                            @click="setFilter('payment_status', 'paid')">
                         {{ $t('paid') }}
                     </button>
                 </div>
@@ -101,15 +109,15 @@
             <div class="col-12 d-flex align-items-center flex-wrap">
                 <div class="mr-2 mb-1" style="min-width: 170px;">
                     <app-input type="date"
-                               v-model="filterStartDate"
+                               v-model="activeFilters.start_date"
                                :placeholder="$t('start_date')"
-                               @input="onDateFilterChange"/>
+                               @input="applyFilters"/>
                 </div>
                 <div class="mr-2 mb-1" style="min-width: 170px;">
                     <app-input type="date"
-                               v-model="filterEndDate"
+                               v-model="activeFilters.end_date"
                                :placeholder="$t('end_date')"
-                               @input="onDateFilterChange"/>
+                               @input="applyFilters"/>
                 </div>
                 <div v-if="filterAmountLoading" class="mr-2 mb-1">
                     <span class="badge badge-secondary p-2" style="font-size: 13px;">
@@ -122,10 +130,10 @@
                         {{ $t('amount_owed') }}: ${{ filterAmountResult.amount }} ({{ filterAmountResult.count }} {{ $t('transactions') }})
                     </span>
                 </div>
-                <button v-if="filterStartDate || filterEndDate || beneficiarioFilter"
+                <button v-if="hasActiveFilters"
                         type="button"
                         class="btn btn-sm btn-outline-secondary mb-1"
-                        @click="clearFilters">
+                        @click="clearAllFilters">
                     {{ $t('clear') }}
                 </button>
             </div>
@@ -145,8 +153,8 @@
         <mark-as-paid-modal v-if="isMarkAsPaidModalActive"
                            :table-id="tableId"
                            :prefill-beneficiario-id="beneficiarioFilter"
-                           :prefill-start-date="filterStartDate"
-                           :prefill-end-date="filterEndDate"
+                           :prefill-start-date="activeFilters.start_date"
+                           :prefill-end-date="activeFilters.end_date"
                            @close-modal="closeMarkAsPaidModal"/>
 
         <app-delete-modal v-if="deleteConfirmationModalActive"
@@ -193,11 +201,15 @@
                 selectedUrl: '',
                 tableId: 'transactions-table',
                 rowData: {},
-                transactionTypeFilter: null,
+                // All active filters tracked in one place
+                activeFilters: {
+                    type: null,
+                    beneficiario_id: '',
+                    payment_status: null,
+                    start_date: '',
+                    end_date: '',
+                },
                 beneficiarioFilter: '',
-                paymentStatusFilter: null,
-                filterStartDate: '',
-                filterEndDate: '',
                 filterAmountResult: null,
                 filterAmountLoading: false,
                 filterAmountTimer: null,
@@ -211,26 +223,6 @@
                     name: this.$t('transactions'),
                     datatableWrapper: false,
                     showHeader: true,
-                    filters: [
-                        {
-                            title: this.$t('type'),
-                            type: 'dropdown',
-                            key: 'type',
-                            option: []
-                        },
-                        {
-                            title: this.$t('beneficiario_id'),
-                            type: 'dropdown',
-                            key: 'beneficiario_id',
-                            option: []
-                        },
-                        {
-                            title: this.$t('payment_status'),
-                            type: 'dropdown',
-                            key: 'payment_status',
-                            option: []
-                        }
-                    ],
                     columns: [
                         {
                             title: this.$t('transaction_id'),
@@ -356,7 +348,7 @@
                             modalId: 'transaction-terminate',
                         }
                     ],
-                    showFilter: true,
+                    showFilter: false,
                     showSearch: true,
                     paginationType: "pagination",
                     responsive: true,
@@ -369,7 +361,6 @@
         },
         computed: {
             isAdmin() {
-                // Check if the logged in user is admin by checking their role
                 return this.$store.state.user && 
                        this.$store.state.user.loggedInUser && 
                        (this.$store.state.user.loggedInUser.role === 'Admin' || 
@@ -382,13 +373,31 @@
             },
             showPaymentStats() {
                 return this.paymentStats.unpaid_count > 0;
+            },
+            hasActiveFilters() {
+                return this.beneficiarioFilter ||
+                       this.activeFilters.type !== null ||
+                       this.activeFilters.payment_status !== null ||
+                       this.activeFilters.start_date ||
+                       this.activeFilters.end_date;
+            },
+            // Build export URL with all current filters
+            exportUrl() {
+                const params = new URLSearchParams();
+                if (this.beneficiarioFilter) params.append('beneficiario_id', this.beneficiarioFilter);
+                if (this.activeFilters.type) params.append('type', this.activeFilters.type);
+                if (this.activeFilters.payment_status !== null && this.activeFilters.payment_status !== '') {
+                    params.append('payment_status', this.activeFilters.payment_status);
+                }
+                if (this.activeFilters.start_date) params.append('start_date', this.activeFilters.start_date);
+                if (this.activeFilters.end_date) params.append('end_date', this.activeFilters.end_date);
+                const qs = params.toString();
+                return `/${actions.TRANSACTIONS_EXPORT}${qs ? '?' + qs : ''}`;
             }
         },
         mounted() {
             this.loadPaymentStats();
-           // if (this.isAdmin) {
-                this.loadBeneficiarios();
-           // }
+            this.loadBeneficiarios();
         },
         methods: {
             loadPaymentStats() {
@@ -417,24 +426,93 @@
                     });
             },
 
-            filterByType(type) {
-                this.transactionTypeFilter = type;
-                this.$hub.$emit(`reload-${this.tableId}`, {
-                    type: type
-                });
+            /**
+             * Set a single filter value and rebuild the table URL.
+             */
+            setFilter(key, value) {
+                if (key === 'beneficiario_id') {
+                    this.beneficiarioFilter = value;
+                }
+                this.activeFilters[key] = value;
+                this.applyFilters();
             },
 
-            filterByBeneficiario() {
-                this.$hub.$emit(`reload-${this.tableId}`, {
-                    beneficiario_id: this.beneficiarioFilter
-                });
+            onBeneficiarioChange() {
+                this.activeFilters.beneficiario_id = this.beneficiarioFilter;
+                this.applyFilters();
                 this.fetchFilterAmount();
             },
 
-            filterByPaymentStatus(status) {
-                this.paymentStatusFilter = status;
-                this.$hub.$emit(`reload-${this.tableId}`, {
-                    payment_status: status
+            /**
+             * Rebuild options.url with all active filter params so the datatable
+             * always sends all filters on each reload.
+             */
+            applyFilters() {
+                const params = new URLSearchParams();
+                if (this.activeFilters.beneficiario_id) params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                if (this.activeFilters.type) params.append('type', this.activeFilters.type);
+                if (this.activeFilters.payment_status !== null && this.activeFilters.payment_status !== '') {
+                    params.append('payment_status', this.activeFilters.payment_status);
+                }
+                if (this.activeFilters.start_date) params.append('start_date', this.activeFilters.start_date);
+                if (this.activeFilters.end_date) params.append('end_date', this.activeFilters.end_date);
+
+                const qs = params.toString();
+                this.options.url = actions.TRANSACTIONS + (qs ? '?' + qs : '');
+
+                this.$nextTick(() => {
+                    this.$hub.$emit('reload-' + this.tableId);
+                });
+
+                // If date or beneficiario filter changed, recalculate debt amount
+                if (this.activeFilters.beneficiario_id || this.activeFilters.start_date || this.activeFilters.end_date) {
+                    this.fetchFilterAmount();
+                } else {
+                    this.filterAmountResult = null;
+                }
+            },
+
+            fetchFilterAmount() {
+                if (this.filterAmountTimer) {
+                    clearTimeout(this.filterAmountTimer);
+                }
+                const hasFilters = this.activeFilters.beneficiario_id || this.activeFilters.start_date || this.activeFilters.end_date;
+                if (!hasFilters) {
+                    this.filterAmountResult = null;
+                    return;
+                }
+                this.filterAmountTimer = setTimeout(() => {
+                    this.filterAmountLoading = true;
+                    const params = new URLSearchParams();
+                    if (this.activeFilters.beneficiario_id) params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                    if (this.activeFilters.start_date) params.append('start_date', this.activeFilters.start_date);
+                    if (this.activeFilters.end_date) params.append('end_date', this.activeFilters.end_date);
+                    this.axiosGet(actions.TRANSACTIONS_CALCULATE_AMOUNT + '?' + params.toString())
+                        .then(response => {
+                            this.filterAmountResult = response.data;
+                        })
+                        .catch(error => {
+                            console.error('Error calculating payment amount:', error);
+                        })
+                        .finally(() => {
+                            this.filterAmountLoading = false;
+                        });
+                }, 500);
+            },
+
+            clearAllFilters() {
+                this.beneficiarioFilter = '';
+                this.activeFilters = {
+                    type: null,
+                    beneficiario_id: '',
+                    payment_status: null,
+                    start_date: '',
+                    end_date: '',
+                };
+                this.filterAmountResult = null;
+                this.options.url = actions.TRANSACTIONS;
+                this.$nextTick(() => {
+                    this.$hub.$emit('reload-' + this.tableId);
                 });
             },
 
@@ -452,58 +530,10 @@
                 this.isMarkAsPaidModalActive = true;
             },
 
-            onDateFilterChange() {
-                this.$hub.$emit(`reload-${this.tableId}`, {
-                    start_date: this.filterStartDate,
-                    end_date: this.filterEndDate
-                });
-                this.fetchFilterAmount();
-            },
-
-            fetchFilterAmount() {
-                if (this.filterAmountTimer) {
-                    clearTimeout(this.filterAmountTimer);
-                }
-                const hasFilters = this.beneficiarioFilter || this.filterStartDate || this.filterEndDate;
-                if (!hasFilters) {
-                    this.filterAmountResult = null;
-                    return;
-                }
-                this.filterAmountTimer = setTimeout(() => {
-                    this.filterAmountLoading = true;
-                    const params = {};
-                    if (this.beneficiarioFilter) params.beneficiario_id = this.beneficiarioFilter;
-                    if (this.filterStartDate) params.start_date = this.filterStartDate;
-                    if (this.filterEndDate) params.end_date = this.filterEndDate;
-                    this.axiosGet(actions.TRANSACTIONS_CALCULATE_AMOUNT + '?' + new URLSearchParams(params).toString())
-                        .then(response => {
-                            this.filterAmountResult = response.data;
-                        })
-                        .catch(error => {
-                            console.error('Error calculating payment amount:', error);
-                        })
-                        .finally(() => {
-                            this.filterAmountLoading = false;
-                        });
-                }, 500);
-            },
-
-            clearFilters() {
-                this.filterStartDate = '';
-                this.filterEndDate = '';
-                this.beneficiarioFilter = '';
-                this.filterAmountResult = null;
-                this.$hub.$emit(`reload-${this.tableId}`, {
-                    start_date: null,
-                    end_date: null,
-                    beneficiario_id: null
-                });
-            },
-
             closeMarkAsPaidModal() {
                 $("#mark-as-paid-modal").modal('hide');
                 this.isMarkAsPaidModalActive = false;
-                this.loadPaymentStats(); // Reload stats after marking as paid
+                this.loadPaymentStats();
             },
 
             getListAction(rowData, actionObj, active) {
@@ -593,3 +623,4 @@
         }
     }
 </script>
+
