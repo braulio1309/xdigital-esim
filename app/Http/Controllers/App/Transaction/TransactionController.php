@@ -9,8 +9,10 @@ use App\Models\App\PaymentHistory\PaymentHistory;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
 use App\Services\EsimFxService;
+use App\Exports\App\Transaction\TransactionExport;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TransactionController extends Controller
 {
@@ -193,12 +195,11 @@ class TransactionController extends Controller
                 Carbon::parse($validated['start_date'])->startOfDay(),
                 Carbon::parse($validated['end_date'])->endOfDay()
             ])
-            ->update([
-                'is_paid' => true,
-                'paid_at' => now()
-            ]);
+            ->get();
 
-        // Save payment history record
+        $updatedCount = $updated->count();
+
+        // Save payment history record first so we can link transactions back to it
         $supportPath = null;
         $supportOriginalName = null;
         if ($request->hasFile('support')) {
@@ -207,20 +208,28 @@ class TransactionController extends Controller
             $supportPath = $file->store('payment-supports', 'public');
         }
 
-        PaymentHistory::create([
+        $paymentHistory = PaymentHistory::create([
             'beneficiario_id' => $validated['beneficiario_id'],
             'reference' => $validated['reference'] ?? null,
             'payment_date' => $validated['payment_date'],
             'support_path' => $supportPath,
             'support_original_name' => $supportOriginalName,
-            'amount' => $updated * 0.85, // $0.85 is the commission rate per free eSIM transaction
-            'transactions_count' => $updated,
+            'amount' => $updatedCount * 0.85, // $0.85 is the commission rate per free eSIM transaction
+            'transactions_count' => $updatedCount,
             'notes' => $validated['notes'] ?? null,
         ]);
 
+        // Mark transactions as paid and link to this payment history record
+        Transaction::whereIn('id', $updated->pluck('id'))
+            ->update([
+                'is_paid' => true,
+                'paid_at' => now(),
+                'payment_history_id' => $paymentHistory->id,
+            ]);
+
         return response()->json([
-            'message' => "Successfully marked {$updated} transactions as paid",
-            'updated_count' => $updated
+            'message' => "Successfully marked {$updatedCount} transactions as paid",
+            'updated_count' => $updatedCount
         ]);
     }
 
@@ -305,6 +314,28 @@ class TransactionController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Export transactions to Excel applying the same filters as the index.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function export(\Illuminate\Http\Request $request)
+    {
+        $filters = $request->only([
+            'beneficiario_id',
+            'type',
+            'payment_status',
+            'start_date',
+            'end_date',
+            'search',
+        ]);
+
+        $filename = 'transacciones-' . now()->format('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new TransactionExport($filters), $filename);
     }
 
     /**

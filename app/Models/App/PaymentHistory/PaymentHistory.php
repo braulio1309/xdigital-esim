@@ -19,11 +19,14 @@ class PaymentHistory extends AppModel
         'amount',
         'transactions_count',
         'notes',
+        'status',
+        'cancelled_at',
     ];
 
     protected $casts = [
         'payment_date' => 'date',
         'amount' => 'decimal:2',
+        'cancelled_at' => 'datetime',
     ];
 
     /**
@@ -34,5 +37,15 @@ class PaymentHistory extends AppModel
     public function beneficiario()
     {
         return $this->belongsTo(Beneficiario::class);
+    }
+
+    /**
+     * Transactions that were paid as part of this payment history record
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function transactions()
+    {
+        return $this->hasMany(\App\Models\App\Transaction\Transaction::class, 'payment_history_id');
     }
 }

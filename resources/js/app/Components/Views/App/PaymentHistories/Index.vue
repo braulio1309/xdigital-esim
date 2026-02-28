@@ -8,11 +8,12 @@
 
         <app-table :id="tableId" :options="options" @action="getListAction"/>
 
-        <app-delete-modal v-if="deleteConfirmationModalActive"
-                          :preloader="deleteLoader"
-                          modal-id="payment-history-delete"
-                          @confirmed="confirmed"
-                          @cancelled="cancelled"/>
+        <!-- Void (anular) confirmation modal -->
+        <app-delete-modal v-if="cancelConfirmationModalActive"
+                          :preloader="cancelLoader"
+                          modal-id="payment-history-cancel"
+                          @confirmed="confirmedCancel"
+                          @cancelled="cancelledCancel"/>
     </div>
 </template>
 
@@ -25,8 +26,8 @@
         name: "PaymentHistoriesList",
         data() {
             return {
-                deleteLoader: false,
-                deleteConfirmationModalActive: false,
+                cancelLoader: false,
+                cancelConfirmationModalActive: false,
                 tableId: 'payment-histories-table',
                 rowData: {},
                 options: {
@@ -95,6 +96,17 @@
                             }
                         },
                         {
+                            title: this.$t('status'),
+                            type: 'custom-html',
+                            key: 'status',
+                            modifier: (value) => {
+                                if (value === 'anulada') {
+                                    return `<span class="badge badge-danger">${this.$t('anulada')}</span>`;
+                                }
+                                return `<span class="badge badge-success">${this.$t('active_status')}</span>`;
+                            }
+                        },
+                        {
                             title: this.$t('created_at'),
                             type: 'text',
                             key: 'created_at',
@@ -108,11 +120,11 @@
                     ],
                     actions: [
                         {
-                            title: this.$t('delete'),
-                            icon: 'trash',
+                            title: this.$t('anular'),
+                            icon: 'slash',
                             type: 'none',
                             component: 'app-confirmation-modal',
-                            modalId: 'payment-history-delete',
+                            modalId: 'payment-history-cancel',
                         }
                     ],
                     showFilter: false,
@@ -126,45 +138,40 @@
                 }
             }
         },
-        computed: {
-            isAdmin() {
-                return this.$store.state.user &&
-                       this.$store.state.user.loggedInUser &&
-                       (this.$store.state.user.loggedInUser.role === 'Admin' ||
-                        this.$store.state.user.loggedInUser.user_type === 'admin');
-            }
-        },
         methods: {
             getListAction(rowData, actionObj, active) {
                 this.rowData = rowData;
-                if (actionObj.title == this.$t('delete')) {
-                    this.openDeleteModal();
+                if (actionObj.title == this.$t('anular')) {
+                    this.openCancelModal();
                 }
             },
 
-            openDeleteModal() {
-                this.deleteConfirmationModalActive = true;
+            openCancelModal() {
+                this.cancelConfirmationModalActive = true;
             },
 
-            confirmed() {
-                let url = `${actions.PAYMENT_HISTORIES}/${this.rowData.id}`;
-                this.deleteLoader = true;
-                this.axiosDelete(url)
+            confirmedCancel() {
+                let url = `${actions.PAYMENT_HISTORIES_CANCEL(this.rowData.id)}`;
+                this.cancelLoader = true;
+                this.axiosPost({ url, data: {} })
                     .then(response => {
-                        this.deleteLoader = false;
-                        $("#payment-history-delete").modal('hide');
-                        this.cancelled();
+                        this.cancelLoader = false;
+                        $("#payment-history-cancel").modal('hide');
+                        this.cancelledCancel();
                         this.$toastr.s(response.data.message);
-                    }).catch(({error}) => {
+                    }).catch(({ response }) => {
+                        this.cancelLoader = false;
+                        this.$toastr.e(response?.data?.message || this.$t('something_went_wrong'));
                     }).finally(() => {
                         this.$hub.$emit('reload-' + this.tableId);
                     });
             },
 
-            cancelled() {
-                this.deleteConfirmationModalActive = false;
+            cancelledCancel() {
+                this.cancelConfirmationModalActive = false;
                 this.rowData = {};
             }
         }
     }
 </script>
+

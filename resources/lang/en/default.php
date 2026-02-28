@@ -553,5 +553,13 @@ return array_merge([
     'payment_support_hint' => 'Formatos aceptados: JPG, PNG, PDF, WEBP (máx. 5MB)',
     'transactions_count' => 'Transacciones',
     'support' => 'Soporte',
+    'anular' => 'Anular',
+    'anulada' => 'Anulada',
+    'active_status' => 'Activo',
+    'void_payment_history' => 'Anular Historial de Pago',
+    'confirm_void_payment_history' => '¿Está seguro de que desea anular este historial de pago? Las transacciones asociadas volverán a marcarse como deuda pendiente.',
+    'payment_history_voided_success' => 'Historial de pago anulado correctamente.',
+    'export_excel' => 'Exportar Excel',
+    'export_transactions' => 'Exportar Transacciones',
 
 ], include 'custom.php');
