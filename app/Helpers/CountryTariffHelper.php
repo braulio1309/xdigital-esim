@@ -193,6 +193,8 @@ class CountryTariffHelper
             ['code' => 'XK', 'name' => 'Kosovo', 'region' => 'Europe', 'tier' => 'Blue', 'price' => 10.24],
             ['code' => 'ZA', 'name' => 'South Africa', 'region' => 'Africa', 'tier' => 'Neon', 'price' => 2.02],
             ['code' => 'ZM', 'name' => 'Zambia', 'region' => 'Africa', 'tier' => 'Sapphire', 'price' => 3.07],
+            ['code' => 'VE', 'name' => 'Venezuela', 'region' => 'Latin America', 'tier' => 'Sapphire', 'price' => 0.1],
+
         ];
     }
 
