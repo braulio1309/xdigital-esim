@@ -34,7 +34,7 @@ return new class extends Migration
     {
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropForeign(['payment_history_id']);
-            $table->dropIndex(['transactions_payment_history_id_index']);
+            $table->dropIndex(['payment_history_id']);
             $table->dropColumn('payment_history_id');
         });
 
