@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Illuminate\Support\Str;
 
 class ClienteImport implements ToCollection, WithHeadingRow
 {
@@ -26,10 +27,18 @@ class ClienteImport implements ToCollection, WithHeadingRow
     public function collection(Collection $rows)
     {
         foreach ($rows as $row) {
-            $nombre   = trim($row['nombre'] ?? '');
-            $apellido = trim($row['apellido'] ?? '');
-            $email    = trim($row['email'] ?? '');
+            // --- NORMALIZACIÓN DE LLAVES ---
+            // Convertimos todas las llaves a "slug" (ej: "Nombre Completo" -> "nombre_completo")
+            $row = $row->mapWithKeys(function ($value, $key) {
+                return [Str::slug($key, '_') => $value];
+            });
 
+            // Extraemos los valores buscando variaciones comunes de nombres de columna
+            $nombre   = trim($row['nombre'] ?? $row['name'] ?? $row['first_name'] ?? $row['Nombre'] ??'');
+            $apellido = trim($row['apellido'] ?? $row['last_name'] ?? $row['surname'] ?? $row['Apellido'] ?? '');
+            $email    = trim($row['email'] ?? $row['correo'] ?? $row['e_mail'] ?? $row['Email'] ?? $row['Correo'] ?? '');
+
+            // --- LÓGICA ORIGINAL ---
             if (empty($nombre) || empty($email)) {
                 $this->skipped++;
                 continue;
@@ -65,11 +74,11 @@ class ClienteImport implements ToCollection, WithHeadingRow
                     }
 
                     Cliente::create([
-                        'nombre'         => $nombre,
-                        'apellido'       => $apellido,
-                        'email'          => $email,
-                        'user_id'        => $user->id,
-                        'beneficiario_id' => $this->beneficiarioId,
+                        'nombre'                 => $nombre,
+                        'apellido'               => $apellido,
+                        'email'                  => $email,
+                        'user_id'                => $user->id,
+                        'beneficiario_id'        => $this->beneficiarioId,
                         'can_activate_free_esim' => true,
                     ]);
                 });
