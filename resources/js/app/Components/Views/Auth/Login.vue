@@ -15,6 +15,10 @@
                             <img :src="urlGenerator(configData.company_logo)" alt=""
                                  class="img-fluid logo">
                         </div>
+                        <div class="d-flex align-items-center justify-content-center flex-wrap partner-logos mb-4">
+                            <img src="/images/logo.png" alt="Xcertus" class="partner-logo" />
+                            <img src="/images/nomadesim.png" alt="NomadeSIM" class="partner-logo" />
+                        </div>
                         <div class="form-row">
                             <div class="form-group col-12 px-0">
                                 <h6 class="text-center mb-0">{{ $t('hi_there') }}</h6>
@@ -108,3 +112,14 @@
         }
     }
 </script>
+
+<style scoped>
+.partner-logos {
+    gap: 16px;
+}
+.partner-logo {
+    max-height: 50px;
+    max-width: 140px;
+    object-fit: contain;
+}
+</style>

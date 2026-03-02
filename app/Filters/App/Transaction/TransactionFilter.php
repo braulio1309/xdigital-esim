@@ -66,8 +66,8 @@ class TransactionFilter extends FilterBuilder
                     $q->whereNull('beneficiario_id');
                 });
             } else {
-                $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                    $q->where('beneficiario_id', $beneficiarioId);
+                $query->whereHas('cliente.beneficiario', function ($q) use ($beneficiarioId) {
+                    $q->where('id', $beneficiarioId);
                 });
             }
         });
