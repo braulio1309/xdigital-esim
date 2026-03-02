@@ -1,5 +1,9 @@
 <template>
   <div class="content-wrapper">
+    <div class="d-flex align-items-center justify-content-center flex-wrap mb-4 partner-logos">
+      <img src="/images/logo.png" alt="Xcertus" class="partner-logo" />
+      <img src="/images/nomadesim.png" alt="NomadeSIM" class="partner-logo" />
+    </div>
     <app-breadcrumb 
       page-title="Dashboard de Métricas" 
       :icon="'bar-chart-2'"
@@ -213,5 +217,13 @@ export default {
   width: 1rem;
   height: 1rem;
   border-width: 0.2em;
+}
+.partner-logos {
+  gap: 24px;
+}
+.partner-logo {
+  max-height: 60px;
+  max-width: 180px;
+  object-fit: contain;
 }
 </style>
