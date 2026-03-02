@@ -333,23 +333,27 @@ class TransactionController extends Controller
             'search',
         ]);
 
+        // Clean date strings that may contain browser timezone info
+        // e.g. "Sun Mar 01 2026 15:33:13 GMT-0400 (hora de Venezuela)"
+        foreach (['start_date', 'end_date'] as $field) {
+            if (!empty($filters[$field])) {
+                $filters[$field] = preg_replace('/\s*\(.*?\)/', '', $filters[$field]);
+            }
+        }
+
         $filename = 'transacciones-' . now()->format('Y-m-d_H-i-s') . '.xlsx';
 
         return Excel::download(new TransactionExport($filters), $filename);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Deletion of transactions is not allowed.
      *
-     * @param int $id
+     * @param Transaction $transaction
      * @return \Illuminate\Http\Response
-     * @throws \Exception
      */
     public function destroy(Transaction $transaction)
     {
-        if ($this->service->delete($transaction)) {
-            return deleted_responses('transaction');
-        }
-        return failed_responses();
+        return response()->json(['message' => __('default.transactions_cannot_be_deleted')], 403);
     }
 }

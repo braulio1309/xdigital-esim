@@ -26,9 +26,15 @@ class TransactionExport implements FromQuery, WithHeadings, WithMapping, WithSty
         // Filter by beneficiario
         if (!empty($this->filters['beneficiario_id'])) {
             $beneficiarioId = $this->filters['beneficiario_id'];
-            $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                $q->where('beneficiario_id', $beneficiarioId);
-            });
+            if ($beneficiarioId === 'none') {
+                $query->whereHas('cliente', function ($q) {
+                    $q->whereNull('beneficiario_id');
+                });
+            } else {
+                $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
+                    $q->where('beneficiario_id', $beneficiarioId);
+                });
+            }
         }
 
         // Filter by type (free / paid plans)
@@ -50,12 +56,14 @@ class TransactionExport implements FromQuery, WithHeadings, WithMapping, WithSty
             }
         }
 
-        // Date range on creation_time
+        // Date range on creation_time - clean browser timezone strings before parsing
         if (!empty($this->filters['start_date'])) {
-            $query->where('creation_time', '>=', Carbon::parse($this->filters['start_date'])->startOfDay());
+            $cleanDate = preg_replace('/\s*\(.*?\)/', '', $this->filters['start_date']);
+            $query->where('creation_time', '>=', Carbon::parse($cleanDate)->startOfDay());
         }
         if (!empty($this->filters['end_date'])) {
-            $query->where('creation_time', '<=', Carbon::parse($this->filters['end_date'])->endOfDay());
+            $cleanDate = preg_replace('/\s*\(.*?\)/', '', $this->filters['end_date']);
+            $query->where('creation_time', '<=', Carbon::parse($cleanDate)->endOfDay());
         }
 
         // Restrict to own beneficiario if the authenticated user is a beneficiario

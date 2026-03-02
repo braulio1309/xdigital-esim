@@ -157,12 +157,6 @@
                            :prefill-end-date="activeFilters.end_date"
                            @close-modal="closeMarkAsPaidModal"/>
 
-        <app-delete-modal v-if="deleteConfirmationModalActive"
-                          :preloader="deleteLoader"
-                          modal-id="transaction-delete"
-                          @confirmed="confirmed"
-                          @cancelled="cancelled"/>
-
         <app-delete-modal v-if="terminateConfirmationModalActive"
                           :preloader="terminateLoader"
                           modal-id="transaction-terminate"
@@ -191,12 +185,10 @@
         },
         data() {
             return {
-                deleteLoader: false,
                 terminateLoader: false,
                 isAddEditModalActive: false,
                 isDetailModalActive: false,
                 isMarkAsPaidModalActive: false,
-                deleteConfirmationModalActive: false,
                 terminateConfirmationModalActive: false,
                 selectedUrl: '',
                 tableId: 'transactions-table',
@@ -335,12 +327,6 @@
                             component: 'app-add-modal',
                             modalId: 'transaction-add-edit-modal',
                         }, {
-                            title: this.$t('delete'),
-                            icon: 'trash',
-                            type: 'none',
-                            component: 'app-confirmation-modal',
-                            modalId: 'transaction-delete',
-                        }, {
                             title: this.$t('terminate_subscription'),
                             icon: 'slash',
                             type: 'none',
@@ -389,8 +375,8 @@
                 if (this.activeFilters.payment_status !== null && this.activeFilters.payment_status !== '') {
                     params.append('payment_status', this.activeFilters.payment_status);
                 }
-                if (this.activeFilters.start_date) params.append('start_date', this.activeFilters.start_date);
-                if (this.activeFilters.end_date) params.append('end_date', this.activeFilters.end_date);
+                if (this.activeFilters.start_date) params.append('start_date', this.formatDateParam(this.activeFilters.start_date));
+                if (this.activeFilters.end_date) params.append('end_date', this.formatDateParam(this.activeFilters.end_date));
                 const qs = params.toString();
                 return `/${actions.TRANSACTIONS_EXPORT}${qs ? '?' + qs : ''}`;
             }
@@ -418,7 +404,8 @@
                             ...response.data.data.map(beneficiario => ({
                                 id: beneficiario.id,
                                 value: beneficiario.nombre
-                            }))
+                            })),
+                            { id: 'none', value: this.$t('without_beneficiary') },
                         ];
                     })
                     .catch(error => {
@@ -539,9 +526,7 @@
             getListAction(rowData, actionObj, active) {
                 this.rowData = rowData;
 
-                if (actionObj.title == this.$t('delete')) {
-                    this.openDeleteModal();
-                } else if (actionObj.title == this.$t('edit')) {
+                if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.TRANSACTIONS}/${rowData.id}`;
                     this.openAddEditModal();
                 } else if (actionObj.title == this.$t('details')) {
@@ -588,37 +573,17 @@
                 this.reSetData();
             },
 
-            openDeleteModal() {
-                this.deleteConfirmationModalActive = true;
-            },
-
-            confirmed() {
-                let url = `${actions.TRANSACTIONS}/${this.rowData.id}`;
-                this.deleteLoader=true;
-                this.axiosDelete(url)
-                    .then(response => {
-                        this.deleteLoader= false;
-                        $("#transaction-delete").modal('hide');
-                        this.cancelled();
-                        this.$toastr.s(response.data.message);
-                    }).catch(({error}) => {
-
-                    //trigger after error
-                }).finally(() => {
-
-                    this.$hub.$emit('reload-' + this.tableId);
-                    this.loadPaymentStats();
-                });
-            },
-
-            cancelled() {
-                this.deleteConfirmationModalActive = false;
-                this.reSetData();
-            },
-
             reSetData() {
                 this.rowData = {};
                 this.selectedUrl = '';
+            },
+
+            /**
+             * Format a date value (Date object or string) to YYYY-MM-DD for URL params.
+             */
+            formatDateParam(date) {
+                const d = new Date(date);
+                return isNaN(d.getTime()) ? String(date) : d.toISOString().split('T')[0];
             }
         }
     }

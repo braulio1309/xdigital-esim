@@ -56,13 +56,20 @@ class TransactionFilter extends FilterBuilder
 
     /**
      * Filter by beneficiario_id
+     * Use 'none' to filter transactions with no beneficiario (N/A)
      */
     public function beneficiario_id($beneficiarioId = null)
     {
         $this->builder->when($beneficiarioId, function ($query) use ($beneficiarioId) {
-            $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                $q->where('beneficiario_id', $beneficiarioId);
-            });
+            if ($beneficiarioId === 'none') {
+                $query->whereHas('cliente', function ($q) {
+                    $q->whereNull('beneficiario_id');
+                });
+            } else {
+                $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
+                    $q->where('beneficiario_id', $beneficiarioId);
+                });
+            }
         });
     }
 
@@ -88,7 +95,8 @@ class TransactionFilter extends FilterBuilder
     public function start_date($startDate = null)
     {
         $this->builder->when($startDate, function ($query) use ($startDate) {
-            $query->where('creation_time', '>=', \Carbon\Carbon::parse($startDate)->startOfDay());
+            $cleanDate = preg_replace('/\s*\(.*?\)/', '', $startDate);
+            $query->where('creation_time', '>=', \Carbon\Carbon::parse($cleanDate)->startOfDay());
         });
     }
 
@@ -98,7 +106,8 @@ class TransactionFilter extends FilterBuilder
     public function end_date($endDate = null)
     {
         $this->builder->when($endDate, function ($query) use ($endDate) {
-            $query->where('creation_time', '<=', \Carbon\Carbon::parse($endDate)->endOfDay());
+            $cleanDate = preg_replace('/\s*\(.*?\)/', '', $endDate);
+            $query->where('creation_time', '<=', \Carbon\Carbon::parse($cleanDate)->endOfDay());
         });
     }
 }
