@@ -561,7 +561,7 @@ return array_merge([
     'payment_history_voided_success' => 'Historial de pago anulado correctamente.',
     'export_excel' => 'Exportar Excel',
     'export_transactions' => 'Exportar Transacciones',
-    'without_beneficiary' => 'Sin Beneficiario',
+    'without_beneficiary' => 'Sin Partner',
     'transactions_cannot_be_deleted' => 'Las transacciones no pueden ser eliminadas.',
 
 ], include 'custom.php');
