@@ -15,7 +15,8 @@ class Beneficiario extends AppModel
 
     protected $fillable = [
         'nombre', 
-        'descripcion', 
+        'descripcion',
+        'logo',
         'codigo',
         'user_id',
         'commission_percentage',
@@ -28,6 +29,8 @@ class Beneficiario extends AppModel
         'total_earnings' => 'decimal:2',
         'total_sales' => 'integer',
     ];
+
+    protected $appends = ['logo_url'];
 
     /**
      * Relationship with User model
@@ -67,5 +70,18 @@ class Beneficiario extends AppModel
     public function getReferralLinkAttribute()
     {
         return url('/registro/esim/' . Str::slug($this->nombre) . '-' . $this->codigo);
+    }
+
+    /**
+     * Get the logo URL attribute
+     *
+     * @return string|null
+     */
+    public function getLogoUrlAttribute()
+    {
+        if (!$this->logo) {
+            return null;
+        }
+        return \Illuminate\Support\Facades\Storage::disk(config('filesystems.default'))->url($this->logo);
     }
 }
