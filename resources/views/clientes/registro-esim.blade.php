@@ -113,8 +113,13 @@
                         <div class="text-center mb-3">
                             <p class="small text-muted text-uppercase mb-2 font-weight-bold" style="letter-spacing: 1px;">Alianza Estratégica</p>
                             <div class="brand-alliance-container">
-                                {{-- Logo Xcertus --}}
-                                <img src="{{ asset('images/logo.png') }}" alt="Xcertus" class="logo-img logo-xcertus">
+                                @if(isset($beneficiario) && $beneficiario && $beneficiario->logo_url)
+                                    {{-- Partner logo --}}
+                                    <img src="{{ $beneficiario->logo_url }}" alt="{{ $beneficiario->nombre }}" class="logo-img logo-xcertus">
+                                @else
+                                    {{-- Logo Xcertus (default) --}}
+                                    <img src="{{ asset('images/logo.png') }}" alt="Xcertus" class="logo-img logo-xcertus">
+                                @endif
                                 {{-- Logo Nomad --}}
                                 <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-img logo-nomad">
                             </div>

@@ -2,6 +2,7 @@
 
 namespace App\Services\App\Beneficiario;
 
+use App\Helpers\Core\Traits\FileHandler;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
@@ -12,6 +13,8 @@ use Illuminate\Support\Str;
 
 class BeneficiarioService extends AppService
 {
+    use FileHandler;
+
     public function __construct(Beneficiario $beneficiario)
     {
         $this->model = $beneficiario;
@@ -30,6 +33,11 @@ class BeneficiarioService extends AppService
             // Generate unique codigo if not provided
             if (!isset($attributes['codigo'])) {
                 $attributes['codigo'] = $this->generateUniqueCode();
+            }
+
+            // Handle logo upload
+            if (request()->hasFile('logo')) {
+                $attributes['logo'] = $this->uploadImage(request()->file('logo'), 'beneficiarios/logos');
             }
             
             // Create the beneficiario - pass attributes as options to avoid request mutation
@@ -101,6 +109,15 @@ class BeneficiarioService extends AppService
     public function update(Beneficiario $beneficiario)
     {
         $beneficiario->fill(request()->only(['nombre', 'descripcion']));
+
+        // Handle logo upload
+        if (request()->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($beneficiario->logo) {
+                $this->deleteImage($beneficiario->logo);
+            }
+            $beneficiario->logo = $this->uploadImage(request()->file('logo'), 'beneficiarios/logos');
+        }
 
         $this->model = $beneficiario;
 
