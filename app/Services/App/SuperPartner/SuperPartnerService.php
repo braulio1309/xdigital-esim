@@ -41,7 +41,7 @@ class SuperPartnerService extends AppService
 
             $superPartner = parent::save($attributes);
 
-            if (!$superPartner->user_id && isset($attributes['nombre'])) {
+            if (!$superPartner->user_id && isset($attributes['nombre']) && isset($attributes['email']) && isset($attributes['password'])) {
                 $user = $this->createUserForSuperPartner($superPartner, $attributes);
                 $superPartner->user_id = $user->id;
                 $superPartner->save();
@@ -86,7 +86,7 @@ class SuperPartnerService extends AppService
             'status_id'  => $status->id,
         ]);
 
-        $user->assignRole('Moderator');
+        $user->assignRole('Super Partner');
 
         return $user;
     }

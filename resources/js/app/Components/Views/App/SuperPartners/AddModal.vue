@@ -145,6 +145,12 @@
                 });
             }
         },
+        beforeDestroy() {
+            if (this._logoObjectUrl) {
+                URL.revokeObjectURL(this._logoObjectUrl);
+                this._logoObjectUrl = null;
+            }
+        },
         methods: {
             onLogoChange(event) {
                 const file = event.target.files[0];

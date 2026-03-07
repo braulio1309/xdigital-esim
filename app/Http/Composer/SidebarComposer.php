@@ -98,7 +98,7 @@ class SidebarComposer
                     'permission' => true,
                 ],
                 [
-                    'icon' => 'user-check',
+                    'icon' => 'user',
                     'name' => 'Mis Clientes',
                     'url' => request()->root() . '/admin/clientes',
                     'permission' => true,
