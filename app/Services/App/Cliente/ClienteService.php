@@ -65,7 +65,7 @@ class ClienteService extends AppService
             'user_type'  => 'cliente',
             'status_id'  => $status->id,
         ]);
-        $user->assignRole('Moderator');
+        $user->assignRole('cliente');
         
         return $user;
     }

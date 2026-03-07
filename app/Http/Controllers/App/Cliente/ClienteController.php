@@ -87,7 +87,8 @@ class ClienteController extends Controller
                 }
             }
         }
-        $cliente = $this->service->save();
+        $request->merge(['type' => 'cliente']);
+        $cliente = $this->service->save($request->all());
 
         return created_responses('cliente');
     }

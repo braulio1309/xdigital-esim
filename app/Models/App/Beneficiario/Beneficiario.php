@@ -23,7 +23,7 @@ class Beneficiario extends AppModel
         'super_partner_id',
         'commission_percentage',
         'total_earnings',
-        'total_sales'
+        'total_sales',
     ];
 
     protected $casts = [

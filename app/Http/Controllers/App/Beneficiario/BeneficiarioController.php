@@ -102,7 +102,7 @@ class BeneficiarioController extends Controller
             }
         }
 
-        $beneficiario = $this->service->save();
+        $beneficiario = $this->service->save($request->all());
 
         return created_responses('beneficiario');
     }

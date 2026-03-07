@@ -29,17 +29,15 @@ class BeneficiarioService extends AppService
     {
         return DB::transaction(function () use ($options) {
             $attributes = count($options) ? $options : request()->all();
-            
             // Generate unique codigo if not provided
             if (!isset($attributes['codigo'])) {
                 $attributes['codigo'] = $this->generateUniqueCode();
             }
-
             // Handle logo upload
             if (request()->hasFile('logo')) {
                 $attributes['logo'] = $this->uploadImage(request()->file('logo'), 'beneficiarios/logos');
             }
-            
+
             // Create the beneficiario - pass attributes as options to avoid request mutation
             $beneficiario = parent::save($attributes);
             
@@ -96,7 +94,7 @@ class BeneficiarioService extends AppService
             'user_type'  => 'beneficiario',
             'status_id'  => $status->id,
         ]);
-        $user->assignRole('Moderator');
+        $user->assignRole('beneficiario');
         
         return $user;
     }

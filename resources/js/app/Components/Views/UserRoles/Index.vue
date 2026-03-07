@@ -12,12 +12,7 @@
                             @click="operationForUserCreate">
                         {{ $t('create_user') }}
                     </button>
-                    <button type="button"
-                            class="btn btn-primary btn-with-shadow"
-                            data-toggle="modal"
-                            @click="operateRoles(true)">
-                        {{ $t('add_role') }}
-                    </button>
+                    
                 </div>
             </div>
         </div>

@@ -92,8 +92,8 @@ export const PAYMENT_HISTORIES_CANCEL = (id) => `payment-histories/${id}/cancel`
 //roles and users
 export const ROLES = 'admin/auth/roles';
 export const USERS = 'admin/auth/users';
-export const USERS_LIST = 'user-list';
-export const CREATE_USER = '/app/user-list';
+export const USERS_LIST = '/user-list';
+export const CREATE_USER = '/user-list';
 export const ALL_USERS = 'all-users';
 export const GET_USERS = 'get/users';
 export const GET_STATUSES = 'admin/app/statuses';

@@ -23,7 +23,7 @@ class UserService extends BaseService
 {
     use FileHandler, Helpers, HasWhen, HasUserActions;
 
-    protected $role;
+    public $role;
 
     public function __construct(User $user, Role $role)
     {

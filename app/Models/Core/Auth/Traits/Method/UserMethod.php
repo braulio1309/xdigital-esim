@@ -57,7 +57,6 @@ trait UserMethod
         if ($this->hasRole($role)) {
             return true;
         }
-
         if (is_string($role)) {
             return $this->roles()->attach(
                 Role::findByName($role)->id

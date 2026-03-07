@@ -34,6 +34,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+       
         // Validate input — only admin users are created from this section
         $request->validate([
             'first_name' => 'required|string|max:255',
@@ -48,16 +49,22 @@ class UserController extends Controller
         if (!$status) {
             throw new \App\Exceptions\GeneralException('Active status not found in the system');
         }
+        
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $request->merge(['super_partner_id' => $superPartner->id]);
+            }
+        }
 
-        // Create admin user — user_type is always 'admin' from this section
-        $this->service->create([
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password),
-            'user_type' => 'admin',
-            'status_id' => $status->id,
-        ]);
+       $this->service
+            ->create($request->all())
+            ->when($request->get('roles'), function (UserService $service) use ($request) {
+                $service->assignRole($request->get('roles'));
+            })->notify('user_created');
+
+       
+
 
         return created_responses('user');
     }
