@@ -116,9 +116,7 @@ class BeneficiarioDashboardController extends Controller
     private function getDebtData(int $beneficiarioId, ?string $startDate, ?string $endDate): array
     {
         $query = Transaction::where('purchase_amount', 0)
-            ->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                $q->where('beneficiario_id', $beneficiarioId);
-            });
+            ->where('beneficiario_id', $beneficiarioId);
 
         if ($startDate) {
             try {

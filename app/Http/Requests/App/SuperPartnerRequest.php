@@ -18,12 +18,13 @@ class SuperPartnerRequest extends AppRequest
         $isCreate = $this->isMethod('post');
 
         return [
-            'nombre'      => 'required|string|max:255',
-            'descripcion' => 'nullable|string|max:255',
-            'apellido'    => 'nullable|string|max:255',
-            'email'       => 'required|email|max:255|unique:users,email' . ($userId ? ",{$userId}" : ''),
-            'password'    => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
-            'logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
+            'nombre'                => 'required|string|max:255',
+            'descripcion'           => 'nullable|string|max:255',
+            'apellido'              => 'nullable|string|max:255',
+            'email'                 => 'required|email|max:255|unique:users,email' . ($userId ? ",{$userId}" : ''),
+            'password'              => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
+            'logo'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
         ];
     }
 }

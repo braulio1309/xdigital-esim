@@ -17,12 +17,10 @@ class ReportTransactionController extends Controller
     {
         $beneficiarioId = $request->get('beneficiario_id');
 
-        $query = Transaction::with('cliente.beneficiario');
+        $query = Transaction::with('cliente.beneficiario', 'beneficiario');
 
         if ($beneficiarioId) {
-            $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                $q->where('beneficiario_id', $beneficiarioId);
-            });
+            $query->where('beneficiario_id', $beneficiarioId);
         }
 
         // Total transactions this week
@@ -59,15 +57,15 @@ class ReportTransactionController extends Controller
             ];
         }
 
-        // Transaction sources (by beneficiario)
-        $transactionSources = Transaction::with('cliente.beneficiario')
+        // Transaction sources (by beneficiario, using direct beneficiario_id)
+        $transactionSources = Transaction::with('beneficiario')
             ->when($beneficiarioId, function ($q) use ($beneficiarioId) {
-                $q->whereHas('cliente', function ($query) use ($beneficiarioId) {
-                    $query->where('beneficiario_id', $beneficiarioId);
-                });
+                $q->where('beneficiario_id', $beneficiarioId);
             })
             ->get()
-            ->groupBy('cliente.beneficiario.nombre')
+            ->groupBy(function ($t) {
+                return $t->beneficiario ? $t->beneficiario->nombre : ($t->cliente && $t->cliente->beneficiario ? $t->cliente->beneficiario->nombre : null);
+            })
             ->map(function ($transactions, $beneficiarioName) {
                 return [
                     'name' => $beneficiarioName ?: 'No Beneficiary',
@@ -94,12 +92,10 @@ class ReportTransactionController extends Controller
     {
         $beneficiarioId = $request->get('beneficiario_id');
 
-        $query = Transaction::with('cliente.beneficiario');
+        $query = Transaction::with('beneficiario');
 
         if ($beneficiarioId) {
-            $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                $q->where('beneficiario_id', $beneficiarioId);
-            });
+            $query->where('beneficiario_id', $beneficiarioId);
         }
 
         $reportData = $query
@@ -140,30 +136,30 @@ class ReportTransactionController extends Controller
 
         // Active beneficiarios (have transactions in last 30 days)
         $activeBeneficiarios = $beneficiarios->filter(function ($beneficiario) {
-            return $beneficiario->clientes->flatMap->transactions
+            return Transaction::where('beneficiario_id', $beneficiario->id)
                 ->where('created_at', '>=', now()->subDays(30))
-                ->count() > 0;
+                ->exists();
         })->count();
 
         // Average transactions per beneficiario
         $avgTransactionsPerBeneficiario = $totalBeneficiarios > 0 
             ? round($beneficiarios->sum(function ($b) {
-                return $b->clientes->flatMap->transactions->count();
+                return Transaction::where('beneficiario_id', $b->id)->count();
             }) / $totalBeneficiarios, 1)
             : 0;
 
         // Transactions by beneficiario (top beneficiarios by transactions)
         $transactionsByBeneficiario = $beneficiarios->map(function ($beneficiario) {
-            $transactions = $beneficiario->clientes->flatMap->transactions;
             return [
                 'name' => $beneficiario->nombre,
-                'value' => $transactions->count(),
+                'value' => Transaction::where('beneficiario_id', $beneficiario->id)->count(),
             ];
         })->sortByDesc('value')->values()->toArray();
 
         // Sales by plan for each beneficiario
         $salesByPlan = $beneficiarios->flatMap(function ($beneficiario) {
-            return $beneficiario->clientes->flatMap->transactions
+            return Transaction::where('beneficiario_id', $beneficiario->id)
+                ->get()
                 ->groupBy('plan_name')
                 ->map(function ($transactions, $planName) {
                     return [

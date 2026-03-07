@@ -39,13 +39,24 @@ class Cliente extends AppModel
     }
 
     /**
-     * Relationship with Beneficiario model
+     * Relationship with Beneficiario model (primary partner)
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function beneficiario()
     {
         return $this->belongsTo(Beneficiario::class);
+    }
+
+    /**
+     * Many-to-many relationship with Beneficiario (all partners associated with this client)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function partners()
+    {
+        return $this->belongsToMany(Beneficiario::class, 'cliente_beneficiario', 'cliente_id', 'beneficiario_id')
+                    ->withTimestamps();
     }
 
     /**

@@ -29,6 +29,11 @@ class BeneficiaryPlanMarginController extends Controller
      */
     public function index(Request $request)
     {
+        // Super partners cannot manage plan margins/rates
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            return response()->json(['message' => 'Unauthorized. Super partners cannot manage plan margins.'], 403);
+        }
+
         $request->validate([
             'beneficiario_id' => 'required|integer|exists:beneficiarios,id',
         ]);
@@ -48,6 +53,11 @@ class BeneficiaryPlanMarginController extends Controller
      */
     public function update(BeneficiaryPlanMarginRequest $request)
     {
+        // Super partners cannot manage plan margins/rates
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            return response()->json(['message' => 'Unauthorized. Super partners cannot manage plan margins.'], 403);
+        }
+
         $beneficiarioId = $request->input('beneficiario_id');
         $margins = $request->input('margins', []);
         

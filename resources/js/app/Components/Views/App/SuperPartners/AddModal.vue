@@ -83,6 +83,22 @@
                     </div>
                 </div>
 
+                <div class="form-group row align-items-center">
+                    <label for="sp_commission" class="col-sm-3 mb-0">
+                        Comisión %
+                        <span class="text-muted small d-block">(opcional)</span>
+                    </label>
+                    <app-input id="sp_commission"
+                               class="col-sm-9"
+                               type="number"
+                               v-model="inputs.commission_percentage"
+                               :placeholder="'0.00'"
+                               :min="0"
+                               :max="100"
+                               step="0.01"
+                               :required="false"/>
+                </div>
+
             </form>
         </template>
     </modal>
@@ -107,6 +123,7 @@
                     descripcion: '',
                     email: '',
                     password: '',
+                    commission_percentage: '',
                     logoPreview: null,
                 },
                 logoFile: null,
@@ -130,6 +147,7 @@
                     this.inputs.apellido = data.user ? data.user.last_name : '';
                     this.inputs.descripcion = data.descripcion || '';
                     this.inputs.email = data.user ? data.user.email : '';
+                    this.inputs.commission_percentage = data.commission_percentage || '';
                     if (data.logo_url) {
                         this.inputs.logoPreview = data.logo_url;
                     }
@@ -174,6 +192,9 @@
                 formData.append('email', this.inputs.email || '');
                 if (this.inputs.password) {
                     formData.append('password', this.inputs.password);
+                }
+                if (this.inputs.commission_percentage !== '' && this.inputs.commission_percentage !== null) {
+                    formData.append('commission_percentage', this.inputs.commission_percentage);
                 }
                 if (this.logoFile) {
                     formData.append('logo', this.logoFile);

@@ -6,6 +6,7 @@ use App\Filters\App\SuperPartner\SuperPartnerFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\SuperPartnerRequest as Request;
 use App\Models\App\SuperPartner\SuperPartner;
+use App\Models\App\Transaction\Transaction;
 use App\Services\App\SuperPartner\SuperPartnerService;
 
 class SuperPartnerController extends Controller
@@ -85,5 +86,45 @@ class SuperPartnerController extends Controller
             return deleted_responses('super_partner');
         }
         return failed_responses();
+    }
+
+    /**
+     * Export commissions summary for a super partner.
+     *
+     * @param SuperPartner $super_partner
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function exportCommissions(SuperPartner $super_partner)
+    {
+        $partnerIds = $super_partner->beneficiarios()->pluck('id');
+
+        $transactions = Transaction::with('beneficiario')
+            ->whereIn('beneficiario_id', $partnerIds)
+            ->get();
+
+        $rows = $transactions->map(function ($t) {
+            return [
+                $t->transaction_id,
+                $t->plan_name,
+                $t->purchase_amount,
+                $t->beneficiario ? $t->beneficiario->nombre : 'N/A',
+                $t->getCommissionAmount(),
+                $t->created_at ? $t->created_at->format('Y-m-d') : '',
+            ];
+        })->toArray();
+
+        $headings = ['Transaction ID', 'Plan', 'Monto', 'Partner', 'Comisión', 'Fecha'];
+
+        $filename = 'comisiones-super-partner-' . \Str::slug($super_partner->nombre) . '.csv';
+        $filepath = storage_path('app/' . $filename);
+
+        $fp = fopen($filepath, 'w');
+        fputcsv($fp, $headings);
+        foreach ($rows as $row) {
+            fputcsv($fp, $row);
+        }
+        fclose($fp);
+
+        return response()->download($filepath, $filename)->deleteFileAfterSend(true);
     }
 }

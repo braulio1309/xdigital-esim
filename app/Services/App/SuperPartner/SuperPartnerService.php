@@ -99,7 +99,7 @@ class SuperPartnerService extends AppService
      */
     public function update(SuperPartner $superPartner)
     {
-        $superPartner->fill(request()->only(['nombre', 'descripcion']));
+        $superPartner->fill(request()->only(['nombre', 'descripcion', 'commission_percentage']));
 
         if (request()->hasFile('logo')) {
             if ($superPartner->logo) {
