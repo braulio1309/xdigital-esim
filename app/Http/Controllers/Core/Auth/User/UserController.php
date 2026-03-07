@@ -43,7 +43,6 @@ class UserController extends Controller
                 ->filters($this->filter)
                 ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id'])
                 ->with('roles:id,name,is_admin,is_default,type_id', 'status', 'profilePicture')
-                ->where('user_type', 'admin')
                 ->latest()
         ))->filter();
 
@@ -51,8 +50,11 @@ class UserController extends Controller
         if (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
-                $query = $query->where('super_partner_id', $superPartner->id);
+                $query = $query->where('super_partner_id', $superPartner->id)
+                                ->where('user_type', 'admin_partner');
             }
+        }else{
+            $query = $query->where('user_type', 'admin');
         }
 
         return $query->paginate(request()->get('per_page', 10));

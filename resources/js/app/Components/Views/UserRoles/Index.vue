@@ -2,7 +2,7 @@
     <div class="content-wrapper">
         <div class="row">
             <div class="col-sm-12 col-md-6">
-                <app-breadcrumb :page-title="$t('user_and_roles')" :icon="'user-check'"/>
+                <app-breadcrumb :page-title="'Usuarios'" :icon="'user-check'"/>
             </div>
             <div class="col-sm-12 col-md-6 breadcrumb-side-button">
                 <div class="float-md-right mb-3 mb-sm-3 mb-md-0">

@@ -54,8 +54,15 @@ class UserController extends Controller
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $request->merge(['super_partner_id' => $superPartner->id]);
+                $request->merge(['roles' => 'admin_partner']);
+                $request->merge(['user_type' => 'admin_partner']);
+
+
             }
-        }
+        }else if (auth()->check() && auth()->user()->user_type === 'admin') {
+            $request->merge(['roles' => 'App admin']);
+            $request->merge(['user_type' => 'admin']);
+        } 
 
        $this->service
             ->create($request->all())
