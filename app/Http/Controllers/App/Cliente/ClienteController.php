@@ -27,6 +27,7 @@ class ClienteController extends Controller
      * Display a listing of clientes.
      * 
      * If authenticated user is a beneficiario, only show their clients.
+     * If authenticated user is a super_partner, only show clients of their partners.
      * 
      * @return mixed
      */
@@ -40,6 +41,12 @@ class ClienteController extends Controller
             
             if ($beneficiario) {
                 $query = $query->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query = $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
         
@@ -67,6 +74,17 @@ class ClienteController extends Controller
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
                 $request->merge(['beneficiario_id' => $beneficiario->id]);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            // Super partner can specify a beneficiario_id from their own partners
+            if (!$request->filled('beneficiario_id')) {
+                $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+                if ($superPartner) {
+                    $firstPartner = $superPartner->beneficiarios()->first();
+                    if ($firstPartner) {
+                        $request->merge(['beneficiario_id' => $firstPartner->id]);
+                    }
+                }
             }
         }
         $cliente = $this->service->save();
@@ -153,6 +171,16 @@ class ClienteController extends Controller
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
                 $beneficiarioId = $beneficiario->id;
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner' && $request->filled('beneficiario_id')) {
+            // Super partner must specify a valid beneficiario from their partners
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $requestedId = (int) $request->input('beneficiario_id');
+                $ownsPartner = $superPartner->beneficiarios()->where('id', $requestedId)->exists();
+                if ($ownsPartner) {
+                    $beneficiarioId = $requestedId;
+                }
             }
         } elseif ($request->filled('beneficiario_id')) {
             $beneficiarioId = $request->input('beneficiario_id');

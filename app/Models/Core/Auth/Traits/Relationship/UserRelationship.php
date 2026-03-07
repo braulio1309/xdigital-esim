@@ -5,6 +5,7 @@ namespace App\Models\Core\Auth\Traits\Relationship;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Chat\Message;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\User\SocialLink;
 use App\Models\Core\Auth\PasswordHistory;
 use App\Models\Core\Auth\Profile;
@@ -99,5 +100,15 @@ trait UserRelationship
     public function cliente()
     {
         return $this->hasOne(Cliente::class);
+    }
+
+    /**
+     * Relationship with SuperPartner model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function superPartner()
+    {
+        return $this->hasOne(SuperPartner::class);
     }
 }

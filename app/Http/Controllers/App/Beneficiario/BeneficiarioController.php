@@ -31,10 +31,17 @@ class BeneficiarioController extends Controller
      */
     public function index()
     {
-        $beneficiarios = $this->service
-            ->filters($this->filter)
-            ->latest()
-            ->paginate(request()->get('per_page', 10));
+        $query = $this->service->filters($this->filter)->latest();
+
+        // Filter by super_partner_id if user is a super_partner
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $query = $query->where('super_partner_id', $superPartner->id);
+            }
+        }
+
+        $beneficiarios = $query->paginate(request()->get('per_page', 10));
         
         // Add unpaid transactions count and total owed for each beneficiary
         $beneficiarios->getCollection()->transform(function ($beneficiario) {
@@ -87,6 +94,14 @@ class BeneficiarioController extends Controller
      */
     public function store(Request $request)
     {
+        // If a super_partner is creating a beneficiario, set super_partner_id
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $request->merge(['super_partner_id' => $superPartner->id]);
+            }
+        }
+
         $beneficiario = $this->service->save();
 
         return created_responses('beneficiario');

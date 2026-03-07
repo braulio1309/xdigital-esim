@@ -13,9 +13,11 @@ class SidebarComposer
         $user = auth()->user();
 
         // Determinar el tipo de usuario
-        $isAdmin = !in_array($user->user_type ?? '', ['beneficiario', 'cliente']);
+        $isAdmin = !in_array($user->user_type ?? '', ['beneficiario', 'cliente', 'super_partner']);
 
         $isPartner = $user->user_type === 'beneficiario';
+
+        $isSuperPartner = $user->user_type === 'super_partner';
 
         // Si es admin, mostrar solo el dashboard de métricas
         if ($isAdmin) {
@@ -31,6 +33,12 @@ class SidebarComposer
                     'name' => trans('custom.user_and_roles'),
                     'url' => request()->root() . '/users-and-roles',
                     'permission' => authorize_any(['view_users', 'view_roles', 'invite_user', 'create_roles']),
+                ],
+                [
+                    'icon' => 'star',
+                    'name' => 'Super Partners',
+                    'url' => request()->root() . '/admin/super-partners',
+                    'permission' => true,
                 ],
                 [
                     'icon' => 'users',
@@ -69,7 +77,46 @@ class SidebarComposer
                     'permission' => true,
                 ],
             ];
-        } else if ($isPartner) {
+        } elseif ($isSuperPartner) {
+            $menu = [
+                [
+                    'icon' => 'bar-chart-2',
+                    'name' => 'Dashboard',
+                    'url' => request()->root() . '/admin/super-partner/dashboard',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'user-check',
+                    'name' => trans('custom.user_and_roles'),
+                    'url' => request()->root() . '/users-and-roles',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'users',
+                    'name' => 'Mis Partners',
+                    'url' => request()->root() . '/admin/beneficiarios',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'user',
+                    'name' => 'Mis Clientes',
+                    'url' => request()->root() . '/admin/clientes',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'users',
+                    'name' => 'Transacciones',
+                    'url' => request()->root() . '/admin/transactions',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'file-text',
+                    'name' => 'Reportes',
+                    'url' => request()->root() . '/report-view',
+                    'permission' => true,
+                ],
+            ];
+        } elseif ($isPartner) {
             $menu = [
                 //Agrega el dashboard de métricas para beneficiarios
                 [

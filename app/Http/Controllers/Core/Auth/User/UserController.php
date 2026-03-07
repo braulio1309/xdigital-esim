@@ -8,6 +8,7 @@ use App\Filters\Core\UserFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\Auth\User\UserRequest;
 use App\Jobs\User\UserDeleted;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use App\Notifications\Core\User\UserNotification;
 use App\Services\Core\Auth\UserService;
@@ -37,15 +38,24 @@ class UserController extends Controller
      */
     public function index()
     {
-        return (new AppUserFilter(
+        $query = (new AppUserFilter(
             $this->service
                 ->filters($this->filter)
-                ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at'])
+                ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id'])
                 ->with('roles:id,name,is_admin,is_default,type_id', 'status', 'profilePicture')
                 ->where('user_type', 'admin')
                 ->latest()
-        ))->filter()
-            ->paginate(request()->get('per_page', 10));
+        ))->filter();
+
+        // If the authenticated user is a super_partner, only show their own users
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $query = $query->where('super_partner_id', $superPartner->id);
+            }
+        }
+
+        return $query->paginate(request()->get('per_page', 10));
     }
 
 
@@ -60,6 +70,14 @@ class UserController extends Controller
             ->when($request->get('roles'), function (UserService $service) use ($request) {
                 $service->assignRole($request->get('roles'));
             })->notify('user_created');
+
+        // If the creator is a super_partner, link the new user to their super_partner record
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $this->service->model->update(['super_partner_id' => $superPartner->id]);
+            }
+        }
 
         return created_responses('user');
     }
