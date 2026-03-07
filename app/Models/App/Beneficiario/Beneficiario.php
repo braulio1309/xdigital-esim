@@ -5,6 +5,7 @@ namespace App\Models\App\Beneficiario;
 use App\Models\App\AppModel;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Settings\BeneficiaryPlanMargin;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -19,6 +20,7 @@ class Beneficiario extends AppModel
         'logo',
         'codigo',
         'user_id',
+        'super_partner_id',
         'commission_percentage',
         'total_earnings',
         'total_sales'
@@ -60,6 +62,16 @@ class Beneficiario extends AppModel
     public function planMargins()
     {
         return $this->hasMany(BeneficiaryPlanMargin::class);
+    }
+
+    /**
+     * Relationship with SuperPartner model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function superPartner()
+    {
+        return $this->belongsTo(SuperPartner::class);
     }
 
     /**

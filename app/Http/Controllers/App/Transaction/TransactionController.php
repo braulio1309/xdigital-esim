@@ -45,6 +45,14 @@ class TransactionController extends Controller
                     $q->where('beneficiario_id', $beneficiario->id);
                 });
             }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query = $query->whereHas('cliente', function ($q) use ($partnerIds) {
+                    $q->whereIn('beneficiario_id', $partnerIds);
+                });
+            }
         }
         
         $transactions = $query->latest()->paginate(request()->get('per_page', 10));
@@ -78,6 +86,14 @@ class TransactionController extends Controller
             if ($beneficiario) {
                 $query = $query->whereHas('cliente', function ($q) use ($beneficiario) {
                     $q->where('beneficiario_id', $beneficiario->id);
+                });
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query = $query->whereHas('cliente', function ($q) use ($partnerIds) {
+                    $q->whereIn('beneficiario_id', $partnerIds);
                 });
             }
         }

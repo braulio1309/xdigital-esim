@@ -192,15 +192,22 @@ class ReportTransactionController extends Controller
      */
     public function beneficiarios()
     {
-        $beneficiarios = Beneficiario::select('id', 'nombre')
-            ->orderBy('nombre')
-            ->get()
-            ->map(function ($beneficiario) {
-                return [
-                    'id' => $beneficiario->id,
-                    'value' => $beneficiario->nombre,
-                ];
-            });
+        $query = Beneficiario::select('id', 'nombre')->orderBy('nombre');
+
+        // Super partners only see their own beneficiarios
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $query->where('super_partner_id', $superPartner->id);
+            }
+        }
+
+        $beneficiarios = $query->get()->map(function ($beneficiario) {
+            return [
+                'id'    => $beneficiario->id,
+                'value' => $beneficiario->nombre,
+            ];
+        });
 
         return response()->json($beneficiarios);
     }

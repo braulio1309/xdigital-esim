@@ -31,7 +31,14 @@ class PermissionRoleTableSeeder extends Seeder
                 'type_id' => Type::findByAlias('app')->id,
                 'created_by' => $superAdmin->id,
                 'is_default' => 1
-            ]
+            ],
+            [
+                'name' => 'Super Partner',
+                'is_admin' => 0,
+                'type_id' => Type::findByAlias('app')->id,
+                'created_by' => $superAdmin->id,
+                'is_default' => 0
+            ],
         ];
 
         Role::query()->insert($roles);
