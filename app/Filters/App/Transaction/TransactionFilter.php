@@ -56,14 +56,20 @@ class TransactionFilter extends FilterBuilder
 
     /**
      * Filter by beneficiario_id directly on the transactions table.
-     * Use 'none' to filter transactions with no beneficiario (N/A)
+     * Use 'none' to filter transactions with no beneficiario set on the transaction.
+     *
+     * NOTE: Method name is camelCase (beneficiarioId) because FilterBuilder
+     * converts the request key "beneficiario_id" to camelCase when resolving
+     * which filter method to call.
      */
-    public function beneficiario_id($beneficiarioId = null)
+    public function beneficiarioId($beneficiarioId = null)
     {
-        $this->builder->when($beneficiarioId, function ($query) use ($beneficiarioId) {
+        $this->builder->when($beneficiarioId !== '' && $beneficiarioId !== null, function ($query) use ($beneficiarioId) {
             if ($beneficiarioId === 'none') {
+                // Only transactions where the beneficiario_id column is NULL
                 $query->whereNull('beneficiario_id');
             } else {
+                // Strictly match by beneficiario_id column on transactions table
                 $query->where('beneficiario_id', $beneficiarioId);
             }
         });
@@ -72,10 +78,12 @@ class TransactionFilter extends FilterBuilder
     /**
      * Filter by payment status
      * Values: 'paid' (true), 'unpaid' (false), or boolean
+     *
+     * Request key: payment_status -> method: paymentStatus (camelCase)
      */
-    public function payment_status($paymentStatus = null)
+    public function paymentStatus($paymentStatus = null)
     {
-        $this->builder->when($paymentStatus !== null, function ($query) use ($paymentStatus) {
+        $this->builder->when($paymentStatus !== null && $paymentStatus !== '', function ($query) use ($paymentStatus) {
             // Convert to boolean for strict comparison
             if ($paymentStatus === 'paid' || $paymentStatus === true || $paymentStatus === 1 || $paymentStatus === '1') {
                 $query->where('is_paid', true);
@@ -87,8 +95,9 @@ class TransactionFilter extends FilterBuilder
 
     /**
      * Filter by start date (creation_time >= start_date)
+     * Request key: start_date -> method: startDate (camelCase)
      */
-    public function start_date($startDate = null)
+    public function startDate($startDate = null)
     {
         $this->builder->when($startDate, function ($query) use ($startDate) {
             $cleanDate = preg_replace('/\s*\(.*?\)/', '', $startDate);
@@ -98,8 +107,9 @@ class TransactionFilter extends FilterBuilder
 
     /**
      * Filter by end date (creation_time <= end_date)
+     * Request key: end_date -> method: endDate (camelCase)
      */
-    public function end_date($endDate = null)
+    public function endDate($endDate = null)
     {
         $this->builder->when($endDate, function ($query) use ($endDate) {
             $cleanDate = preg_replace('/\s*\(.*?\)/', '', $endDate);

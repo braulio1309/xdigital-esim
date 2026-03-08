@@ -126,11 +126,17 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
             $baseQuery->where('creation_time', '<=', Carbon::parse($cleanDate)->endOfDay());
         }
 
-        // Restrict to own beneficiario if authenticated user is a beneficiario
+        // Alcance por tipo de usuario para exportar solo su propia deuda
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
                 $baseQuery->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $baseQuery->whereIn('beneficiario_id', $partnerIds);
             }
         }
 

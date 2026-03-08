@@ -34,6 +34,26 @@ class AdminMetricsService extends AppService
     }
 
     /**
+     * Helper: obtener IDs de beneficiarios del super partner autenticado (si aplica).
+     *
+     * @return array [superPartner|null, array partnerIds]
+     */
+    protected function getSuperPartnerAndPartnerIds(): array
+    {
+        if (!auth()->check() || auth()->user()->user_type !== 'super_partner') {
+            return [null, []];
+        }
+
+        $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+        if (!$superPartner) {
+            return [null, []];
+        }
+
+        $partnerIds = $superPartner->beneficiarios()->pluck('id')->toArray();
+        return [$superPartner, $partnerIds];
+    }
+
+    /**
      * Get main metrics widgets
      *
      * @param Carbon $start
@@ -42,21 +62,37 @@ class AdminMetricsService extends AppService
      */
     protected function getMainWidgets($start, $end)
     {
-        // Total clientes in range
-        $totalClientes = Cliente::whereBetween('created_at', [$start, $end])->count();
+        [$superPartner, $partnerIds] = $this->getSuperPartnerAndPartnerIds();
 
-        // Total beneficiarios in range
-        $totalBeneficiarios = Beneficiario::whereBetween('created_at', [$start, $end])->count();
+        // Base queries
+        $clientesQuery = Cliente::whereBetween('created_at', [$start, $end]);
+        $beneficiariosQuery = Beneficiario::whereBetween('created_at', [$start, $end]);
+        $transactionsQuery = Transaction::whereBetween('created_at', [$start, $end]);
+        $completedTransactionsQuery = Transaction::where('status', 'completed')
+            ->whereBetween('created_at', [$start, $end]);
 
-        // Total transactions in range
-        $totalTransactions = Transaction::whereBetween('created_at', [$start, $end])->count();
+        // Si es super_partner, limitar a su red de beneficiarios
+        if ($superPartner && !empty($partnerIds)) {
+            $clientesQuery->where(function ($q) use ($partnerIds) {
+                $q->whereIn('beneficiario_id', $partnerIds)
+                  ->orWhereHas('partners', function ($partnerQuery) use ($partnerIds) {
+                      $partnerQuery->whereIn('beneficiario_id', $partnerIds);
+                  });
+            });
 
-        // Total revenue from completed transactions
-        // TODO: Replace with actual transaction amount calculation once Transaction model has amount/price field
-        // This is a placeholder assuming $100 per completed transaction
-        $totalRevenue = Transaction::where('status', 'completed')
-            ->whereBetween('created_at', [$start, $end])
-            ->count() * 100;
+            $beneficiariosQuery->whereIn('id', $partnerIds);
+
+            $transactionsQuery->whereIn('beneficiario_id', $partnerIds);
+            $completedTransactionsQuery->whereIn('beneficiario_id', $partnerIds);
+        }
+
+        // Totales con el alcance aplicado
+        $totalClientes = $clientesQuery->count();
+        $totalBeneficiarios = $beneficiariosQuery->count();
+        $totalTransactions = $transactionsQuery->count();
+
+        // Total revenue from completed transactions (placeholder: $100 por transacción completada)
+        $totalRevenue = $completedTransactionsQuery->count() * 100;
 
         return [
             [
@@ -91,13 +127,21 @@ class AdminMetricsService extends AppService
      */
     protected function getTopBeneficiarios($start, $end)
     {
-        $topBeneficiarios = Beneficiario::withCount(['clientes' => function ($query) use ($start, $end) {
+        [$superPartner, $partnerIds] = $this->getSuperPartnerAndPartnerIds();
+
+        $topBeneficiariosQuery = Beneficiario::withCount(['clientes' => function ($query) use ($start, $end) {
             $query->whereBetween('created_at', [$start, $end]);
         }])
             ->with(['clientes' => function ($query) use ($start, $end) {
                 $query->whereBetween('created_at', [$start, $end]);
             }])
-            ->having('clientes_count', '>', 0)
+            ->having('clientes_count', '>', 0);
+
+        if ($superPartner && !empty($partnerIds)) {
+            $topBeneficiariosQuery->whereIn('id', $partnerIds);
+        }
+
+        $topBeneficiarios = $topBeneficiariosQuery
             ->orderByDesc('clientes_count')
             ->limit(5)
             ->get();
@@ -148,8 +192,21 @@ class AdminMetricsService extends AppService
             $dateFormat = 'M j';
         }
 
-        $clientsData = Cliente::selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->whereBetween('created_at', [$start, $end])
+        [$superPartner, $partnerIds] = $this->getSuperPartnerAndPartnerIds();
+
+        $clientsQuery = Cliente::selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->whereBetween('created_at', [$start, $end]);
+
+        if ($superPartner && !empty($partnerIds)) {
+            $clientsQuery->where(function ($q) use ($partnerIds) {
+                $q->whereIn('beneficiario_id', $partnerIds)
+                  ->orWhereHas('partners', function ($partnerQuery) use ($partnerIds) {
+                      $partnerQuery->whereIn('beneficiario_id', $partnerIds);
+                  });
+            });
+        }
+
+        $clientsData = $clientsQuery
             ->groupBy('date')
             ->orderBy('date')
             ->get();
@@ -197,8 +254,16 @@ class AdminMetricsService extends AppService
      */
     protected function getTransactionsByStatus($start, $end)
     {
-        $transactions = Transaction::selectRaw('status, COUNT(*) as count')
-            ->whereBetween('created_at', [$start, $end])
+        [$superPartner, $partnerIds] = $this->getSuperPartnerAndPartnerIds();
+
+        $transactionsQuery = Transaction::selectRaw('status, COUNT(*) as count')
+            ->whereBetween('created_at', [$start, $end]);
+
+        if ($superPartner && !empty($partnerIds)) {
+            $transactionsQuery->whereIn('beneficiario_id', $partnerIds);
+        }
+
+        $transactions = $transactionsQuery
             ->groupBy('status')
             ->get();
 
@@ -240,9 +305,16 @@ class AdminMetricsService extends AppService
      */
     protected function getBeneficiariosActivity($start, $end)
     {
-        $allBeneficiarios = Beneficiario::whereBetween('created_at', [$start, $end])
-            ->withCount('clientes')
-            ->get();
+        [$superPartner, $partnerIds] = $this->getSuperPartnerAndPartnerIds();
+
+        $beneficiariosQuery = Beneficiario::whereBetween('created_at', [$start, $end])
+            ->withCount('clientes');
+
+        if ($superPartner && !empty($partnerIds)) {
+            $beneficiariosQuery->whereIn('id', $partnerIds);
+        }
+
+        $allBeneficiarios = $beneficiariosQuery->get();
 
         $activos = $allBeneficiarios->where('clientes_count', '>', 0)->count();
         $inactivos = $allBeneficiarios->where('clientes_count', '=', 0)->count();

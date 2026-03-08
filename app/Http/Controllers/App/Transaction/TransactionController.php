@@ -35,7 +35,7 @@ class TransactionController extends Controller
         $query = $this->service
             ->filters($this->filter)
             ->with('cliente.beneficiario.planMargins', 'beneficiario.planMargins');
-        
+
         // Filter by beneficiario_id if user is a beneficiario
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
@@ -47,7 +47,14 @@ class TransactionController extends Controller
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query = $query->whereIn('beneficiario_id', $partnerIds);
+
+                // Super partner solo ve transacciones de sus partners
+                // (beneficiario_id en su red) y opcionalmente aquellas
+                // sin beneficiario asignado (beneficiario_id NULL).
+                $query = $query->where(function ($q) use ($partnerIds) {
+                    $q->whereIn('beneficiario_id', $partnerIds)
+                      ->orWhereNull('beneficiario_id');
+                });
             }
         }
         
@@ -86,7 +93,10 @@ class TransactionController extends Controller
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query = $query->whereIn('beneficiario_id', $partnerIds);
+                $query = $query->where(function ($q) use ($partnerIds) {
+                    $q->whereIn('beneficiario_id', $partnerIds)
+                      ->orWhereNull('beneficiario_id');
+                });
             }
         }
         
@@ -131,8 +141,31 @@ class TransactionController extends Controller
         $query = Transaction::where('purchase_amount', 0)
             ->where('is_paid', false);
 
+        // Filtro explícito de beneficiario desde el front
         if ($beneficiarioId) {
-            $query->where('beneficiario_id', $beneficiarioId);
+            if ($beneficiarioId === 'none') {
+                $query->whereNull('beneficiario_id');
+            } else {
+                $query->where('beneficiario_id', $beneficiarioId);
+            }
+        }
+
+        // Alcance por tipo de usuario para evitar que super_partner vean
+        // datos de todo el sistema.
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if ($beneficiario) {
+                $query->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query->where(function ($q) use ($partnerIds) {
+                    $q->whereIn('beneficiario_id', $partnerIds)
+                      ->orWhereNull('beneficiario_id');
+                });
+            }
         }
 
         if ($startDate && $endDate) {

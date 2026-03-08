@@ -25,7 +25,7 @@ class SidebarComposer
                 [
                     'icon' => 'bar-chart-2',
                     'name' => 'Dashboard de Métricas',
-                    'url' => request()->root() . '/report',
+                    'url' => request()->root() . '/admin/metrics',
                     'permission' => true,
                 ],
                 [
@@ -82,7 +82,7 @@ class SidebarComposer
                 [
                     'icon' => 'bar-chart-2',
                     'name' => 'Dashboard',
-                    'url' => request()->root() . '/admin/super-partner/dashboard',
+                    'url' => request()->root() . '/admin/metrics',
                     'permission' => true,
                 ],
                 [

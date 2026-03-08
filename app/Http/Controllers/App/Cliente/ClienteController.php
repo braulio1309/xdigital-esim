@@ -40,13 +40,29 @@ class ClienteController extends Controller
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             
             if ($beneficiario) {
-                $query = $query->where('beneficiario_id', $beneficiario->id);
+                // Show clients whose primary beneficiario is this partner
+                // OR clients associated through the pivot cliente_beneficiario table
+                $query = $query->where(function ($q) use ($beneficiario) {
+                    $q->where('beneficiario_id', $beneficiario->id)
+                      ->orWhereHas('partners', function ($partnerQuery) use ($beneficiario) {
+                          $partnerQuery->where('beneficiario_id', $beneficiario->id);
+                      });
+                });
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query = $query->whereIn('beneficiario_id', $partnerIds);
+
+                // A super_partner ve todos los clientes de sus partners, tanto
+                // los asignados directamente (beneficiario_id) como los
+                // asociados vía pivot (cliente_beneficiario).
+                $query = $query->where(function ($q) use ($partnerIds) {
+                    $q->whereIn('beneficiario_id', $partnerIds)
+                      ->orWhereHas('partners', function ($partnerQuery) use ($partnerIds) {
+                          $partnerQuery->whereIn('beneficiario_id', $partnerIds);
+                      });
+                });
             }
         }
         
@@ -76,19 +92,26 @@ class ClienteController extends Controller
                 $request->merge(['beneficiario_id' => $beneficiario->id]);
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            // Super partner can specify a beneficiario_id from their own partners
-            if (!$request->filled('beneficiario_id')) {
-                $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-                if ($superPartner) {
-                    $firstPartner = $superPartner->beneficiarios()->first();
-                    if ($firstPartner) {
-                        $request->merge(['beneficiario_id' => $firstPartner->id]);
-                    }
-                }
-            }
+            // Para super_partner ya no asignamos automáticamente el cliente al
+            // "primer beneficiario". Se creará sin beneficiario primario y,
+            // opcionalmente, se podrá asociar por pivot si se requiere.
         }
         $request->merge(['type' => 'cliente']);
         $cliente = $this->service->save($request->all());
+
+        // Si el cliente fue creado por un super_partner, lo asociamos en la
+        // tabla pivot con todos sus beneficiarios, para que tanto el
+        // super_partner como sus partners compartan ese cliente sin que
+        // cuente como cliente "primario" de un solo partner.
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id')->toArray();
+                if (!empty($partnerIds)) {
+                    $cliente->partners()->syncWithoutDetaching($partnerIds);
+                }
+            }
+        }
 
         return created_responses('cliente');
     }

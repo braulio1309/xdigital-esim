@@ -55,7 +55,7 @@
                                :placeholder="selectedUrl ? 'Nueva contraseña (opcional)' : 'Contraseña'"
                                :required="!selectedUrl"/>
                 </div>
-                <div class="form-group row align-items-center mb-0">
+                <div class="form-group row align-items-center mb-0" v-if="showBeneficiarioSelect">
                     <label for="inputs_beneficiario_id" class="col-sm-3 mb-0">
                         Beneficiario
                     </label>
@@ -115,12 +115,31 @@
                 modalTitle: this.$t('add'),
             }
         },
+        computed: {
+            loggedInUser() {
+                return this.$store.state.user && this.$store.state.user.loggedInUser
+                    ? this.$store.state.user.loggedInUser
+                    : null;
+            },
+            isBeneficiarioUser() {
+                return this.loggedInUser && this.loggedInUser.user_type === 'beneficiario';
+            },
+            isSuperPartnerUser() {
+                return this.loggedInUser && this.loggedInUser.user_type === 'super_partner';
+            },
+            showBeneficiarioSelect() {
+                // Para crear clientes como beneficiario o super_partner no se pide el select
+                return !this.isBeneficiarioUser && !this.isSuperPartnerUser;
+            }
+        },
         created() {
             if (this.selectedUrl) {
                 this.modalTitle = this.$t('edit');
                 this.preloader = true;
             }
-            this.loadBeneficiarios();
+            if (this.showBeneficiarioSelect) {
+                this.loadBeneficiarios();
+            }
         },
         methods: {
             loadBeneficiarios() {

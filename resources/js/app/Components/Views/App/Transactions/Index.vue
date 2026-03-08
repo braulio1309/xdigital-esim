@@ -63,8 +63,8 @@
                     </button>
                 </div>
 
-                <!-- Beneficiary filter for admin -->
-                <div v-if="isAdmin" class="mr-2 mb-1" style="min-width: 200px;">
+                <!-- Beneficiary filter for admin and super partners -->
+                <div v-if="canFilterByBeneficiario" class="mr-2 mb-1" style="min-width: 200px;">
                     <app-input type="select"
                                v-model="beneficiarioFilter"
                                :list="beneficiariosList"
@@ -352,10 +352,19 @@
                        (this.$store.state.user.loggedInUser.role === 'Admin' || 
                         this.$store.state.user.loggedInUser.user_type === 'admin');
             },
+            isSuperPartner() {
+                return this.$store.state.user &&
+                       this.$store.state.user.loggedInUser &&
+                       this.$store.state.user.loggedInUser.user_type === 'super_partner';
+            },
             isBeneficiario() {
                 return this.$store.state.user && 
                        this.$store.state.user.loggedInUser && 
                        this.$store.state.user.loggedInUser.user_type === 'beneficiario';
+            },
+            canFilterByBeneficiario() {
+                // Admin ve todos los beneficiarios; super_partner solo los suyos.
+                return this.isAdmin || this.isSuperPartner;
             },
             showPaymentStats() {
                 return this.paymentStats.unpaid_count > 0;

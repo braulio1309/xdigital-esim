@@ -19,8 +19,23 @@ class ReportTransactionController extends Controller
 
         $query = Transaction::with('cliente.beneficiario', 'beneficiario');
 
+        // Filtro explícito desde el select de beneficiarios
         if ($beneficiarioId) {
             $query->where('beneficiario_id', $beneficiarioId);
+        }
+
+        // Alcance por tipo de usuario (especialmente super_partner)
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if ($beneficiario) {
+                $query->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query->whereIn('beneficiario_id', $partnerIds);
+            }
         }
 
         // Total transactions this week
@@ -58,10 +73,25 @@ class ReportTransactionController extends Controller
         }
 
         // Transaction sources (by beneficiario, using direct beneficiario_id)
-        $transactionSources = Transaction::with('beneficiario')
+        $sourcesQuery = Transaction::with('beneficiario')
             ->when($beneficiarioId, function ($q) use ($beneficiarioId) {
                 $q->where('beneficiario_id', $beneficiarioId);
-            })
+            });
+
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if ($beneficiario) {
+                $sourcesQuery->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $sourcesQuery->whereIn('beneficiario_id', $partnerIds);
+            }
+        }
+
+        $transactionSources = $sourcesQuery
             ->get()
             ->groupBy(function ($t) {
                 return $t->beneficiario ? $t->beneficiario->nombre : ($t->cliente && $t->cliente->beneficiario ? $t->cliente->beneficiario->nombre : null);
@@ -98,6 +128,19 @@ class ReportTransactionController extends Controller
             $query->where('beneficiario_id', $beneficiarioId);
         }
 
+        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if ($beneficiario) {
+                $query->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query->whereIn('beneficiario_id', $partnerIds);
+            }
+        }
+
         $reportData = $query
             ->selectRaw('plan_name as name, COUNT(*) as count, SUM(purchase_amount) as value')
             ->groupBy('plan_name')
@@ -127,6 +170,15 @@ class ReportTransactionController extends Controller
 
         if ($beneficiarioId) {
             $query->where('id', $beneficiarioId);
+        }
+
+        // Super partners solo ven el desempeño de sus propios beneficiarios
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query->whereIn('id', $partnerIds);
+            }
         }
 
         $beneficiarios = $query->get();

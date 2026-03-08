@@ -68,11 +68,17 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             $query->where('creation_time', '<=', Carbon::parse($cleanDate)->endOfDay());
         }
 
-        // Restrict to own beneficiario if the authenticated user is a beneficiario
+        // Alcance por tipo de usuario para exportar solo su propia data
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
                 $query->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+                $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
 
