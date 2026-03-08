@@ -48,13 +48,8 @@ class TransactionController extends Controller
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
 
-                // Super partner solo ve transacciones de sus partners
-                // (beneficiario_id en su red) y opcionalmente aquellas
-                // sin beneficiario asignado (beneficiario_id NULL).
-                $query = $query->where(function ($q) use ($partnerIds) {
-                    $q->whereIn('beneficiario_id', $partnerIds)
-                      ->orWhereNull('beneficiario_id');
-                });
+                // Super partner solo ve transacciones de sus propios beneficiarios.
+                $query = $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
         
@@ -93,10 +88,8 @@ class TransactionController extends Controller
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query = $query->where(function ($q) use ($partnerIds) {
-                    $q->whereIn('beneficiario_id', $partnerIds)
-                      ->orWhereNull('beneficiario_id');
-                });
+                // Super partner solo ve transacciones de los beneficiarios que pertenecen a su red.
+                $query = $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
         
@@ -161,10 +154,9 @@ class TransactionController extends Controller
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query->where(function ($q) use ($partnerIds) {
-                    $q->whereIn('beneficiario_id', $partnerIds)
-                      ->orWhereNull('beneficiario_id');
-                });
+                // Super partner solo ve transacciones de sus beneficiarios,
+                // incluso cuando se filtra por rango de fechas o por beneficiario.
+                $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
 
