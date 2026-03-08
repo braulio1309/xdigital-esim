@@ -62,7 +62,48 @@
                 selectedUrl: '',
                 tableId: 'beneficiarios-table',
                 rowData: {},
-                options: {
+            }
+        },
+        computed: {
+            isSuperPartner() {
+                return this.$store.state.user &&
+                       this.$store.state.user.loggedInUser &&
+                       this.$store.state.user.loggedInUser.user_type === 'super_partner';
+            },
+            options() {
+                const allActions = [
+                    {
+                        title: this.$t('edit'),
+                        icon: 'edit',
+                        type: 'none',
+                        component: 'app-add-modal',
+                        modalId: 'beneficiario-add-edit-modal',
+                    },
+                    {
+                        title: this.$t('manage_commissions'),
+                        icon: 'dollar-sign',
+                        type: 'none',
+                    },
+                    {
+                        title: this.$t('download_commissions'),
+                        icon: 'download',
+                        type: 'none',
+                    },
+                    {
+                        title: this.$t('delete'),
+                        icon: 'trash',
+                        type: 'none',
+                        component: 'app-confirmation-modal',
+                        modalId: 'beneficiario-delete',
+                    }
+                ];
+
+                // Super partners cannot manage commissions/rates/adjustments
+                const tableActions = this.isSuperPartner
+                    ? allActions.filter(a => a.title !== this.$t('manage_commissions') && a.title !== this.$t('download_commissions'))
+                    : allActions;
+
+                return {
                     url: actions.BENEFICIARIOS,
                     name: this.$t('beneficiarios'),
                     datatableWrapper: false,
@@ -128,32 +169,7 @@
                             isVisible: true
                         }
                     ],
-                    actions: [
-                        {
-                            title: this.$t('edit'),
-                            icon: 'edit',
-                            type: 'none',
-                            component: 'app-add-modal',
-                            modalId: 'beneficiario-add-edit-modal',
-                        },
-                        {
-                            title: this.$t('manage_commissions'),
-                            icon: 'dollar-sign',
-                            type: 'none',
-                        },
-                        {
-                            title: this.$t('download_commissions'),
-                            icon: 'download',
-                            type: 'none',
-                        },
-                        {
-                            title: this.$t('delete'),
-                            icon: 'trash',
-                            type: 'none',
-                            component: 'app-confirmation-modal',
-                            modalId: 'beneficiario-delete',
-                        }
-                    ],
+                    actions: tableActions,
                     showFilter: false,
                     showSearch: false,
                     paginationType: "pagination",
@@ -162,7 +178,7 @@
                     showAction: true,
                     orderBy: 'desc',
                     actionType: "default",
-                }
+                };
             }
         },
         methods: {

@@ -45,13 +45,24 @@ class Beneficiario extends AppModel
     }
 
     /**
-     * Relationship with Cliente model
+     * Relationship with Cliente model (primary hasMany)
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function clientes()
     {
         return $this->hasMany(Cliente::class);
+    }
+
+    /**
+     * Many-to-many relationship with Cliente (all clients associated with this partner)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function clientesPivot()
+    {
+        return $this->belongsToMany(Cliente::class, 'cliente_beneficiario', 'beneficiario_id', 'cliente_id')
+                    ->withTimestamps();
     }
 
     /**

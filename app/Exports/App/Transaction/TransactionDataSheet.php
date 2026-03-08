@@ -27,19 +27,15 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
 
     public function query()
     {
-        $query = Transaction::with('cliente.beneficiario.planMargins');
+        $query = Transaction::with('cliente.beneficiario.planMargins', 'beneficiario.planMargins');
 
         // Filter by beneficiario
         if (!empty($this->filters['beneficiario_id'])) {
             $beneficiarioId = $this->filters['beneficiario_id'];
             if ($beneficiarioId === 'none') {
-                $query->whereHas('cliente', function ($q) {
-                    $q->whereNull('beneficiario_id');
-                });
+                $query->whereNull('beneficiario_id');
             } else {
-                $query->whereHas('cliente.beneficiario', function ($q) use ($beneficiarioId) {
-                    $q->where('id', $beneficiarioId);
-                });
+                $query->where('beneficiario_id', $beneficiarioId);
             }
         }
 
@@ -76,9 +72,7 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
-                $query->whereHas('cliente', function ($q) use ($beneficiario) {
-                    $q->where('beneficiario_id', $beneficiario->id);
-                });
+                $query->where('beneficiario_id', $beneficiario->id);
             }
         }
 

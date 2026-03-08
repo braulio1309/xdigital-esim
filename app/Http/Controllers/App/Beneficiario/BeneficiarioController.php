@@ -47,9 +47,7 @@ class BeneficiarioController extends Controller
         $beneficiarios->getCollection()->transform(function ($beneficiario) {
             $unpaidCount = \App\Models\App\Transaction\Transaction::where('purchase_amount', 0)
                 ->where('is_paid', false)
-                ->whereHas('cliente', function ($q) use ($beneficiario) {
-                    $q->where('beneficiario_id', $beneficiario->id);
-                })
+                ->where('beneficiario_id', $beneficiario->id)
                 ->count();
             
             $beneficiario->unpaid_transactions_count = $unpaidCount;

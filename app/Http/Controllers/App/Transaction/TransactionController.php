@@ -34,24 +34,20 @@ class TransactionController extends Controller
     {
         $query = $this->service
             ->filters($this->filter)
-            ->with('cliente.beneficiario.planMargins');
+            ->with('cliente.beneficiario.planMargins', 'beneficiario.planMargins');
         
         // Filter by beneficiario_id if user is a beneficiario
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             
             if ($beneficiario) {
-                $query = $query->whereHas('cliente', function ($q) use ($beneficiario) {
-                    $q->where('beneficiario_id', $beneficiario->id);
-                });
+                $query = $query->where('beneficiario_id', $beneficiario->id);
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query = $query->whereHas('cliente', function ($q) use ($partnerIds) {
-                    $q->whereIn('beneficiario_id', $partnerIds);
-                });
+                $query = $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
         
@@ -61,7 +57,7 @@ class TransactionController extends Controller
         $transactions->getCollection()->transform(function ($transaction) {
             $transaction->commission_amount = $transaction->getCommissionAmount();
             $transaction->commission_percentage = $transaction->getCommissionPercentage();
-            $transaction->beneficiario = $transaction->cliente->beneficiario ?? null;
+            $transaction->beneficiario = $transaction->beneficiario ?? ($transaction->cliente->beneficiario ?? null);
             return $transaction;
         });
         
@@ -75,7 +71,7 @@ class TransactionController extends Controller
      */
     public function paymentStats()
     {
-        $query = Transaction::with('cliente.beneficiario')
+        $query = Transaction::with('beneficiario')
             ->where('is_paid', false)
             ->where('purchase_amount', 0); // Only free eSIMs
         
@@ -84,17 +80,13 @@ class TransactionController extends Controller
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             
             if ($beneficiario) {
-                $query = $query->whereHas('cliente', function ($q) use ($beneficiario) {
-                    $q->where('beneficiario_id', $beneficiario->id);
-                });
+                $query = $query->where('beneficiario_id', $beneficiario->id);
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query = $query->whereHas('cliente', function ($q) use ($partnerIds) {
-                    $q->whereIn('beneficiario_id', $partnerIds);
-                });
+                $query = $query->whereIn('beneficiario_id', $partnerIds);
             }
         }
         
@@ -140,9 +132,7 @@ class TransactionController extends Controller
             ->where('is_paid', false);
 
         if ($beneficiarioId) {
-            $query->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                $q->where('beneficiario_id', $beneficiarioId);
-            });
+            $query->where('beneficiario_id', $beneficiarioId);
         }
 
         if ($startDate && $endDate) {
@@ -204,9 +194,7 @@ class TransactionController extends Controller
 
         $updated = Transaction::where('purchase_amount', 0) // Only free eSIMs
             ->where('is_paid', false)
-            ->whereHas('cliente', function ($q) use ($validated) {
-                $q->where('beneficiario_id', $validated['beneficiario_id']);
-            })
+            ->where('beneficiario_id', $validated['beneficiario_id'])
             ->whereBetween('creation_time', [
                 Carbon::parse($validated['start_date'])->startOfDay(),
                 Carbon::parse($validated['end_date'])->endOfDay()

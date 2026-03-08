@@ -181,12 +181,18 @@ class RegistroEsimController extends Controller
                                 'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
                                 'creation_time' => now(),
                                 'cliente_id' => $cliente->id,
+                                'beneficiario_id' => $beneficiario ? $beneficiario->id : null,
                                 'plan_name' => $selectedProduct['name'] ?? null,
                                 'data_amount' => $selectedProduct['data_amount'] ?? null,
                                 'duration_days' => $selectedProduct['validity_period'] ?? null,
                                 'purchase_amount' => 0,
                                 'currency' => 'USD',
                             ]);
+
+                            // Sync client-partner association in pivot table
+                            if ($beneficiario) {
+                                $cliente->partners()->syncWithoutDetaching([$beneficiario->id]);
+                            }
 
                             // Generar código QR
                             $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);

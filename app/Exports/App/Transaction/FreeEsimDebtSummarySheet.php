@@ -110,13 +110,9 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         if (!empty($this->filters['beneficiario_id'])) {
             $beneficiarioId = $this->filters['beneficiario_id'];
             if ($beneficiarioId === 'none') {
-                $baseQuery->whereHas('cliente', function ($q) {
-                    $q->whereNull('beneficiario_id');
-                });
+                $baseQuery->whereNull('beneficiario_id');
             } else {
-                $baseQuery->whereHas('cliente', function ($q) use ($beneficiarioId) {
-                    $q->where('beneficiario_id', $beneficiarioId);
-                });
+                $baseQuery->where('beneficiario_id', $beneficiarioId);
             }
         }
 
@@ -134,9 +130,7 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
-                $baseQuery->whereHas('cliente', function ($q) use ($beneficiario) {
-                    $q->where('beneficiario_id', $beneficiario->id);
-                });
+                $baseQuery->where('beneficiario_id', $beneficiario->id);
             }
         }
 

@@ -73,6 +73,35 @@
                             key: 'codigo',
                         },
                         {
+                            title: 'Link de Referencia',
+                            type: 'custom-html',
+                            key: 'referral_link',
+                            modifier: (value, row) => {
+                                if (!row.codigo) {
+                                    return '<span class="text-muted">Sin código</span>';
+                                }
+                                const slug = row.nombre.toLowerCase().replace(/\s+/g, '-');
+                                const link = `${window.location.origin}/registro/esim/${slug}-${row.codigo}`;
+                                return `
+                                    <div class="d-flex align-items-center">
+                                        <input type="text" class="form-control form-control-sm mr-2" value="${link}" readonly id="sp-link-${row.id}" style="max-width: 300px;">
+                                        <button class="btn btn-sm btn-primary" data-sp-link-id="sp-link-${row.id}">
+                                            <i class="mdi mdi-content-copy"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        },
+                        {
+                            title: 'Comisión %',
+                            type: 'custom-html',
+                            key: 'commission_percentage',
+                            modifier: (value) => {
+                                const pct = parseFloat(value || 0).toFixed(2);
+                                return `<span class="badge badge-info">${pct}%</span>`;
+                            }
+                        },
+                        {
                             title: this.$t('action'),
                             type: 'action',
                             key: 'invoice',
@@ -86,6 +115,11 @@
                             type: 'none',
                             component: 'app-add-modal',
                             modalId: 'super-partner-add-edit-modal',
+                        },
+                        {
+                            title: this.$t('download_commissions'),
+                            icon: 'download',
+                            type: 'none',
                         },
                         {
                             title: this.$t('delete'),
@@ -121,7 +155,12 @@
                     this.isAddEditModalActive = true;
                 } else if (action.title === this.$t('delete')) {
                     this.deleteConfirmationModalActive = true;
+                } else if (action.title === this.$t('download_commissions')) {
+                    this.downloadCommissions(row);
                 }
+            },
+            downloadCommissions(row) {
+                window.location.href = urlGenerator(`super-partners/${row.id}/export-commissions`);
             },
             confirmed() {
                 this.deleteLoader = true;
@@ -138,7 +177,43 @@
             },
             cancelled() {
                 this.deleteConfirmationModalActive = false;
+            },
+            copyToClipboard(elementId) {
+                const input = document.getElementById(elementId);
+                if (input) {
+                    const textToCopy = input.value;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            this.$toastr.s('Link copiado al portapapeles');
+                        }).catch(() => {
+                            this.fallbackCopy(input);
+                        });
+                    } else {
+                        this.fallbackCopy(input);
+                    }
+                }
+            },
+            fallbackCopy(input) {
+                input.select();
+                input.setSelectionRange(0, 99999);
+                try {
+                    document.execCommand('copy');
+                    this.$toastr.s('Link copiado al portapapeles');
+                } catch (err) {
+                    this.$toastr.e('Error al copiar el link');
+                }
             }
+        },
+        mounted() {
+            const self = this;
+            $(document).on('click', '[data-sp-link-id]', function(e) {
+                e.preventDefault();
+                const linkId = $(this).data('sp-link-id');
+                self.copyToClipboard(linkId);
+            });
+        },
+        beforeDestroy() {
+            $(document).off('click', '[data-sp-link-id]');
         }
     }
 </script>

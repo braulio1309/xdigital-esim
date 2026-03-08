@@ -55,20 +55,16 @@ class TransactionFilter extends FilterBuilder
     }
 
     /**
-     * Filter by beneficiario_id
+     * Filter by beneficiario_id directly on the transactions table.
      * Use 'none' to filter transactions with no beneficiario (N/A)
      */
     public function beneficiario_id($beneficiarioId = null)
     {
         $this->builder->when($beneficiarioId, function ($query) use ($beneficiarioId) {
             if ($beneficiarioId === 'none') {
-                $query->whereHas('cliente', function ($q) {
-                    $q->whereNull('beneficiario_id');
-                });
+                $query->whereNull('beneficiario_id');
             } else {
-                $query->whereHas('cliente.beneficiario', function ($q) use ($beneficiarioId) {
-                    $q->where('id', $beneficiarioId);
-                });
+                $query->where('beneficiario_id', $beneficiarioId);
             }
         });
     }

@@ -73,14 +73,11 @@ class SuperPartnerDashboardController extends Controller
 
         $totalClientes = Cliente::whereIn('beneficiario_id', $partnerIds)->count();
 
-        $totalTransactions = Transaction::whereHas('cliente', function ($q) use ($partnerIds) {
-            $q->whereIn('beneficiario_id', $partnerIds);
-        })->count();
+        $totalTransactions = Transaction::whereIn('beneficiario_id', $partnerIds)->count();
 
         $totalFreeEsims = Transaction::where('purchase_amount', 0)
-            ->whereHas('cliente', function ($q) use ($partnerIds) {
-                $q->whereIn('beneficiario_id', $partnerIds);
-            })->count();
+            ->whereIn('beneficiario_id', $partnerIds)
+            ->count();
 
         return [
             'nombre'             => $superPartner->nombre,

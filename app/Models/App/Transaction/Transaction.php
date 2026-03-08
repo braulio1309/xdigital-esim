@@ -3,6 +3,7 @@
 namespace App\Models\App\Transaction;
 
 use App\Models\App\AppModel;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -17,6 +18,7 @@ class Transaction extends AppModel
         'esim_qr',
         'creation_time',
         'cliente_id',
+        'beneficiario_id',
         'order_id',
         'plan_name',
         'data_amount',
@@ -47,6 +49,30 @@ class Transaction extends AppModel
     }
 
     /**
+     * Relationship with Beneficiario model (direct partner for this transaction)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function beneficiario()
+    {
+        return $this->belongsTo(Beneficiario::class);
+    }
+
+    /**
+     * Resolve the beneficiario for this transaction.
+     * Uses direct beneficiario_id first, falls back to cliente's beneficiario.
+     *
+     * @return Beneficiario|null
+     */
+    public function resolveBeneficiario()
+    {
+        if ($this->beneficiario_id && $this->beneficiario) {
+            return $this->beneficiario;
+        }
+        return $this->cliente->beneficiario ?? null;
+    }
+
+    /**
      * Check if transaction is a free eSIM
      *
      * @return bool
@@ -69,11 +95,12 @@ class Transaction extends AppModel
             return 0.85;
         }
 
-        if (!$this->cliente || !$this->cliente->beneficiario) {
+        $beneficiario = $this->resolveBeneficiario();
+
+        if (!$beneficiario) {
             return 0;
         }
 
-        $beneficiario = $this->cliente->beneficiario;
         $purchaseAmount = (float) $this->purchase_amount;
 
         // Try to get margin from beneficiary plan margins
@@ -107,11 +134,11 @@ class Transaction extends AppModel
             return 0;
         }
 
-        if (!$this->cliente || !$this->cliente->beneficiario) {
+        $beneficiario = $this->resolveBeneficiario();
+
+        if (!$beneficiario) {
             return 0;
         }
-
-        $beneficiario = $this->cliente->beneficiario;
 
         // Try to get margin from beneficiary plan margins
         if ($this->data_amount) {

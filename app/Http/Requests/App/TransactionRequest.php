@@ -20,6 +20,7 @@ class TransactionRequest extends AppRequest
             'esim_qr' => 'nullable|string',
             'creation_time' => 'nullable|date',
             'cliente_id' => 'nullable|exists:clientes,id',
+            'beneficiario_id' => 'nullable|exists:beneficiarios,id',
         ];
     }
 }
