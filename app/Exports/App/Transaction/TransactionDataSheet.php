@@ -39,6 +39,18 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             }
         }
 
+        // Filter by super partner (all beneficiarios under a given super partner)
+        if (!empty($this->filters['super_partner_id'])) {
+            $superPartnerId = $this->filters['super_partner_id'];
+            $beneficiarioIds = \App\Models\App\Beneficiario\Beneficiario::where('super_partner_id', $superPartnerId)->pluck('id');
+
+            if ($beneficiarioIds->isEmpty()) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('beneficiario_id', $beneficiarioIds);
+            }
+        }
+
         // Filter by type (free / paid plans)
         if (!empty($this->filters['type'])) {
             if ($this->filters['type'] === 'free') {

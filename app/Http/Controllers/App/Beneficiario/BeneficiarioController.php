@@ -51,7 +51,7 @@ class BeneficiarioController extends Controller
                 ->count();
             
             $beneficiario->unpaid_transactions_count = $unpaidCount;
-            $beneficiario->total_owed = $unpaidCount * 0.85;
+            $beneficiario->total_owed = round($unpaidCount * (float) $beneficiario->free_esim_rate, 2);
             
             return $beneficiario;
         });

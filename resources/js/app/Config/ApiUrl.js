@@ -71,6 +71,7 @@ export const BENEFICIARIOS_EXPORT_COMMISSIONS = (id) => `beneficiarios/${id}/exp
 
 //Super Partners
 export const SUPER_PARTNERS = 'super-partners';
+export const SUPER_PARTNER_COMMISSIONS = (id) => `super-partners/${id}/commissions`;
 
 //Clientes
 export const CLIENTES = 'clientes';

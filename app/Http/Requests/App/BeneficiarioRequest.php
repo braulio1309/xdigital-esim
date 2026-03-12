@@ -24,6 +24,8 @@ class BeneficiarioRequest extends AppRequest
             'email'       => 'required|email|max:255|unique:users,email' . ($userId ? ",{$userId}" : ''),
             'password'    => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
             'logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
+            'super_partner_id' => 'nullable|exists:super_partners,id',
+            'free_esim_rate' => 'nullable|numeric|min:0',
         ];
     }
 }

@@ -18,6 +18,7 @@ class BeneficiaryPlanMarginRequest extends AppRequest
             'margins' => 'required|array',
             'margins.*.margin_percentage' => 'required|numeric|min:0|max:100',
             'margins.*.is_active' => 'sometimes|boolean',
+            'free_esim_rate' => 'nullable|numeric|min:0|max:999.99',
         ];
     }
 

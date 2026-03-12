@@ -112,13 +112,12 @@
                         
                         {{-- 1. HEADER LOGOS (Estructura de Triángulo) --}}
                         <div class="text-center mb-4">
-                            <p class="small text-muted text-uppercase mb-3 font-weight-bold" style="letter-spacing: 1px;">Alianza Estratégica</p>
+                            <p class="small text-muted text-uppercase mb-3 font-weight-bold" style="letter-spacing: 1px;">Alianza Corporativa</p>
                             
                             <div class="brand-alliance-container">
                                 {{-- Fila Superior: Xcertus y Nomad --}}
                                 <div class="top-row-logos">
                                     <img src="{{ asset('images/logo.png') }}" alt="Xcertus" class="logo-img logo-xcertus">
-                                    <span class="alliance-x">×</span>
                                     <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-img logo-nomad">
                                 </div>
 

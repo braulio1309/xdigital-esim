@@ -27,6 +27,11 @@
                           modal-id="super-partner-delete"
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
+
+        <commissions-modal v-if="isCommissionsModalActive"
+                           :super-partner-id="rowData.id"
+                           :super-partner-name="rowData.nombre"
+                           @close="closeCommissionsModal"/>
     </div>
 </template>
 
@@ -36,18 +41,21 @@
     import {urlGenerator} from "../../../../Helpers/AxiosHelper";
 
     import AddModal from "./AddModal";
+    import CommissionsModal from "./CommissionsModal";
 
     export default {
         extends: CoreLibrary,
         name: "SuperPartnersList",
         components: {
-            AddModal
+            AddModal,
+            CommissionsModal
         },
         data() {
             return {
                 deleteLoader: false,
                 isAddEditModalActive: false,
                 deleteConfirmationModalActive: false,
+                isCommissionsModalActive: false,
                 selectedUrl: '',
                 tableId: 'super-partners-table',
                 rowData: {},
@@ -93,12 +101,12 @@
                             }
                         },
                         {
-                            title: 'Comisión %',
+                            title: 'Precio $',
                             type: 'custom-html',
-                            key: 'commission_percentage',
+                            key: 'free_esim_rate',
                             modifier: (value) => {
                                 const pct = parseFloat(value || 0).toFixed(2);
-                                return `<span class="badge badge-info">${pct}%</span>`;
+                                return `<span class="badge badge-info">${pct}$</span>`;
                             }
                         },
                         {
@@ -115,6 +123,11 @@
                             type: 'none',
                             component: 'app-add-modal',
                             modalId: 'super-partner-add-edit-modal',
+                        },
+                        {
+                            title: this.$t('manage_commissions'),
+                            icon: 'dollar-sign',
+                            type: 'none',
                         },
                         {
                             title: this.$t('download_commissions'),
@@ -153,6 +166,8 @@
                 if (action.title === this.$t('edit')) {
                     this.selectedUrl = `super-partners/${row.id}`;
                     this.isAddEditModalActive = true;
+                } else if (action.title === this.$t('manage_commissions')) {
+                    this.isCommissionsModalActive = true;
                 } else if (action.title === this.$t('delete')) {
                     this.deleteConfirmationModalActive = true;
                 } else if (action.title === this.$t('download_commissions')) {
@@ -177,6 +192,9 @@
             },
             cancelled() {
                 this.deleteConfirmationModalActive = false;
+            },
+            closeCommissionsModal() {
+                this.isCommissionsModalActive = false;
             },
             copyToClipboard(elementId) {
                 const input = document.getElementById(elementId);

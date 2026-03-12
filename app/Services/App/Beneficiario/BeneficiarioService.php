@@ -106,7 +106,7 @@ class BeneficiarioService extends AppService
      */
     public function update(Beneficiario $beneficiario)
     {
-        $beneficiario->fill(request()->only(['nombre', 'descripcion']));
+        $beneficiario->fill(request()->only(['nombre', 'descripcion', 'free_esim_rate']));
 
         // Handle logo upload
         if (request()->hasFile('logo')) {

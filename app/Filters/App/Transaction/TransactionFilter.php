@@ -4,6 +4,7 @@ namespace App\Filters\App\Transaction;
 
 use App\Filters\App\Traits\DateRangeFilter;
 use App\Filters\FilterBuilder;
+use App\Models\App\Beneficiario\Beneficiario;
 
 class TransactionFilter extends FilterBuilder
 {
@@ -71,6 +72,26 @@ class TransactionFilter extends FilterBuilder
             } else {
                 // Strictly match by beneficiario_id column on transactions table
                 $query->where('beneficiario_id', $beneficiarioId);
+            }
+        });
+    }
+
+    /**
+     * Filter by super_partner_id by resolving all beneficiarios that belong to the given super partner
+     * and constraining transactions to those beneficiario_ids.
+     *
+     * Request key: super_partner_id -> method: superPartnerId (camelCase)
+     */
+    public function superPartnerId($superPartnerId = null)
+    {
+        $this->builder->when($superPartnerId !== '' && $superPartnerId !== null, function ($query) use ($superPartnerId) {
+            $beneficiarioIds = Beneficiario::where('super_partner_id', $superPartnerId)->pluck('id');
+
+            if ($beneficiarioIds->isEmpty()) {
+                // No beneficiarios for this super partner; force empty result set
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('beneficiario_id', $beneficiarioIds);
             }
         });
     }

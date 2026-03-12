@@ -13,7 +13,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 {
-    const COMMISSION_PER_FREE_ESIM = 0.85;
+    const COMMISSION_PER_FREE_ESIM = 0.85; // Default fallback when no beneficiary-specific rate is available
 
     protected array $filters;
 
@@ -57,7 +57,6 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         $rows[] = ['', ''];
         $rows[] = ['Total eSIMs Gratuitas (en el período)', $stats['total_free']];
         $rows[] = ['eSIMs Gratuitas Sin Pagar', $stats['unpaid_count']];
-        $rows[] = ['Comisión por eSIM Gratuita', '$' . number_format(self::COMMISSION_PER_FREE_ESIM, 2)];
         $rows[] = ['DEUDA TOTAL', '$' . number_format($stats['total_debt'], 2)];
 
         return $rows;
@@ -103,7 +102,7 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
     protected function calculateDebtStats(): array
     {
-        // Base query: all free eSIMs matching the date/beneficiario filters
+        // Base query: all free eSIMs matching the date/beneficiario/super_partner filters
         $baseQuery = Transaction::where('purchase_amount', 0);
 
         // Apply beneficiario filter
@@ -113,6 +112,18 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
                 $baseQuery->whereNull('beneficiario_id');
             } else {
                 $baseQuery->where('beneficiario_id', $beneficiarioId);
+            }
+        }
+
+        // Apply super partner filter (all beneficiarios under the given super partner)
+        if (!empty($this->filters['super_partner_id'])) {
+            $superPartnerId = $this->filters['super_partner_id'];
+            $beneficiarioIds = Beneficiario::where('super_partner_id', $superPartnerId)->pluck('id');
+
+            if ($beneficiarioIds->isEmpty()) {
+                $baseQuery->whereRaw('1 = 0');
+            } else {
+                $baseQuery->whereIn('beneficiario_id', $beneficiarioIds);
             }
         }
 
@@ -141,23 +152,36 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         }
 
         $totalFree = (clone $baseQuery)->count();
-        $unpaidCount = (clone $baseQuery)->where('is_paid', false)->count();
-        $totalDebt = $unpaidCount * self::COMMISSION_PER_FREE_ESIM;
+
+        // Unpaid transactions with beneficiary relations eagerly loaded
+        $unpaidTransactions = (clone $baseQuery)
+            ->where('is_paid', false)
+            ->with(['beneficiario', 'cliente.beneficiario'])
+            ->get();
+
+        $unpaidCount = $unpaidTransactions->count();
+
+        $totalDebt = $unpaidTransactions->sum(function (Transaction $transaction) {
+            return $transaction->getCommissionAmount();
+        });
 
         // Breakdown per beneficiario
-        $byBeneficiario = (clone $baseQuery)
-            ->where('is_paid', false)
-            ->with('cliente.beneficiario')
-            ->get()
+        $byBeneficiario = $unpaidTransactions
             ->groupBy(function ($t) {
-                return optional(optional($t->cliente)->beneficiario)->nombre ?? 'Sin Beneficiario';
+                $beneficiario = $t->resolveBeneficiario();
+                return $beneficiario ? $beneficiario->nombre : 'Sin Beneficiario';
             })
             ->map(function ($transactions, $nombre) {
                 $count = $transactions->count();
+
+                $debt = $transactions->sum(function (Transaction $transaction) {
+                    return $transaction->getCommissionAmount();
+                });
+
                 return [
                     'nombre' => $nombre,
                     'unpaid_count' => $count,
-                    'debt' => $count * self::COMMISSION_PER_FREE_ESIM,
+                    'debt' => $debt,
                 ];
             })
             ->sortBy('nombre')

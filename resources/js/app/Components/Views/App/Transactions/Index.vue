@@ -63,9 +63,9 @@
                     </button>
                 </div>
 
-                <!-- Beneficiary filter for admin and super partners -->
-                <div v-if="canFilterByBeneficiario" class="mr-2 mb-1" style="min-width: 200px;">
-                    <app-input type="select"
+                <!-- Beneficiary / Super Partner filter for admin and super partners -->
+                <div v-if="canFilterByBeneficiario" class="mr-2 mb-1" style="min-width: 260px;">
+                    <app-input type="search-select"
                                v-model="beneficiarioFilter"
                                :list="beneficiariosList"
                                :placeholder="$t('filter_by_beneficiary')"
@@ -197,6 +197,7 @@
                 activeFilters: {
                     type: null,
                     beneficiario_id: '',
+                    super_partner_id: '',
                     payment_status: null,
                     start_date: '',
                     end_date: '',
@@ -379,7 +380,13 @@
             // Build export URL with all current filters
             exportUrl() {
                 const params = new URLSearchParams();
-                if (this.beneficiarioFilter) params.append('beneficiario_id', this.beneficiarioFilter);
+                // Decode current selection into beneficiario_id or super_partner_id
+                if (this.activeFilters.beneficiario_id) {
+                    params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                }
+                if (this.activeFilters.super_partner_id) {
+                    params.append('super_partner_id', this.activeFilters.super_partner_id);
+                }
                 if (this.activeFilters.type) params.append('type', this.activeFilters.type);
                 if (this.activeFilters.payment_status !== null && this.activeFilters.payment_status !== '') {
                     params.append('payment_status', this.activeFilters.payment_status);
@@ -388,6 +395,25 @@
                 if (this.activeFilters.end_date) params.append('end_date', this.formatDateParam(this.activeFilters.end_date));
                 const qs = params.toString();
                 return `/${actions.TRANSACTIONS_EXPORT}${qs ? '?' + qs : ''}`;
+            },
+            // Only pass a plain beneficiario ID to the mark-as-paid modal
+            prefillBeneficiarioId() {
+                const value = this.beneficiarioFilter;
+
+                if (!value) {
+                    return '';
+                }
+
+                if (value === 'none') {
+                    return 'none';
+                }
+
+                if (value.startsWith('beneficiario:')) {
+                    return value.split(':')[1];
+                }
+
+                // For super partners or unknown formats, don't prefill
+                return '';
             }
         },
         mounted() {
@@ -408,17 +434,41 @@
             loadBeneficiarios() {
                 this.axiosGet(actions.BENEFICIARIOS + '?per_page=1000')
                     .then(response => {
+                        const beneficiarios = (response.data && response.data.data) ? response.data.data : [];
+
+                        const beneficiarioOptions = beneficiarios.map(beneficiario => ({
+                            id: `beneficiario:${beneficiario.id}`,
+                            value: beneficiario.nombre,
+                        }));
+
                         this.beneficiariosList = [
                             { id: '', value: this.$t('all_beneficiaries') },
-                            ...response.data.data.map(beneficiario => ({
-                                id: beneficiario.id,
-                                value: beneficiario.nombre
-                            })),
+                            ...beneficiarioOptions,
                             { id: 'none', value: this.$t('without_beneficiary') },
                         ];
+
+                        return this.axiosGet(actions.SUPER_PARTNERS + '?per_page=1000');
+                    })
+                    .then(response => {
+                        if (response && response.data && response.data.data) {
+                            const superPartners = response.data.data;
+                            const superPartnerOptions = superPartners.map(sp => ({
+                                id: `super_partner:${sp.id}`,
+                                value: `${sp.nombre} (${this.$t('super_partner')})`,
+                            }));
+
+                            const baseOptions = this.beneficiariosList.filter(option => option.id !== 'none');
+                            const noneOption = this.beneficiariosList.find(option => option.id === 'none');
+
+                            this.beneficiariosList = [
+                                ...baseOptions,
+                                ...superPartnerOptions,
+                                ...(noneOption ? [noneOption] : []),
+                            ];
+                        }
                     })
                     .catch(error => {
-                        console.error('Error loading beneficiaries:', error);
+                        console.error('Error loading beneficiaries or super partners:', error);
                     });
             },
 
@@ -434,9 +484,21 @@
             },
 
             onBeneficiarioChange() {
-                this.activeFilters.beneficiario_id = this.beneficiarioFilter;
+                // Reset both filters
+                this.activeFilters.beneficiario_id = '';
+                this.activeFilters.super_partner_id = '';
+
+                const value = this.beneficiarioFilter;
+
+                if (value === 'none') {
+                    this.activeFilters.beneficiario_id = 'none';
+                } else if (value && value.startsWith('beneficiario:')) {
+                    this.activeFilters.beneficiario_id = value.split(':')[1];
+                } else if (value && value.startsWith('super_partner:')) {
+                    this.activeFilters.super_partner_id = value.split(':')[1];
+                }
+
                 this.applyFilters();
-                this.fetchFilterAmount();
             },
 
             /**
@@ -446,6 +508,7 @@
             applyFilters() {
                 const params = new URLSearchParams();
                 if (this.activeFilters.beneficiario_id) params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                if (this.activeFilters.super_partner_id) params.append('super_partner_id', this.activeFilters.super_partner_id);
                 if (this.activeFilters.type) params.append('type', this.activeFilters.type);
                 if (this.activeFilters.payment_status !== null && this.activeFilters.payment_status !== '') {
                     params.append('payment_status', this.activeFilters.payment_status);
@@ -460,8 +523,12 @@
                     this.$hub.$emit('reload-' + this.tableId);
                 });
 
-                // If date or beneficiario filter changed, recalculate debt amount
-                if (this.activeFilters.beneficiario_id || this.activeFilters.start_date || this.activeFilters.end_date) {
+                // If date or beneficiario filter changed, recalculate debt amount.
+                // Do not attempt this calculation when filtering by super partner.
+                const hasBeneficiarioFilter = !!this.activeFilters.beneficiario_id;
+                const hasDateFilters = !!(this.activeFilters.start_date || this.activeFilters.end_date);
+
+                if ((hasBeneficiarioFilter || hasDateFilters) && !this.activeFilters.super_partner_id) {
                     this.fetchFilterAmount();
                 } else {
                     this.filterAmountResult = null;
@@ -501,6 +568,7 @@
                 this.activeFilters = {
                     type: null,
                     beneficiario_id: '',
+                    super_partner_id: '',
                     payment_status: null,
                     start_date: '',
                     end_date: '',

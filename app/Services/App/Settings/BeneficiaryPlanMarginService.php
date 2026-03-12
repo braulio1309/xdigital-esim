@@ -2,6 +2,7 @@
 
 namespace App\Services\App\Settings;
 
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Settings\BeneficiaryPlanMargin;
 use App\Services\Core\BaseService;
 use Illuminate\Support\Facades\Cache;
@@ -104,7 +105,7 @@ class BeneficiaryPlanMarginService extends BaseService
      * @param array $data Array of margins with plan_capacity as key
      * @return bool
      */
-    public function updateMargins($beneficiarioId, array $data)
+    public function updateMargins($beneficiarioId, array $data, ?float $freeEsimRate = null)
     {
         try {
             foreach ($data as $planCapacity => $marginData) {
@@ -123,6 +124,15 @@ class BeneficiaryPlanMarginService extends BaseService
                     'margin_percentage' => $marginData['margin_percentage'] ?? $margin->margin_percentage,
                     'is_active' => $marginData['is_active'] ?? true,
                 ]);
+            }
+
+            if ($freeEsimRate !== null) {
+                $beneficiario = Beneficiario::find($beneficiarioId);
+
+                if ($beneficiario) {
+                    $beneficiario->free_esim_rate = $freeEsimRate;
+                    $beneficiario->save();
+                }
             }
 
             // Clear cache after update

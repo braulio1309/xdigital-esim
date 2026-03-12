@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\Settings\BeneficiaryPlanMarginRequest;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use Illuminate\Http\Request;
 
@@ -40,8 +41,11 @@ class BeneficiaryPlanMarginController extends Controller
 
         $beneficiarioId = $request->input('beneficiario_id');
 
+        $beneficiario = Beneficiario::findOrFail($beneficiarioId);
+
         return response()->json([
             'margins' => $this->service->getFormattedMargins($beneficiarioId),
+            'free_esim_rate' => (float) $beneficiario->free_esim_rate,
         ]);
     }
 
@@ -60,12 +64,16 @@ class BeneficiaryPlanMarginController extends Controller
 
         $beneficiarioId = $request->input('beneficiario_id');
         $margins = $request->input('margins', []);
+        $freeEsimRate = $request->input('free_esim_rate');
         
-        $success = $this->service->updateMargins($beneficiarioId, $margins);
+        $success = $this->service->updateMargins($beneficiarioId, $margins, $freeEsimRate !== null ? (float) $freeEsimRate : null);
 
         if ($success) {
+            $beneficiario = Beneficiario::findOrFail($beneficiarioId);
+
             return updated_responses('beneficiary_plan_margins', [
                 'margins' => $this->service->getFormattedMargins($beneficiarioId),
+                'free_esim_rate' => (float) $beneficiario->free_esim_rate,
             ]);
         }
 

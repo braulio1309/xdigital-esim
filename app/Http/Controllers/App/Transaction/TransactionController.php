@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\App\Transaction;
 
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Filters\App\Transaction\TransactionFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\TransactionRequest as Request;
@@ -73,7 +74,7 @@ class TransactionController extends Controller
      */
     public function paymentStats()
     {
-        $query = Transaction::with('beneficiario')
+        $query = Transaction::with(['beneficiario', 'cliente.beneficiario'])
             ->where('is_paid', false)
             ->where('purchase_amount', 0); // Only free eSIMs
         
@@ -93,8 +94,12 @@ class TransactionController extends Controller
             }
         }
         
-        $unpaidCount = $query->count();
-        $totalOwed = $unpaidCount * 0.85;
+        $transactions = $query->get();
+
+        $unpaidCount = $transactions->count();
+        $totalOwed = $transactions->sum(function (Transaction $transaction) {
+            return $transaction->getCommissionAmount();
+        });
         
         return response()->json([
             'unpaid_count' => $unpaidCount,
@@ -171,8 +176,12 @@ class TransactionController extends Controller
             $query->where('creation_time', '<=', Carbon::parse($endDate)->endOfDay());
         }
 
-        $count = $query->count();
-        $amount = round($count * 0.85, 2); // $0.85 is the commission rate per free eSIM transaction
+        $transactions = $query->with(['beneficiario', 'cliente.beneficiario'])->get();
+
+        $count = $transactions->count();
+        $amount = round($transactions->sum(function (Transaction $transaction) {
+            return $transaction->getCommissionAmount();
+        }), 2);
 
         return response()->json([
             'count' => $count,
@@ -237,13 +246,18 @@ class TransactionController extends Controller
             $supportPath = $file->store('payment-supports', 'public');
         }
 
+        // Calculate total amount based on stored commission per transaction
+        $totalAmount = round($updated->sum(function (Transaction $transaction) {
+            return $transaction->getCommissionAmount();
+        }), 2);
+
         $paymentHistory = PaymentHistory::create([
             'beneficiario_id' => $validated['beneficiario_id'],
             'reference' => $validated['reference'] ?? null,
             'payment_date' => $validated['payment_date'],
             'support_path' => $supportPath,
             'support_original_name' => $supportOriginalName,
-            'amount' => $updatedCount * 0.85, // $0.85 is the commission rate per free eSIM transaction
+            'amount' => $totalAmount,
             'transactions_count' => $updatedCount,
             'notes' => $validated['notes'] ?? null,
         ]);
@@ -355,6 +369,7 @@ class TransactionController extends Controller
     {
         $filters = $request->only([
             'beneficiario_id',
+            'super_partner_id',
             'type',
             'payment_status',
             'start_date',

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\SuperPartnerRequest as Request;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
+use App\Services\App\Settings\SuperPartnerPlanMarginService;
 use App\Services\App\SuperPartner\SuperPartnerService;
 
 class SuperPartnerController extends Controller
@@ -89,12 +90,67 @@ class SuperPartnerController extends Controller
     }
 
     /**
+     * Get commission configuration for a super partner (general commission and free eSIM rate).
+     *
+     * @param  SuperPartner $super_partner
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getCommissions(SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService)
+    {
+        return response()->json([
+            'commission_percentage' => (float) ($super_partner->commission_percentage ?? 0),
+            'free_esim_rate' => (float) $super_partner->free_esim_rate,
+            'margins' => $marginService->getFormattedMargins($super_partner->id),
+        ]);
+    }
+
+    /**
+     * Update commission configuration for a super partner.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @param  SuperPartner $super_partner
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateCommissions(\Illuminate\Http\Request $request, SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService)
+    {
+        $validated = $request->validate([
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'free_esim_rate' => 'nullable|numeric|min:0|max:999.99',
+            'margins' => 'sometimes|array',
+            'margins.*.margin_percentage' => 'required_with:margins|numeric|min:0|max:100',
+            'margins.*.is_active' => 'sometimes|boolean',
+        ]);
+
+        if (array_key_exists('commission_percentage', $validated)) {
+            $super_partner->commission_percentage = $validated['commission_percentage'];
+        }
+
+        if (array_key_exists('free_esim_rate', $validated)) {
+            $super_partner->free_esim_rate = $validated['free_esim_rate'];
+        }
+
+        $super_partner->save();
+
+        // Update per-plan margins if provided
+        if (array_key_exists('margins', $validated)) {
+            $marginService->updateMargins($super_partner->id, $validated['margins']);
+        }
+
+        return response()->json([
+            'message' => __('default.updated_response', ['name' => 'Comisiones de Super Partner']),
+            'commission_percentage' => (float) ($super_partner->commission_percentage ?? 0),
+            'free_esim_rate' => (float) $super_partner->free_esim_rate,
+            'margins' => $marginService->getFormattedMargins($super_partner->id),
+        ]);
+    }
+
+    /**
      * Export commissions summary for a super partner.
      *
      * @param SuperPartner $super_partner
      * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
-    public function exportCommissions(SuperPartner $super_partner)
+    public function exportCommissions(SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService)
     {
         $partnerIds = $super_partner->beneficiarios()->pluck('id');
 
@@ -102,13 +158,30 @@ class SuperPartnerController extends Controller
             ->whereIn('beneficiario_id', $partnerIds)
             ->get();
 
-        $rows = $transactions->map(function ($t) {
+        $margins = $marginService->getFormattedMargins($super_partner->id);
+
+        $rows = $transactions->map(function (Transaction $t) use ($super_partner, $margins) {
+            $commission = 0.0;
+
+            if ($t->isFreeEsim()) {
+                $commission = (float) $super_partner->free_esim_rate;
+            } else {
+                $purchaseAmount = (float) $t->purchase_amount;
+                $capacity = (string) $t->data_amount;
+
+                if (isset($margins[$capacity]) && $margins[$capacity]['margin_percentage'] > 0) {
+                    $commission = $purchaseAmount * ($margins[$capacity]['margin_percentage'] / 100);
+                } elseif ($super_partner->commission_percentage) {
+                    $commission = $purchaseAmount * ($super_partner->commission_percentage / 100);
+                }
+            }
+
             return [
                 $t->transaction_id,
                 $t->plan_name,
                 $t->purchase_amount,
                 $t->beneficiario ? $t->beneficiario->nombre : 'N/A',
-                $t->getCommissionAmount(),
+                round($commission, 2),
                 $t->created_at ? $t->created_at->format('Y-m-d') : '',
             ];
         })->toArray();

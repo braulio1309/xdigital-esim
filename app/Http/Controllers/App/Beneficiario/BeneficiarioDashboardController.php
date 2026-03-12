@@ -16,11 +16,6 @@ class BeneficiarioDashboardController extends Controller
     const COMMISSION_PLANS = ['3', '5', '10'];
 
     /**
-     * Free eSIM commission rate in USD
-     */
-    const FREE_ESIM_RATE = 0.85;
-
-    /**
      * Show the beneficiario dashboard
      *
      * @return \Illuminate\Http\Response
@@ -115,6 +110,8 @@ class BeneficiarioDashboardController extends Controller
      */
     private function getDebtData(int $beneficiarioId, ?string $startDate, ?string $endDate): array
     {
+        $beneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
+
         $query = Transaction::where('purchase_amount', 0)
             ->where('beneficiario_id', $beneficiarioId);
 
@@ -143,12 +140,30 @@ class BeneficiarioDashboardController extends Controller
         $total_unpaid    = (int) ($result->total_unpaid    ?? 0);
         $total_paid      = (int) ($result->total_paid      ?? 0);
 
+        // Sum debt using stored commission per transaction when available
+        $unpaidTransactions = (clone $query)
+            ->where('is_paid', 0)
+            ->get();
+
+        $totalDebt = $unpaidTransactions->sum(function (Transaction $transaction) {
+            return $transaction->getCommissionAmount();
+        });
+
+        // Derive an effective rate per eSIM for display purposes
+        if ($total_unpaid > 0) {
+            $ratePerEsim = $totalDebt / $total_unpaid;
+        } else {
+            $ratePerEsim = $beneficiario
+                ? (float) $beneficiario->free_esim_rate
+                : \App\Models\App\Beneficiario\Beneficiario::DEFAULT_FREE_ESIM_RATE;
+        }
+
         return [
             'total_activated'  => $total_activated,
             'total_unpaid'     => $total_unpaid,
             'total_paid'       => $total_paid,
-            'total_debt'       => round($total_unpaid * self::FREE_ESIM_RATE, 2),
-            'rate_per_esim'    => self::FREE_ESIM_RATE,
+            'total_debt'       => round($totalDebt, 2),
+            'rate_per_esim'    => round($ratePerEsim, 2),
         ];
     }
 

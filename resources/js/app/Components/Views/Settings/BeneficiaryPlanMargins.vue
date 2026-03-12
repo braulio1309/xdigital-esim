@@ -23,6 +23,21 @@
                     </div>
                 </div>
 
+                <div class="form-group mb-4">
+                    <label class="d-block mb-1">Tarifa eSIM Gratuita (USD)</label>
+                    <div class="input-group" style="max-width: 200px;">
+                        <app-input
+                            type="number"
+                            v-model="freeEsimRate"
+                            :min="0"
+                            step="0.01"
+                            :required="true"/>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        Monto a cobrar por cada eSIM gratuita (1GB) para este beneficiario.
+                    </small>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover table-sm">
                         <thead>
@@ -101,15 +116,14 @@
         },
         data() {
             return {
-                planCapacities: ['1', '3', '5', '10', '20', '50'],
+                planCapacities: ['3', '5', '10'],
                 margins: {
-                    '1': { margin_percentage: 0.00, is_active: true },
+                    
                     '3': { margin_percentage: 0.00, is_active: true },
                     '5': { margin_percentage: 0.00, is_active: true },
                     '10': { margin_percentage: 0.00, is_active: true },
-                    '20': { margin_percentage: 0.00, is_active: true },
-                    '50': { margin_percentage: 0.00, is_active: true },
                 },
+                freeEsimRate: 0.85,
                 preloader: false,
             }
         },
@@ -135,6 +149,10 @@
                             }
                         });
                     }
+
+                    if (response.data && typeof response.data.free_esim_rate !== 'undefined') {
+                        this.freeEsimRate = parseFloat(response.data.free_esim_rate) || 0.85;
+                    }
                 })
                 .catch(error => {
                     const message = error.response?.data?.message || this.$t('error_loading_margins');
@@ -149,7 +167,8 @@
                 this.preloader = true;
                 const data = { 
                     beneficiario_id: this.beneficiarioId,
-                    margins: this.margins 
+                    margins: this.margins,
+                    free_esim_rate: this.freeEsimRate
                 };
 
                 axios.post(actions.UPDATE_BENEFICIARY_PLAN_MARGINS, data)
@@ -164,6 +183,10 @@
                                 };
                             }
                         });
+                    }
+
+                    if (response.data && typeof response.data.free_esim_rate !== 'undefined') {
+                        this.freeEsimRate = parseFloat(response.data.free_esim_rate) || this.freeEsimRate;
                     }
                     setTimeout(() => {
                         this.closeModal();
@@ -183,6 +206,7 @@
                     this.planCapacities.forEach(plan => {
                         this.margins[plan].margin_percentage = 0.00;
                     });
+                    this.freeEsimRate = 0.85;
                     this.$toastr.i(this.$t('margins_reset_to_defaults'));
                 }
             },

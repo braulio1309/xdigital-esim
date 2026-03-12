@@ -25,6 +25,7 @@ class Transaction extends AppModel
         'duration_days',
         'purchase_amount',
         'currency',
+        'beneficiary_commission_amount',
         'is_paid',
         'paid_at',
         'payment_history_id',
@@ -36,7 +37,19 @@ class Transaction extends AppModel
         'is_paid' => 'boolean',
         'paid_at' => 'datetime',
         'terminated_at' => 'datetime',
+        'beneficiary_commission_amount' => 'decimal:2',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function (self $transaction) {
+            if ($transaction->beneficiary_commission_amount === null) {
+                $transaction->beneficiary_commission_amount = $transaction->calculateCommissionAmountFromConfig();
+            }
+        });
+    }
 
     /**
      * Relationship with Cliente model
@@ -91,11 +104,30 @@ class Transaction extends AppModel
      */
     public function getCommissionAmount()
     {
-        if ($this->isFreeEsim()) {
-            return 0.85;
+        if ($this->beneficiary_commission_amount !== null) {
+            return (float) $this->beneficiary_commission_amount;
         }
 
+        return $this->calculateCommissionAmountFromConfig();
+    }
+
+    /**
+     * Calculate commission amount based on current configuration
+     * (used for initial snapshot and as fallback when no snapshot exists).
+     *
+     * @return float
+     */
+    protected function calculateCommissionAmountFromConfig(): float
+    {
         $beneficiario = $this->resolveBeneficiario();
+
+        if ($this->isFreeEsim()) {
+            if ($beneficiario) {
+                return (float) $beneficiario->free_esim_rate;
+            }
+
+            return \App\Models\App\Beneficiario\Beneficiario::DEFAULT_FREE_ESIM_RATE;
+        }
 
         if (!$beneficiario) {
             return 0;
@@ -131,7 +163,7 @@ class Transaction extends AppModel
     public function getCommissionPercentage()
     {
         if ($this->isFreeEsim()) {
-            return 0;
+            return 0.0;
         }
 
         $beneficiario = $this->resolveBeneficiario();

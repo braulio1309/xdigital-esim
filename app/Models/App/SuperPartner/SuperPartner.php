@@ -14,6 +14,8 @@ class SuperPartner extends AppModel
 
     protected $table = 'super_partners';
 
+    public const DEFAULT_FREE_ESIM_RATE = 0.85;
+
     protected $fillable = [
         'nombre',
         'descripcion',
@@ -23,12 +25,14 @@ class SuperPartner extends AppModel
         'commission_percentage',
         'total_earnings',
         'total_sales',
+        'free_esim_rate',
     ];
 
     protected $casts = [
         'commission_percentage' => 'decimal:2',
         'total_earnings'        => 'decimal:2',
         'total_sales'           => 'integer',
+        'free_esim_rate'        => 'decimal:2',
     ];
 
     protected $appends = ['logo_url'];
@@ -47,6 +51,21 @@ class SuperPartner extends AppModel
     public function beneficiarios()
     {
         return $this->hasMany(Beneficiario::class);
+    }
+
+    /**
+     * Get the free eSIM rate attribute, falling back to default when null.
+     *
+     * @param  mixed $value
+     * @return float
+     */
+    public function getFreeEsimRateAttribute($value)
+    {
+        if ($value === null) {
+            return self::DEFAULT_FREE_ESIM_RATE;
+        }
+
+        return (float) $value;
     }
 
     /**

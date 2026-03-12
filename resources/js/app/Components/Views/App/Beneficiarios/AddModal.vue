@@ -42,6 +42,23 @@
                                :placeholder="$t('descripcion')"
                                :required="true"/>
                 </div>
+                <div class="form-group row align-items-center" v-if="showSuperPartnerSelect">
+                    <label for="inputs_super_partner_id" class="col-sm-3 mb-0">
+                        Super Partner
+                    </label>
+                    <div class="col-sm-9">
+                        <app-input id="inputs_super_partner_id"
+                                   class="w-100"
+                                   type="select"
+                                   v-model="inputs.super_partner_id"
+                                   :list="superPartners"
+                                   list-value-field="value"
+                                   :required="false"/>
+                        <small class="text-muted d-block mt-1">
+                            Selecciona el super partner directo o deja "N/A".
+                        </small>
+                    </div>
+                </div>
                 <div class="form-group row align-items-center">
                     <label for="inputs_email" class="col-sm-3 mb-0">
                         {{ $t('email') || 'Email' }}
@@ -107,12 +124,31 @@
                     descripcion: '',
                     email: '',
                     password: '',
+                            super_partner_id: '',
                     logoPreview: null,
                 },
+                        superPartners: [],
                 logoFile: null,
                 _logoObjectUrl: null,
                 modalId: 'beneficiario-add-edit-modal',
                 modalTitle: this.$t('add'),
+            }
+        },
+        computed: {
+            loggedInUser() {
+                return this.$store.state.user && this.$store.state.user.loggedInUser
+                    ? this.$store.state.user.loggedInUser
+                    : null;
+            },
+            isBeneficiarioUser() {
+                return this.loggedInUser && this.loggedInUser.user_type === 'beneficiario';
+            },
+            isSuperPartnerUser() {
+                return this.loggedInUser && this.loggedInUser.user_type === 'super_partner';
+            },
+            showSuperPartnerSelect() {
+                // Solo usuarios que no son beneficiario ni super_partner pueden elegir el super partner
+                return !this.isBeneficiarioUser && !this.isSuperPartnerUser;
             }
         },
         created() {
@@ -120,8 +156,31 @@
                 this.modalTitle = this.$t('edit');
                 this.preloader = true;
             }
+            if (this.showSuperPartnerSelect) {
+                this.loadSuperPartners();
+            }
         },
         methods: {
+            loadSuperPartners() {
+                this.axiosGet('/super-partners')
+                    .then(response => {
+                        const items = response.data && response.data.data ? response.data.data : [];
+                        const mapped = items.map(sp => ({
+                            id: sp.id,
+                            value: sp.nombre,
+                        }));
+
+                        // Añadir opción N/A al inicio
+                        this.superPartners = [
+                            {id: '', value: 'N/A'},
+                            ...mapped,
+                        ];
+                    })
+                    .catch(error => {
+                        console.error('Error loading super partners:', error);
+                        this.$toastr.e('Error al cargar la lista de super partners');
+                    });
+            },
             onLogoChange(event) {
                 const file = event.target.files[0];
                 if (file) {
@@ -145,6 +204,9 @@
                 formData.append('email', this.inputs.email || '');
                 if (this.inputs.password) {
                     formData.append('password', this.inputs.password);
+                }
+                if (this.showSuperPartnerSelect && this.inputs.super_partner_id) {
+                    formData.append('super_partner_id', this.inputs.super_partner_id);
                 }
                 if (this.logoFile) {
                     formData.append('logo', this.logoFile);
@@ -184,6 +246,7 @@
                     descripcion: data.descripcion,
                     email: data.user ? data.user.email : '',
                     password: '',
+                    super_partner_id: data.super_partner_id || '',
                     logoPreview: data.logo_url || null,
                 };
                 this.preloader = false;
