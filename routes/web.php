@@ -26,7 +26,8 @@ Route::get('/registro/esim/{referralCode?}', [RegistroEsimController::class, 'mo
 Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'])->name('registro.esim.store');
 
 // Rutas públicas para planes disponibles
-Route::get('/planes-disponibles', [PlanesDisponiblesController::class, 'index'])->name('planes.index');
+// Acepta opcionalmente un referralCode con el código de partner o super partner
+Route::get('/planes-disponibles/{referralCode?}', [PlanesDisponiblesController::class, 'index'])->name('planes.index');
 Route::post('/planes/get-by-country', [PlanesDisponiblesController::class, 'getPlanes'])->name('planes.get');
 
 // Rutas de API para autenticación AJAX (públicas)

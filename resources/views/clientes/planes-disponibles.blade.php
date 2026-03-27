@@ -1,6 +1,6 @@
 @extends('auth-layouts.auth')
 
-@section('title', 'Planes Disponibles - eSIM Internacional')
+@section('title', 'Planes Disponibles - Nomad eSIM')
 
 @section('contents')
 {{-- Estilos personalizados para esta vista --}}
@@ -15,15 +15,205 @@
 
     .brand-alliance-container {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 15px;
+        gap: 14px;
         margin-bottom: 30px;
     }
 
+    .top-row-logos {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .partner-row-logo {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
     .logo-nomad {
-        height: 50px;
+        height: 44px;
         object-fit: contain;
+    }
+
+    .logo-partner {
+        max-height: 58px;
+        max-width: 220px;
+        height: auto;
+        object-fit: contain;
+        filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.1));
+    }
+
+    .brand-footnote {
+        margin-top: 22px;
+        text-align: center;
+        font-size: 0.72rem;
+        line-height: 1.5;
+        color: rgba(24, 28, 54, 0.58);
+    }
+
+    .sales-hero {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, rgba(24, 28, 54, 0.98) 0%, rgba(45, 156, 219, 0.92) 100%);
+        border-radius: 28px;
+        padding: 38px 34px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 20px 45px rgba(24, 28, 54, 0.18);
+    }
+
+    .sales-hero::before,
+    .sales-hero::after {
+        content: '';
+        position: absolute;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        pointer-events: none;
+    }
+
+    .sales-hero::before {
+        width: 240px;
+        height: 240px;
+        top: -110px;
+        right: -70px;
+    }
+
+    .sales-hero::after {
+        width: 160px;
+        height: 160px;
+        bottom: -75px;
+        left: -35px;
+    }
+
+    .sales-hero-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .sales-kicker {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-bottom: 16px;
+    }
+
+    .sales-title {
+        font-size: 2.45rem;
+        line-height: 1.05;
+        font-weight: 800;
+        margin-bottom: 14px;
+        color: white;
+    }
+
+    .sales-copy {
+        font-size: 1rem;
+        line-height: 1.7;
+        max-width: 700px;
+        color: rgba(255, 255, 255, 0.92);
+        margin-bottom: 22px;
+    }
+
+    .sales-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .sales-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.12);
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .sales-partner-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 700;
+    }
+
+    .sales-panel {
+        position: relative;
+        z-index: 1;
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .sales-panel-item {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 18px;
+        padding: 16px;
+    }
+
+    .sales-panel-label {
+        display: block;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.72);
+        margin-bottom: 6px;
+    }
+
+    .sales-panel-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: white;
+        line-height: 1.4;
+    }
+
+    .sales-message {
+        border: none;
+        border-radius: 24px;
+        padding: 22px 24px;
+        margin-bottom: 26px;
+        box-shadow: 0 14px 34px rgba(24, 28, 54, 0.09);
+    }
+
+    .sales-message.sales-warning {
+        background: linear-gradient(135deg, #fff6dc 0%, #ffe8ae 100%);
+        color: #5a4300;
+    }
+
+    .sales-message.sales-success {
+        background: linear-gradient(135deg, #e9fbf4 0%, #d8f6e8 100%);
+        color: #125d3f;
+    }
+
+    .sales-message-title {
+        font-size: 1.2rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .sales-message-copy {
+        margin-bottom: 0;
+        line-height: 1.7;
+        font-size: 0.98rem;
     }
 
     .page-title {
@@ -231,31 +421,47 @@
         margin: 20px auto;
     }
 
-    .brand-alliance-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 15px;
-        margin-bottom: 20px;
-    }
+    @media (max-width: 576px) {
+        .sales-hero {
+            padding: 28px 22px;
+            border-radius: 22px;
+        }
 
-    .logo-xcertus {
-        height: 50px; /* Ajusta según necesidad */
-        object-fit: contain;
-    }
+        .sales-title {
+            font-size: 1.9rem;
+        }
 
-    .logo-nomad {
-        height: 40px; /* Ajusta según necesidad */
-        object-fit: contain;
-    }
+        .sales-panel {
+            grid-template-columns: 1fr;
+        }
 
-    .alliance-x {
-        font-size: 1.5rem;
-        color: #ccc;
-        font-weight: 300;
+        .logo-nomad {
+            height: 36px;
+        }
+
+        .logo-partner {
+            max-height: 46px;
+            max-width: 180px;
+        }
+
+        .brand-footnote {
+            font-size: 0.68rem;
+        }
     }
 
 </style>
+
+@php
+    $displayPartner = $brandPartner ?? $beneficiario ?? $superPartner ?? null;
+    $displayPartnerName = $displayPartner->nombre ?? null;
+    $displayPartnerLogo = $displayPartner->logo_url ?? null;
+    $permissionError = session('error');
+    $hasPermissionError = is_string($permissionError) && str_contains($permissionError, 'No tienes permiso');
+
+    if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
+        $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
+    }
+@endphp
 
 <div id="planes-disponibles-app" class="container-scroller">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
@@ -267,31 +473,78 @@
                     <div class="text-center mb-3">
                             <p class="small text-muted text-uppercase mb-2 font-weight-bold" style="letter-spacing: 1px;">Alianza Estratégica</p>
                             <div class="brand-alliance-container">
-                                {{-- Logo Xcertus --}}
-                                <img src="{{ asset('images/logo.png') }}" alt="Xcertus" class="logo-xcertus">
-                                <span class="alliance-x">&times;</span>
-                                {{-- Logo Nomad --}}
-                                <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-nomad">
+                                <div class="top-row-logos">
+                                    <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-nomad">
+                                </div>
+                                @if($displayPartner && $displayPartnerLogo)
+                                    <div class="partner-row-logo">
+                                        <img src="{{ $displayPartnerLogo }}" alt="{{ $displayPartnerName }}" class="logo-partner">
+                                    </div>
+                                @endif
                             </div>
                         </div>
+
+                    <div class="sales-hero">
+                        <div class="sales-hero-content">
+                            <div class="sales-kicker">Amplia tu conectividad internacional</div>
+                            <h1 class="sales-title">Más datos, más destinos y una experiencia lista para viajar.</h1>
+                            <p class="sales-copy">
+                                Elige tu siguiente plan eSIM y sigue conectado con una activación simple, cobertura internacional y una compra pensada para convertir visitantes en viajeros conectados en minutos.
+                            </p>
+
+                            <div class="sales-badges">
+                                <span class="sales-badge"><i class="mdi mdi-earth mr-2"></i>Cobertura internacional</span>
+                                <span class="sales-badge"><i class="mdi mdi-lightning-bolt-outline mr-2"></i>Activación rápida</span>
+                                <span class="sales-badge"><i class="mdi mdi-cellphone-wireless mr-2"></i>Sin chip físico</span>
+                            </div>
+
+                            @if($displayPartner)
+                                <div class="sales-partner-chip">
+                                    <i class="mdi mdi-handshake-outline"></i>
+                                    Beneficio exclusivo con {{ $displayPartnerName }}
+                                </div>
+                            @endif
+
+                            <div class="sales-panel">
+                                <div class="sales-panel-item">
+                                    <span class="sales-panel-label">Ideal para</span>
+                                    <div class="sales-panel-value">Viajes, trabajo remoto y ampliaciones de datos sin fricción</div>
+                                </div>
+                                <div class="sales-panel-item">
+                                    <span class="sales-panel-label">Recomendación</span>
+                                    <div class="sales-panel-value">Compara 3GB, 5GB y 10GB para elegir el plan que mejor acompaña tu ruta</div>
+                                </div>
+                                <div class="sales-panel-item">
+                                    <span class="sales-panel-label">Ventaja</span>
+                                    <div class="sales-panel-value">Compra en línea y recibe tu eSIM lista para usar en el momento</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     {{-- Flash messages --}}
                     @if(session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="mdi mdi-alert-circle-outline mr-2"></i>
-                            {{ session('error') }}
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
+                        @if($hasPermissionError)
+                            <div class="sales-message sales-warning" role="alert">
+                                <div class="sales-message-title">Tu beneficio gratuito ya fue utilizado, pero puedes seguir conectado ahora mismo.</div>
+                                <p class="sales-message-copy">
+                                    Tienes disponibles planes listos para ampliar tu conectividad de forma inmediata. Elige el país, compara opciones y activa más datos en pocos pasos con una compra rápida y segura.
+                                </p>
+                            </div>
+                        @else
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="mdi mdi-alert-circle-outline mr-2"></i>
+                                {{ session('error') }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        @endif
                     @endif
                     @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="mdi mdi-check-circle-outline mr-2"></i>
-                            {{ session('success') }}
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
+                        <div class="sales-message sales-success" role="alert">
+                            <div class="sales-message-title">Tu acceso está listo para seguir comprando.</div>
+                            <p class="sales-message-copy">{{ session('success') }}</p>
                         </div>
                     @endif
 
@@ -353,6 +606,11 @@
                         <p class="mt-3">No hay planes disponibles para el país seleccionado</p>
                     </div>
 
+                </div>
+                <div class="col-12">
+                    <div class="brand-footnote px-4 px-sm-5">
+                        Servicio de Nomad eSIM con distribución para Iberoamérica mediante alianza con Xcertus.
+                    </div>
                 </div>
             </div>
         </div>

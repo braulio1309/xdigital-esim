@@ -933,6 +933,7 @@ return [
     'purchase_amount' => 'Monto de Compra',
     'commission' => 'Comisión',
     'client_name' => 'Nombre del Cliente',
+    'client_email' => 'Correo del Cliente',
     'iccid' => 'ICCID',
     'date' => 'Fecha',
     'days' => 'días',

@@ -11,20 +11,49 @@ class TransactionFilter extends FilterBuilder
     use DateRangeFilter;
     
     /**
-     * Search across transaction_id, cliente name, and plan_name
+     * Search across transaction fields, cliente data, and partner name.
      * Note: Input is already sanitized by FilterBuilder's apply method
      */
     public function search($search = null)
     {
         $this->builder->when($search, function ($query) use ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('transaction_id', 'like', "%{$search}%")
+                $wildcard = "%{$search}%";
+
+                $q->where('transaction_id', 'like', $wildcard)
+                    ->orWhere('order_id', 'like', $wildcard)
+                    ->orWhere('status', 'like', $wildcard)
+                    ->orWhere('iccid', 'like', $wildcard)
                     ->orWhere('plan_name', 'like', "%{$search}%")
+                    ->orWhere('data_amount', 'like', $wildcard)
+                    ->orWhere('duration_days', 'like', $wildcard)
+                    ->orWhere('purchase_amount', 'like', $wildcard)
+                    ->orWhere('currency', 'like', $wildcard)
+                    ->orWhere('creation_time', 'like', $wildcard)
                     ->orWhereHas('cliente', function ($clienteQuery) use ($search) {
-                        $clienteQuery->where('nombre', 'like', "%{$search}%")
-                            ->orWhere('apellido', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
+                        $wildcard = "%{$search}%";
+
+                        $clienteQuery->where('nombre', 'like', $wildcard)
+                            ->orWhere('apellido', 'like', $wildcard)
+                            ->orWhere('email', 'like', $wildcard)
+                            ->orWhereRaw("CONCAT(COALESCE(nombre, ''), ' ', COALESCE(apellido, '')) LIKE ?", [$wildcard]);
+                    })
+                    ->orWhereHas('beneficiario', function ($beneficiarioQuery) use ($search) {
+                        $beneficiarioQuery->where('nombre', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('cliente.beneficiario', function ($beneficiarioQuery) use ($search) {
+                        $beneficiarioQuery->where('nombre', 'like', "%{$search}%");
                     });
+
+                $normalizedSearch = mb_strtolower(trim($search));
+
+                if (in_array($normalizedSearch, ['paid', 'pagado'])) {
+                    $q->orWhere('is_paid', true);
+                }
+
+                if (in_array($normalizedSearch, ['unpaid', 'sin pagar', 'no pagado'])) {
+                    $q->orWhere('is_paid', false);
+                }
             });
         });
     }

@@ -2,19 +2,22 @@
 
 namespace App\Http\Controllers\App\Cliente;
 
+use App\Helpers\CountryTariffHelper;
 use App\Http\Controllers\Controller;
+use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
-use App\Services\App\Settings\PlanMarginService;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
+use App\Services\App\Settings\PlanMarginService;
+use App\Services\App\Settings\SuperPartnerPlanMarginService;
 use App\Services\EsimFxService;
 use App\Services\StripeService;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use App\Helpers\CountryTariffHelper;
-use Exception;
 
 /**
  * Controlador para gestionar la vista de Planes Disponibles
@@ -27,19 +30,60 @@ class PlanesDisponiblesController extends Controller
     protected $clienteService;
     protected $planMarginService;
     protected $beneficiaryPlanMarginService;
+    protected $superPartnerPlanMarginService;
 
     public function __construct(
-        EsimFxService $esimService, 
+        EsimFxService $esimService,
         StripeService $stripeService,
         ClienteService $clienteService,
         PlanMarginService $planMarginService,
-        BeneficiaryPlanMarginService $beneficiaryPlanMarginService
+        BeneficiaryPlanMarginService $beneficiaryPlanMarginService,
+        SuperPartnerPlanMarginService $superPartnerPlanMarginService
     ) {
         $this->esimService = $esimService;
         $this->stripeService = $stripeService;
         $this->clienteService = $clienteService;
         $this->planMarginService = $planMarginService;
         $this->beneficiaryPlanMarginService = $beneficiaryPlanMarginService;
+        $this->superPartnerPlanMarginService = $superPartnerPlanMarginService;
+    }
+
+    /**
+     * Resolve beneficiary or super partner from a referral code.
+     *
+     * @param string|null $referralCode
+     * @return array{codigo:?string,beneficiario:?Beneficiario,superPartner:?SuperPartner,brandPartner:mixed,partnerContext:array<string,mixed>}
+     */
+    protected function resolveBrandingContext($referralCode = null): array
+    {
+        $beneficiario = null;
+        $superPartner = null;
+        $codigo = null;
+
+        if ($referralCode) {
+            $parts = explode('-', $referralCode);
+            $codigo = $parts[count($parts) - 1] ?? null;
+
+            if ($codigo) {
+                $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+
+                if (!$beneficiario) {
+                    $superPartner = SuperPartner::where('codigo', $codigo)->first();
+                }
+            }
+        }
+
+        return [
+            'codigo' => $codigo,
+            'beneficiario' => $beneficiario,
+            'superPartner' => $superPartner,
+            'brandPartner' => $beneficiario ?: $superPartner,
+            'partnerContext' => [
+                'codigo' => $codigo,
+                'beneficiario_id' => $beneficiario ? $beneficiario->id : null,
+                'super_partner_id' => $beneficiario ? $beneficiario->super_partner_id : ($superPartner ? $superPartner->id : null),
+            ],
+        ];
     }
 
     /**
@@ -48,18 +92,73 @@ class PlanesDisponiblesController extends Controller
      * 
      * @return \Illuminate\View\View
      */
-    public function index()
+    /**
+     * Mostrar la vista principal de planes disponibles
+     * Ruta: GET /planes-disponibles/{referralCode?}
+     *
+     * @return \Illuminate\View\View
+     */
+    public function index(Request $request, $referralCode = null)
     {
+        $brandingContext = $this->resolveBrandingContext($referralCode);
+        $partnerContext = $brandingContext['partnerContext'];
+
+        // Persistir contexto de partner para siguientes llamadas (planes, pagos, etc.)
+        if ($partnerContext['beneficiario_id'] || $partnerContext['super_partner_id']) {
+            session(['planes_partner_context' => $partnerContext]);
+        } else {
+            session()->forget('planes_partner_context');
+        }
+
         // Obtener la clave pública de Stripe para el frontend
         $stripePublicKey = $this->stripeService->getPublishableKey();
-        
+
         // Get all countries with tariff information
         $allCountries = CountryTariffHelper::getAllCountries();
-        
+
         return view('clientes.planes-disponibles', [
             'stripePublicKey' => $stripePublicKey,
-            'allCountries' => $allCountries
+            'allCountries' => $allCountries,
+            'partnerContext' => $partnerContext,
+            'beneficiario' => $brandingContext['beneficiario'],
+            'superPartner' => $brandingContext['superPartner'],
+            'brandPartner' => $brandingContext['brandPartner'],
+            'referralCode' => $referralCode,
         ]);
+    }
+
+    /**
+     * Resolver IDs de beneficiario y super partner tomando en cuenta
+     * el cliente autenticado y el contexto de partner en sesión.
+     *
+     * @return array [beneficiarioId|null, superPartnerId|null]
+     */
+    protected function resolveBeneficiarioAndSuperPartnerIds(): array
+    {
+        $beneficiarioId = null;
+        $superPartnerId = null;
+
+        $user = Auth::user();
+        $cliente = $user ? $user->cliente : null;
+
+        if ($cliente && $cliente->beneficiario) {
+            $beneficiarioId = $cliente->beneficiario->id;
+            $superPartnerId = $cliente->beneficiario->super_partner_id;
+        }
+
+        $partnerContext = session('planes_partner_context');
+
+        if (is_array($partnerContext)) {
+            if (!$beneficiarioId && !empty($partnerContext['beneficiario_id'])) {
+                $beneficiarioId = $partnerContext['beneficiario_id'];
+            }
+
+            if (!$superPartnerId && !empty($partnerContext['super_partner_id'])) {
+                $superPartnerId = $partnerContext['super_partner_id'];
+            }
+        }
+
+        return [$beneficiarioId, $superPartnerId];
     }
 
     /**
@@ -80,16 +179,14 @@ class PlanesDisponiblesController extends Controller
 
             // Obtener productos desde la API de eSIM FX
             $products = $this->esimService->getProducts([
-                'countries' => $country
+                'countries' => $country,
             ]);
 
-            // Get the authenticated user's cliente and beneficiario
-            $user = Auth::user();
-            $cliente = $user ? $user->cliente : null;
-            $beneficiarioId = $cliente && $cliente->beneficiario_id ? $cliente->beneficiario_id : null;
+            // Resolver beneficiario y super partner (por cliente autenticado o referral)
+            [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
 
             // Formatear los productos para el frontend
-            $formattedProducts = collect($products)->map(function ($product) use ($beneficiarioId) {
+            $formattedProducts = collect($products)->map(function ($product) use ($beneficiarioId, $superPartnerId) {
                 // Apply admin profit margin to price
                 $originalPrice = $product['price'];
                 $planCapacity = $product['amount']; // Amount is in GB (e.g., 1, 3, 5, 10, 20, 50)
@@ -97,17 +194,30 @@ class PlanesDisponiblesController extends Controller
                 // First, apply admin margin
                 $priceWithAdminMargin = $this->planMarginService->calculateFinalPrice($originalPrice, $planCapacity);
                 
-                // Then, if the cliente has a beneficiario, apply beneficiary margin on top
-                $finalPrice = $priceWithAdminMargin;
+                // Then, if there is a super partner, apply its margin on top
+                $priceAfterSuperPartner = $priceWithAdminMargin;
+                $superPartnerMarginApplied = false;
+
+                if ($superPartnerId) {
+                    $priceAfterSuperPartner = $this->superPartnerPlanMarginService->calculateFinalPrice(
+                        $priceWithAdminMargin,
+                        $planCapacity,
+                        $superPartnerId
+                    );
+                    $superPartnerMarginApplied = ($priceAfterSuperPartner != $priceWithAdminMargin);
+                }
+
+                // Finally, if there is a beneficiario, apply beneficiary margin on top
+                $finalPrice = $priceAfterSuperPartner;
                 $beneficiaryMarginApplied = false;
-                
+
                 if ($beneficiarioId) {
                     $finalPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice(
-                        $priceWithAdminMargin, 
-                        $planCapacity, 
+                        $priceAfterSuperPartner,
+                        $planCapacity,
                         $beneficiarioId
                     );
-                    $beneficiaryMarginApplied = ($finalPrice != $priceWithAdminMargin);
+                    $beneficiaryMarginApplied = ($finalPrice != $priceAfterSuperPartner);
                 }
                 
                 return [
@@ -123,6 +233,7 @@ class PlanesDisponiblesController extends Controller
                     'coverage' => $product['coverage'] ?? [],
                     'is_free' => $originalPrice == 0,
                     'margin_applied' => $finalPrice != $originalPrice,
+                    'super_partner_margin_applied' => $superPartnerMarginApplied,
                     'beneficiary_margin_applied' => $beneficiaryMarginApplied,
                 ];
             })
@@ -227,8 +338,11 @@ class PlanesDisponiblesController extends Controller
                 'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
             ];
 
+            // Resolver beneficiario asociado para atribuir comisiones
+            [$beneficiarioId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+
             // Guardar la transacción en la base de datos
-            Transaction::create([
+            $transactionData = [
                 'order_id' => $apiResponse['id'],
                 'transaction_id' => $transactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
@@ -241,7 +355,13 @@ class PlanesDisponiblesController extends Controller
                 'duration_days' => $request->duration,
                 'purchase_amount' => $request->purchase_amount,
                 'currency' => $request->currency ?? 'USD',
-            ]);
+            ];
+
+            if ($beneficiarioId) {
+                $transactionData['beneficiario_id'] = $beneficiarioId;
+            }
+
+            Transaction::create($transactionData);
 
             return response()->json([
                 'success' => true,
@@ -369,8 +489,11 @@ class PlanesDisponiblesController extends Controller
                 'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
             ];
 
+            // Resolver beneficiario asociado para atribuir comisiones
+            [$beneficiarioId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+
             // Guardar la transacción en la base de datos
-            Transaction::create([
+            $transactionData = [
                 'order_id' => $apiResponse['id'],
                 'transaction_id' => $transactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
@@ -383,7 +506,13 @@ class PlanesDisponiblesController extends Controller
                 'duration_days' => $request->duration,
                 'purchase_amount' => 0,
                 'currency' => 'USD',
-            ]);
+            ];
+
+            if ($beneficiarioId) {
+                $transactionData['beneficiario_id'] = $beneficiarioId;
+            }
+
+            Transaction::create($transactionData);
 
             return response()->json([
                 'success' => true,

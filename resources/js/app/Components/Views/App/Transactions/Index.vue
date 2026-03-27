@@ -107,6 +107,9 @@
         <!-- Date range filter row -->
         <div class="row mb-3">
             <div class="col-12 d-flex align-items-center flex-wrap">
+                <div class="mr-2 mb-1" style="min-width: 280px;">
+                    <app-search @input="getSearchValue"/>
+                </div>
                 <div class="mr-2 mb-1" style="min-width: 170px;">
                     <app-input type="date"
                                v-model="activeFilters.start_date"
@@ -139,7 +142,7 @@
             </div>
         </div>
 
-        <app-table :id="tableId" :options="options" @action="getListAction"/>
+        <app-table :id="tableId" :options="options" :search="search" @action="getListAction"/>
 
         <add-modal v-if="isAddEditModalActive"
                    :table-id="tableId"
@@ -169,6 +172,7 @@
     import CoreLibrary from "../../../../../core/helpers/CoreLibrary.js";
     import * as actions from "../../../../Config/ApiUrl";
     import {FormMixin} from '../../../../../core/mixins/form/FormMixin.js';
+    import {TableWithoutWrapperMixin} from '../../../../Mixins/TableWithoutWrapperMixin.js';
 
     import AddModal from "./AddModal"; 
     import DetailModal from "./DetailModal";
@@ -177,7 +181,7 @@
     export default {
         extends: CoreLibrary,
         name: "TransactionsList",
-        mixins: [FormMixin],
+        mixins: [FormMixin, TableWithoutWrapperMixin],
         components: {
             AddModal,
             DetailModal,
@@ -292,6 +296,14 @@
                             }
                         },
                         {
+                            title: this.$t('client_email'),
+                            type: 'custom-html',
+                            key: 'cliente',
+                            modifier: (value) => {
+                                return value && value.email ? value.email : 'N/A';
+                            }
+                        },
+                        {
                             title: this.$t('status'),
                             type: 'text',
                             key: 'status',
@@ -371,7 +383,8 @@
                 return this.paymentStats.unpaid_count > 0;
             },
             hasActiveFilters() {
-                return this.beneficiarioFilter ||
+                  return this.search ||
+                      this.beneficiarioFilter ||
                        this.activeFilters.type !== null ||
                        this.activeFilters.payment_status !== null ||
                        this.activeFilters.start_date ||
@@ -564,6 +577,7 @@
             },
 
             clearAllFilters() {
+                this.search = '';
                 this.beneficiarioFilter = '';
                 this.activeFilters = {
                     type: null,

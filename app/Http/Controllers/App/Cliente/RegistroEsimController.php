@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Http\Request as HttpRequest;
@@ -18,6 +19,36 @@ use App\Helpers\CountryTariffHelper;
 
 class RegistroEsimController extends Controller
 {
+    /**
+     * Resolve beneficiary or super partner from a referral code.
+     *
+     * @param string|null $referralCode
+     * @return array{beneficiario:?Beneficiario,superPartner:?SuperPartner,brandPartner:mixed}
+     */
+    private function resolveBrandingContext($referralCode)
+    {
+        $beneficiario = null;
+        $superPartner = null;
+
+        if ($referralCode) {
+            $codigo = $this->extractCodigoFromReferralCode($referralCode);
+
+            if ($codigo) {
+                $beneficiario = Beneficiario::where('codigo', $codigo)->first();
+
+                if (!$beneficiario) {
+                    $superPartner = SuperPartner::where('codigo', $codigo)->first();
+                }
+            }
+        }
+
+        return [
+            'beneficiario' => $beneficiario,
+            'superPartner' => $superPartner,
+            'brandPartner' => $beneficiario ?: $superPartner,
+        ];
+    }
+
     /**
      * Extract codigo from referral code format (nombre-codigo)
      * @param string $referralCode
@@ -47,18 +78,15 @@ class RegistroEsimController extends Controller
      */
     public function mostrarFormulario(HttpRequest $request, $referralCode = null)
     {
-        $beneficiario = null;
-        
-        if ($referralCode) {
-            $codigo = $this->extractCodigoFromReferralCode($referralCode);
-            $beneficiario = Beneficiario::where('codigo', $codigo)->first();
-        }
+        $brandingContext = $this->resolveBrandingContext($referralCode);
         
         // Get affordable countries (tariff <= $0.67)
         $affordableCountries = CountryTariffHelper::getAffordableCountries();
         
         return view('clientes.registro-esim', [
-            'beneficiario' => $beneficiario,
+            'beneficiario' => $brandingContext['beneficiario'],
+            'superPartner' => $brandingContext['superPartner'],
+            'brandPartner' => $brandingContext['brandPartner'],
             'referralCode' => $referralCode,
             'parametro' => $request->query('parametro', ''),
             'affordableCountries' => $affordableCountries
@@ -93,11 +121,8 @@ class RegistroEsimController extends Controller
             ]);
 
             // Buscar referralCode si existe (para usarlo en la vista)
-            $beneficiario = null;
-            if (!empty($validated['referralCode'])) {
-                $codigo = $this->extractCodigoFromReferralCode($validated['referralCode']);
-                $beneficiario = Beneficiario::where('codigo', $codigo)->first();
-            }
+            $brandingContext = $this->resolveBrandingContext($validated['referralCode'] ?? null);
+            $beneficiario = $brandingContext['beneficiario'];
 
             // 2. Verificar si el email ya existe
             //
@@ -107,7 +132,10 @@ class RegistroEsimController extends Controller
             if (!$existingCliente || !$existingCliente->can_activate_free_esim) {
                 
                 // No tiene permiso para activar eSIM gratuita
-                return redirect()->route('planes.index')
+                // Redirigimos a planes-disponibles, preservando el referralCode para aplicar comisiones de partner/super partner
+                $referralForRedirect = $validated['referralCode'] ?? $request->referralCode;
+
+                return redirect()->route('planes.index', ['referralCode' => $referralForRedirect])
                     ->with('error', 'No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador.');
                 
             } 
@@ -240,6 +268,8 @@ class RegistroEsimController extends Controller
             return view('clientes.registro-esim', [
                 'esim_data' => $esimDataView,
                 'beneficiario' => $beneficiario,
+                'superPartner' => $brandingContext['superPartner'],
+                'brandPartner' => $brandingContext['brandPartner'],
                 'referralCode' => $request->referralCode,
                 'parametro' => $request->query('parametro', ''),
                 'affordableCountries' => $affordableCountries

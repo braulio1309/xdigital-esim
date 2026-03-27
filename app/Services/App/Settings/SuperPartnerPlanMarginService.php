@@ -27,10 +27,24 @@ class SuperPartnerPlanMarginService extends BaseService
     }
 
     /**
+     * Get margin configuration for a specific super partner and plan capacity.
+     *
+     * @param string $planCapacity
+     * @param int    $superPartnerId
+     * @return SuperPartnerPlanMargin|null
+     */
+    public function getMarginForPlan($planCapacity, $superPartnerId)
+    {
+        $margins = $this->getMargins($superPartnerId);
+
+        return $margins->firstWhere('plan_capacity', (string) $planCapacity);
+    }
+
+    /**
      * Update multiple plan margins at once for a super partner.
      * Only capacities 3, 5 y 10 GB son relevantes.
      *
-     * @param int $superPartnerId
+     * @param int   $superPartnerId
      * @param array $data
      * @return bool
      */
@@ -58,6 +72,7 @@ class SuperPartnerPlanMarginService extends BaseService
             return true;
         } catch (\Exception $e) {
             Log::error('Error updating super partner plan margins: ' . $e->getMessage());
+
             return false;
         }
     }
@@ -92,5 +107,45 @@ class SuperPartnerPlanMarginService extends BaseService
         }
 
         return $formatted;
+    }
+
+    /**
+     * Calculate final price with super partner's profit margin on top of admin margin.
+     *
+     * Fórmula: Precio final = Precio base del admin / (1 - Margen del super partner)
+     *
+     * @param float  $adminPrice     Price after admin margin is applied
+     * @param string $planCapacity   Plan capacity in GB (e.g., "3", "5", "10")
+     * @param int    $superPartnerId Super partner ID
+     *
+     * @return float Final price with super partner margin applied
+     */
+    public function calculateFinalPrice($adminPrice, $planCapacity, $superPartnerId)
+    {
+        try {
+            $margin = $this->getMarginForPlan($planCapacity, $superPartnerId);
+
+            // If no margin or 0%, return admin price unchanged
+            if (!$margin || $margin->margin_percentage == 0) {
+                return (float) $adminPrice;
+            }
+
+            $marginDecimal = $margin->margin_percentage / 100;
+
+            // Prevent division by zero if margin is 100%
+            if ($marginDecimal >= 1) {
+                Log::warning("Super partner margin is 100% or higher for super_partner_id {$superPartnerId}, plan {$planCapacity}, returning admin price");
+
+                return (float) $adminPrice;
+            }
+
+            $finalPrice = $adminPrice / (1 - $marginDecimal);
+
+            return round($finalPrice, 2);
+        } catch (\Exception $e) {
+            Log::error('Error calculating super partner final price: ' . $e->getMessage());
+
+            return (float) $adminPrice;
+        }
     }
 }

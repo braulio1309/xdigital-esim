@@ -1,6 +1,6 @@
 @extends('auth-layouts.auth')
 
-@section('title', 'Registro Cliente eSIM - Alianza Xcertus & Nomad')
+@section('title', 'Registro Cliente eSIM - Nomad')
 
 @section('contents')
 {{-- Estilos personalizados para esta vista (Brand Colors) --}}
@@ -42,26 +42,27 @@
         object-fit: contain;
     }
 
-    .logo-xcertus {
-        max-height: 45px;
-        max-width: 40%; 
-    }
-
     .logo-nomad {
-        max-height: 35px;
-        max-width: 35%;
+        max-height: 42px;
+        max-width: 48%;
     }
 
     .logo-partner {
-        max-height: 55px; /* Un poco más grande para que destaque abajo */
-        max-width: 50%;
+        max-height: 58px; /* Un poco más grande para que destaque abajo */
+        max-width: 58%;
         filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.1));
     }
 
-    .alliance-x {
-        font-size: 1.2rem;
-        color: #ddd;
-        font-weight: 300;
+    .top-row-logos.single-brand {
+        justify-content: center;
+    }
+
+    .brand-footnote {
+        margin-top: 24px;
+        text-align: center;
+        font-size: 0.72rem;
+        line-height: 1.5;
+        color: rgba(24, 28, 54, 0.58);
     }
 
     /* --- ESTILOS GENERALES --- */
@@ -93,15 +94,23 @@
         box-shadow: 0 0 0 0.2rem rgba(45, 156, 219, 0.25);
     }
     
-    .text-xcertus { color: var(--xcertus-purple); }
-
     @media (max-width: 576px) {
         .auth-form-light { padding: 2rem 1.5rem !important; }
-        .logo-xcertus { max-height: 35px; }
-        .logo-nomad { max-height: 28px; }
+        .logo-nomad { max-height: 34px; max-width: 60%; }
         .logo-partner { max-height: 45px; }
+        .brand-footnote { font-size: 0.68rem; }
     }
 </style>
+
+@php
+    $displayPartner = $brandPartner ?? $beneficiario ?? $superPartner ?? null;
+    $displayPartnerName = $displayPartner->nombre ?? null;
+    $displayPartnerLogo = $displayPartner->logo_url ?? null;
+
+    if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
+        $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
+    }
+@endphp
 
 <div class="container-scroller">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
@@ -115,18 +124,16 @@
                             <p class="small text-muted text-uppercase mb-3 font-weight-bold" style="letter-spacing: 1px;">Alianza Corporativa</p>
                             
                             <div class="brand-alliance-container">
-                                {{-- Fila Superior: Xcertus y Nomad --}}
-                                <div class="top-row-logos">
-                                    <img src="{{ asset('images/logo.png') }}" alt="Xcertus" class="logo-img logo-xcertus">
+                                {{-- Fila Superior: Nomad --}}
+                                <div class="top-row-logos single-brand">
                                     <img src="{{ asset('images/nomadesim.png') }}" alt="Nomad eSIM" class="logo-img logo-nomad">
                                 </div>
 
-                                {{-- Fila Inferior: Partner (Vértice del triángulo) --}}
-                                @if(isset($beneficiario) && $beneficiario && ($beneficiario->logo || $beneficiario->logo_url))
+                                {{-- Fila Inferior: Partner o Super Partner --}}
+                                @if($displayPartner && $displayPartnerLogo)
                                     <div class="partner-row-logo animate__animated animate__zoomIn">
-                                        {{-- Usamos asset('storage/...') si guardaste la ruta en el paso anterior --}}
-                                        <img src="{{ $beneficiario->logo_url ?? asset('storage/' . $beneficiario->logo) }}" 
-                                             alt="{{ $beneficiario->nombre }}" 
+                                        <img src="{{ $displayPartnerLogo }}"
+                                             alt="{{ $displayPartnerName }}"
                                              class="logo-img logo-partner">
                                     </div>
                                 @endif
@@ -135,12 +142,12 @@
 
                         {{-- 2. TEXTO PROMOCIONAL --}}
                         @if(!isset($esim_data) && !session('esim_data'))
-                            @if(isset($beneficiario) && $beneficiario)
+                            @if($displayPartner)
                             <div class="alert alert-success animate__animated animate__fadeIn mb-3">
                                 <div class="d-flex align-items-center">
                                     <i class="mdi mdi-account-check mr-2" style="font-size: 1.5rem;"></i>
                                     <div class="text-break">
-                                        <strong>Exclusivo para clientes de:</strong> {{ $beneficiario->nombre }}
+                                        <strong>Exclusivo para clientes de:</strong> {{ $displayPartnerName }}
                                     </div>
                                 </div>
                             </div>
@@ -209,6 +216,9 @@
                             </form>
                         @endif
 
+                    </div>
+                    <div class="brand-footnote px-4 px-sm-5">
+                        Servicio de Nomad eSIM con distribución para Iberoamérica mediante alianza con Xcertus.
                     </div>
                 </div>
             </div>
