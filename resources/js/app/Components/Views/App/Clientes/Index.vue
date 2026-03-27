@@ -85,6 +85,11 @@
                             key: 'email',
                         },
                         {
+                            title: 'DNI / Pasaporte',
+                            type: 'text',
+                            key: 'identificador',
+                        },
+                        {
                             title: 'Beneficiario',
                             type: 'custom-html',
                             key: 'beneficiario',

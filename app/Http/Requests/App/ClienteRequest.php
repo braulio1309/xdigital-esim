@@ -19,6 +19,7 @@ class ClienteRequest extends AppRequest
         return [
             'nombre'   => 'required|string|max:255',
             'apellido' => 'required|string|max:255',
+            'identificador' => 'required|string|max:255',
             'email'    => 'required|email|max:255|unique:clientes,email,' . $clienteId,
             'password' => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
         ];

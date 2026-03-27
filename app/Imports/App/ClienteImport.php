@@ -36,10 +36,19 @@ class ClienteImport implements ToCollection, WithHeadingRow
             // Extraemos los valores buscando variaciones comunes de nombres de columna
             $nombre   = trim($row['nombre'] ?? $row['name'] ?? $row['first_name'] ?? $row['Nombre'] ??'');
             $apellido = trim($row['apellido'] ?? $row['last_name'] ?? $row['surname'] ?? $row['Apellido'] ?? '');
+            $identificador = trim(
+                $row['identificador']
+                ?? $row['documento']
+                ?? $row['numero_documento']
+                ?? $row['dni']
+                ?? $row['pasaporte']
+                ?? $row['passport']
+                ?? ''
+            );
             $email    = trim($row['email'] ?? $row['correo'] ?? $row['e_mail'] ?? $row['Email'] ?? $row['Correo'] ?? '');
 
             // --- LÓGICA ORIGINAL ---
-            if (empty($nombre) || empty($email)) {
+            if (empty($nombre) || empty($email) || empty($identificador)) {
                 $this->skipped++;
                 continue;
             }
@@ -51,7 +60,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
             }
 
             try {
-                DB::transaction(function () use ($nombre, $apellido, $email) {
+                DB::transaction(function () use ($nombre, $apellido, $identificador, $email) {
                     $password = $nombre . '123*';
 
                     // Skip if user with this email already exists
@@ -76,6 +85,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
                     Cliente::create([
                         'nombre'                 => $nombre,
                         'apellido'               => $apellido,
+                        'identificador'          => $identificador,
                         'email'                  => $email,
                         'user_id'                => $user->id,
                         'beneficiario_id'        => $this->beneficiarioId,

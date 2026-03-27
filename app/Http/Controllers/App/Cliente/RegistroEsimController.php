@@ -113,8 +113,7 @@ class RegistroEsimController extends Controller
         try {
             // 1. Validar datos del formulario (email sin unique, lo validamos manualmente)
             $validated = $request->validate([
-                'nombre' => 'required|string|max:255',
-                'apellido' => 'required|string|max:255',
+                'identificador' => 'required|string|max:255',
                 'email' => 'required|email',
                 'country_code' => 'required|string|max:2',
                 'referralCode' => 'nullable|string'
@@ -128,6 +127,13 @@ class RegistroEsimController extends Controller
             //
 
             $existingCliente = Cliente::where('email', $validated['email'])->first();
+
+            if ($existingCliente && !empty($existingCliente->identificador) && $existingCliente->identificador !== $validated['identificador']) {
+                return redirect()->back()
+                    ->with('error', 'El identificador ingresado no coincide con el registrado para este cliente.')
+                    ->withInput();
+            }
+
             // agrega la validacion de que si no encontro el cliente te mande tambien a la vista de planes, esto para evitar que alguien pueda usar un email existente para activar la eSIM gratuita
             if (!$existingCliente || !$existingCliente->can_activate_free_esim) {
                 
@@ -141,6 +147,12 @@ class RegistroEsimController extends Controller
             } 
 
             $cliente =  $existingCliente;
+
+            if (empty($cliente->identificador)) {
+                $cliente->identificador = $validated['identificador'];
+                $cliente->save();
+            }
+
             // Variable para almacenar datos de eSIM
             $esimDataView = null;
             // 3. Buscar producto por país

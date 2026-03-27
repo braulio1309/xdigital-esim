@@ -106,13 +106,22 @@
     $displayPartner = $brandPartner ?? $beneficiario ?? $superPartner ?? null;
     $displayPartnerName = $displayPartner->nombre ?? null;
     $displayPartnerLogo = $displayPartner->logo_url ?? null;
+    $countryOptions = collect($affordableCountries)->map(function ($country) {
+        return [
+            'id' => $country['code'],
+            'value' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name'],
+        ];
+    })->values();
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
         $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
     }
 @endphp
 
-<div class="container-scroller">
+<div id="registro-esim-app"
+    class="container-scroller"
+    data-selected-country="{{ old('country_code', '') }}"
+    data-country-options="{{ htmlspecialchars(json_encode($countryOptions), ENT_QUOTES, 'UTF-8') }}">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-center auth px-0">
             <div class="row w-100 mx-0">
@@ -182,13 +191,8 @@
                                 @if(isset($referralCode)) <input type="hidden" name="referralCode" value="{{ $referralCode }}"> @endif
 
                                 <div class="form-group">
-                                    <label for="nombre" class="font-weight-bold text-small">Nombre</label>
-                                    <input type="text" class="form-control form-control-lg" name="nombre" value="{{ old('nombre') }}" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="apellido" class="font-weight-bold text-small">Apellido</label>
-                                    <input type="text" class="form-control form-control-lg" name="apellido" value="{{ old('apellido') }}" required>
+                                    <label for="identificador" class="font-weight-bold text-small">DNI o Pasaporte</label>
+                                    <input type="text" class="form-control form-control-lg" name="identificador" value="{{ old('identificador') }}" placeholder="Ingrese su número de documento o pasaporte" required>
                                 </div>
 
                                 <div class="form-group">
@@ -198,14 +202,12 @@
 
                                 <div class="form-group">
                                     <label for="country_code" class="font-weight-bold text-small">Seleccione su País</label>
-                                    <select class="form-control form-control-lg" name="country_code" required>
-                                        <option value="">-- Seleccionar País --</option>
-                                        @foreach($affordableCountries as $country)
-                                            <option value="{{ $country['code'] }}">
-                                                {{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <app-input type="search-select"
+                                               v-model="selectedCountry"
+                                               :list="countryOptions"
+                                               placeholder="Buscar país"
+                                               :is-animated-dropdown="true"/>
+                                    <input type="hidden" name="country_code" :value="selectedCountry">
                                 </div>
 
                                 <div class="mt-4">
@@ -225,4 +227,18 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const registroEsimRoot = document.getElementById('registro-esim-app');
+
+    new Vue({
+        el: '#registro-esim-app',
+        data: {
+            selectedCountry: registroEsimRoot.dataset.selectedCountry || '',
+            countryOptions: JSON.parse(registroEsimRoot.dataset.countryOptions || '[]'),
+        }
+    });
+});
+</script>
 @endsection

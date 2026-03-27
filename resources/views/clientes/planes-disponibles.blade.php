@@ -457,13 +457,21 @@
     $displayPartnerLogo = $displayPartner->logo_url ?? null;
     $permissionError = session('error');
     $hasPermissionError = is_string($permissionError) && str_contains($permissionError, 'No tienes permiso');
+    $countryOptions = collect($allCountries)->map(function ($country) {
+        return [
+            'id' => $country['code'],
+            'value' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name'],
+        ];
+    })->values();
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
         $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
     }
 @endphp
 
-<div id="planes-disponibles-app" class="container-scroller">
+<div id="planes-disponibles-app"
+    class="container-scroller"
+    data-country-options="{{ htmlspecialchars(json_encode($countryOptions), ENT_QUOTES, 'UTF-8') }}">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-start auth px-0 py-5">
             <div class="row w-100 mx-0">
@@ -552,13 +560,12 @@
                     
                     {{-- Selector de país --}}
                     <div class="country-selector">
-                        <select class="form-control form-control-lg" v-model="selectedCountry" @change="loadPlans">
-                            <option value="">Seleccione un país</option>
-                            @foreach($allCountries as $country)
-                            <option value="{{ $country['code'] }}">{{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}</option>
-                            @endforeach
-                        </select>
-                        
+                        <app-input type="search-select"
+                                   v-model="selectedCountry"
+                                   :list="countryOptions"
+                                   placeholder="Buscar país"
+                                   :is-animated-dropdown="true"
+                                   @input="loadPlans"/>
                     </div>
 
                     {{-- Mensajes informativos --}}
@@ -784,10 +791,13 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const planesDisponiblesRoot = document.getElementById('planes-disponibles-app');
+
     new Vue({
         el: '#planes-disponibles-app',
         data: {
             selectedCountry: '',
+            countryOptions: JSON.parse(planesDisponiblesRoot.dataset.countryOptions || '[]'),
             plans: [],
             loading: false,
             selectedPlan: null,

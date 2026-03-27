@@ -77,7 +77,7 @@ class ClienteService extends AppService
      */
     public function update(Cliente $cliente)
     {
-        $cliente->fill(request()->only(['nombre', 'apellido', 'email', 'beneficiario_id', 'can_activate_free_esim']));
+        $cliente->fill(request()->only(['nombre', 'apellido', 'identificador', 'email', 'beneficiario_id', 'can_activate_free_esim']));
 
         $this->model = $cliente;
 

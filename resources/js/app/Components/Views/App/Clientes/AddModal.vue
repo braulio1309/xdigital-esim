@@ -33,6 +33,17 @@
                                :required="true"/>
                 </div>
                 <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_identificador" class="col-sm-3 mb-0">
+                        DNI / Pasaporte
+                    </label>
+                    <app-input id="inputs_identificador"
+                               class="col-sm-9"
+                               type="text"
+                               v-model="inputs.identificador"
+                               placeholder="Número de documento o pasaporte"
+                               :required="true"/>
+                </div>
+                <div class="form-group row align-items-center mb-0">
                     <label for="inputs_email" class="col-sm-3 mb-0">
                         Email
                     </label>
@@ -105,6 +116,7 @@
                 inputs: {
                     nombre: '',
                     apellido: '',
+                    identificador: '',
                     email: '',
                     password: '',
                     beneficiario_id: null,

@@ -23,7 +23,7 @@
                                @change="onFileChange"
                                required/>
                         <small class="text-muted d-block mt-1">
-                            {{ $t('import_clients_hint') || 'Archivo Excel o CSV con columnas: nombre, apellido, email (máx. 5MB)' }}
+                            {{ $t('import_clients_hint') || 'Archivo Excel o CSV con columnas: nombre, apellido, identificador, email (también acepta documento, dni o pasaporte; máx. 5MB)' }}
                         </small>
                     </div>
                 </div>
