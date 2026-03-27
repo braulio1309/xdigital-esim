@@ -93,6 +93,10 @@
         border-color: var(--nomad-blue);
         box-shadow: 0 0 0 0.2rem rgba(45, 156, 219, 0.25);
     }
+
+    .country-search-input {
+        margin-bottom: 12px;
+    }
     
     @media (max-width: 576px) {
         .auth-form-light { padding: 2rem 1.5rem !important; }
@@ -106,22 +110,13 @@
     $displayPartner = $brandPartner ?? $beneficiario ?? $superPartner ?? null;
     $displayPartnerName = $displayPartner->nombre ?? null;
     $displayPartnerLogo = $displayPartner->logo_url ?? null;
-    $countryOptions = collect($affordableCountries)->map(function ($country) {
-        return [
-            'id' => $country['code'],
-            'value' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name'],
-        ];
-    })->values();
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
         $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
     }
 @endphp
 
-<div id="registro-esim-app"
-    class="container-scroller"
-    data-selected-country="{{ old('country_code', '') }}"
-    data-country-options="{{ htmlspecialchars(json_encode($countryOptions), ENT_QUOTES, 'UTF-8') }}">
+<div class="container-scroller">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-center auth px-0">
             <div class="row w-100 mx-0">
@@ -202,12 +197,20 @@
 
                                 <div class="form-group">
                                     <label for="country_code" class="font-weight-bold text-small">Seleccione su País</label>
-                                    <app-input type="search-select"
-                                               v-model="selectedCountry"
-                                               :list="countryOptions"
-                                               placeholder="Buscar país"
-                                               :is-animated-dropdown="true"/>
-                                    <input type="hidden" name="country_code" :value="selectedCountry">
+                                    <input type="text"
+                                           class="form-control form-control-lg country-search-input"
+                                           id="registro-country-search"
+                                           placeholder="Buscar país">
+                                    <select class="form-control form-control-lg" name="country_code" id="registro-country-code" required>
+                                        <option value="">-- Seleccionar País --</option>
+                                        @foreach($affordableCountries as $country)
+                                            <option value="{{ $country['code'] }}"
+                                                    data-country-label="{{ mb_strtolower(\App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name']) }}"
+                                                    {{ old('country_code') === $country['code'] ? 'selected' : '' }}>
+                                                {{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
                                 </div>
 
                                 <div class="mt-4">
@@ -230,14 +233,25 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const registroEsimRoot = document.getElementById('registro-esim-app');
+    const searchInput = document.getElementById('registro-country-search');
+    const countrySelect = document.getElementById('registro-country-code');
 
-    new Vue({
-        el: '#registro-esim-app',
-        data: {
-            selectedCountry: registroEsimRoot.dataset.selectedCountry || '',
-            countryOptions: JSON.parse(registroEsimRoot.dataset.countryOptions || '[]'),
-        }
+    if (!searchInput || !countrySelect) {
+        return;
+    }
+
+    searchInput.addEventListener('input', function() {
+        const term = searchInput.value.trim().toLowerCase();
+
+        Array.from(countrySelect.options).forEach(function(option, index) {
+            if (index === 0) {
+                option.hidden = false;
+                return;
+            }
+
+            const label = option.dataset.countryLabel || option.text.toLowerCase();
+            option.hidden = term !== '' && !label.includes(term);
+        });
     });
 });
 </script>

@@ -228,6 +228,10 @@
         margin: 0 auto 30px;
     }
 
+    .country-search-input {
+        margin-bottom: 12px;
+    }
+
     .country-selector select {
         border: 2px solid var(--nomad-blue);
         font-size: 1.1rem;
@@ -457,21 +461,13 @@
     $displayPartnerLogo = $displayPartner->logo_url ?? null;
     $permissionError = session('error');
     $hasPermissionError = is_string($permissionError) && str_contains($permissionError, 'No tienes permiso');
-    $countryOptions = collect($allCountries)->map(function ($country) {
-        return [
-            'id' => $country['code'],
-            'value' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name'],
-        ];
-    })->values();
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
         $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
     }
 @endphp
 
-<div id="planes-disponibles-app"
-    class="container-scroller"
-    data-country-options="{{ htmlspecialchars(json_encode($countryOptions), ENT_QUOTES, 'UTF-8') }}">
+<div id="planes-disponibles-app" class="container-scroller">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-start auth px-0 py-5">
             <div class="row w-100 mx-0">
@@ -560,12 +556,19 @@
                     
                     {{-- Selector de país --}}
                     <div class="country-selector">
-                        <app-input type="search-select"
-                                   v-model="selectedCountry"
-                                   :list="countryOptions"
-                                   placeholder="Buscar país"
-                                   :is-animated-dropdown="true"
-                                   @input="loadPlans"/>
+                        <input type="text"
+                               class="form-control form-control-lg country-search-input"
+                               id="planes-country-search"
+                               placeholder="Buscar país">
+                        <select class="form-control form-control-lg" id="planes-country-code" v-model="selectedCountry" @change="loadPlans">
+                            <option value="">Seleccione un país</option>
+                            @foreach($allCountries as $country)
+                                <option value="{{ $country['code'] }}"
+                                        data-country-label="{{ mb_strtolower(\App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name']) }}">
+                                    {{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
                     {{-- Mensajes informativos --}}
@@ -791,13 +794,13 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const planesDisponiblesRoot = document.getElementById('planes-disponibles-app');
+    const searchInput = document.getElementById('planes-country-search');
+    const countrySelect = document.getElementById('planes-country-code');
 
     new Vue({
         el: '#planes-disponibles-app',
         data: {
             selectedCountry: '',
-            countryOptions: JSON.parse(planesDisponiblesRoot.dataset.countryOptions || '[]'),
             plans: [],
             loading: false,
             selectedPlan: null,
@@ -837,6 +840,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Verificar si el usuario está autenticado
             this.checkAuth();
+
+            if (searchInput && countrySelect) {
+                searchInput.addEventListener('input', function() {
+                    const term = searchInput.value.trim().toLowerCase();
+
+                    Array.from(countrySelect.options).forEach(function(option, index) {
+                        if (index === 0) {
+                            option.hidden = false;
+                            return;
+                        }
+
+                        const label = option.dataset.countryLabel || option.text.toLowerCase();
+                        option.hidden = term !== '' && !label.includes(term);
+                    });
+                });
+            }
         },
         methods: {
             async checkAuth() {
