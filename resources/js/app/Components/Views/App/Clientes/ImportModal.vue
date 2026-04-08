@@ -28,6 +28,27 @@
                     </div>
                 </div>
 
+                <div class="form-group row align-items-center">
+                    <label class="col-sm-3 mb-0" for="free-esim-capacity">
+                        Plan gratis <span class="text-danger">*</span>
+                    </label>
+                    <div class="col-sm-9">
+                        <select id="free-esim-capacity"
+                                class="form-control"
+                                v-model="freeEsimCapacity"
+                                required>
+                            <option v-for="option in freeEsimCapacityOptions"
+                                    :key="option.value"
+                                    :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
+                        <small class="text-muted d-block mt-1">
+                            Define qué capacidad gratuita quedará habilitada para todos los clientes de esta importación.
+                        </small>
+                    </div>
+                </div>
+
                 <div v-if="result" class="form-group row">
                     <div class="col-sm-9 offset-sm-3">
                         <div class="alert" :class="result.imported > 0 ? 'alert-success' : 'alert-warning'" role="alert">
@@ -57,6 +78,13 @@
             return {
                 preloader: false,
                 file: null,
+                freeEsimCapacity: 3,
+                freeEsimCapacityOptions: [
+                    {value: 1, label: '1 GB'},
+                    {value: 3, label: '3 GB'},
+                    {value: 5, label: '5 GB'},
+                    {value: 10, label: '10 GB'},
+                ],
                 result: null,
                 modalId: 'cliente-import-modal',
             }
@@ -76,6 +104,7 @@
                 this.preloader = true;
                 const formData = new FormData();
                 formData.append('file', this.file);
+                formData.append('free_esim_capacity', this.freeEsimCapacity);
 
                 axios.post('/clientes/import', formData, {
                     headers: {'Content-Type': 'multipart/form-data'}
@@ -97,6 +126,7 @@
             closeModal() {
                 this.$emit('close-modal');
                 this.file = null;
+                this.freeEsimCapacity = 3;
                 this.result = null;
                 if (this.$refs.importFile) {
                     this.$refs.importFile.value = '';

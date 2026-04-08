@@ -39,16 +39,10 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             }
         }
 
-        // Filter by super partner (all beneficiarios under a given super partner)
+        // Filter by super partner directly on the transaction
         if (!empty($this->filters['super_partner_id'])) {
             $superPartnerId = $this->filters['super_partner_id'];
-            $beneficiarioIds = \App\Models\App\Beneficiario\Beneficiario::where('super_partner_id', $superPartnerId)->pluck('id');
-
-            if ($beneficiarioIds->isEmpty()) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->whereIn('beneficiario_id', $beneficiarioIds);
-            }
+            $query->where('super_partner_id', $superPartnerId);
         }
 
         // Filter by type (free / paid plans)
@@ -90,7 +84,10 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                $query->whereIn('beneficiario_id', $partnerIds);
+                $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                    $builder->whereIn('beneficiario_id', $partnerIds)
+                        ->orWhere('super_partner_id', $superPartner->id);
+                });
             }
         }
 
@@ -118,9 +115,14 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
     public function map($transaction): array
     {
         $commission = number_format((float) $transaction->getCommissionAmount(), 2);
-        $beneficiario = $transaction->cliente->beneficiario ?? null;
+        $beneficiario = $transaction->resolveBeneficiario();
+        $superPartner = $transaction->resolveSuperPartner();
         $cliente = $transaction->cliente;
         $isPaid = $transaction->is_paid;
+        $purchaseAmountLabel = ($transaction->purchase_amount == 0)
+            ? 'Gratis' . ($transaction->reference_purchase_amount !== null ? ' ($' . number_format((float) $transaction->reference_purchase_amount, 2) . ' referencia)' : '')
+            : ('$' . number_format((float) $transaction->purchase_amount, 2));
+        $partnerName = $beneficiario ? $beneficiario->nombre : ($superPartner ? 'SP: ' . $superPartner->nombre : '');
 
         return [
             $transaction->transaction_id ?? '',
@@ -128,9 +130,9 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             $transaction->plan_name ?? '',
             $transaction->data_amount ?? '',
             $transaction->duration_days ?? '',
-            ($transaction->purchase_amount == 0) ? 'Gratis' : ('$' . number_format((float) $transaction->purchase_amount, 2)),
+            $purchaseAmountLabel,
             '$' . $commission,
-            $beneficiario ? $beneficiario->nombre : '',
+            $partnerName,
             $cliente ? trim($cliente->nombre . ' ' . $cliente->apellido) : '',
             $transaction->status ?? '',
             $isPaid ? 'Pagado' : 'Sin Pagar',

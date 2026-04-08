@@ -5,6 +5,7 @@ namespace App\Models\App\Transaction;
 use App\Models\App\AppModel;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\SuperPartner\SuperPartner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Transaction extends AppModel
@@ -19,11 +20,13 @@ class Transaction extends AppModel
         'creation_time',
         'cliente_id',
         'beneficiario_id',
+        'super_partner_id',
         'order_id',
         'plan_name',
         'data_amount',
         'duration_days',
         'purchase_amount',
+        'reference_purchase_amount',
         'currency',
         'beneficiary_commission_amount',
         'is_paid',
@@ -38,6 +41,7 @@ class Transaction extends AppModel
         'paid_at' => 'datetime',
         'terminated_at' => 'datetime',
         'beneficiary_commission_amount' => 'decimal:2',
+        'reference_purchase_amount' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -71,6 +75,11 @@ class Transaction extends AppModel
         return $this->belongsTo(Beneficiario::class);
     }
 
+    public function superPartner()
+    {
+        return $this->belongsTo(SuperPartner::class);
+    }
+
     /**
      * Resolve the beneficiario for this transaction.
      * Uses direct beneficiario_id first, falls back to cliente's beneficiario.
@@ -83,6 +92,17 @@ class Transaction extends AppModel
             return $this->beneficiario;
         }
         return $this->cliente->beneficiario ?? null;
+    }
+
+    public function resolveSuperPartner()
+    {
+        if ($this->super_partner_id && $this->superPartner) {
+            return $this->superPartner;
+        }
+
+        $beneficiario = $this->resolveBeneficiario();
+
+        return $beneficiario ? $beneficiario->superPartner : null;
     }
 
     /**
@@ -120,10 +140,25 @@ class Transaction extends AppModel
     protected function calculateCommissionAmountFromConfig(): float
     {
         $beneficiario = $this->resolveBeneficiario();
+        $capacity = (int) ($this->data_amount ?? 0);
 
         if ($this->isFreeEsim()) {
             if ($beneficiario) {
+                if ($capacity <= 1) {
+                    return $this->resolveLegacyFreeEsimPrice($beneficiario, (float) $beneficiario->free_esim_rate);
+                }
+
                 return (float) $beneficiario->free_esim_rate;
+            }
+
+            $superPartner = $this->resolveSuperPartner();
+
+            if ($superPartner) {
+                if ($capacity <= 1) {
+                    return $this->resolveLegacyFreeEsimPrice($superPartner, (float) $superPartner->free_esim_rate);
+                }
+
+                return (float) $superPartner->free_esim_rate;
             }
 
             return \App\Models\App\Beneficiario\Beneficiario::DEFAULT_FREE_ESIM_RATE;
@@ -186,5 +221,18 @@ class Transaction extends AppModel
 
         // Fallback to beneficiary's general commission percentage
         return $beneficiario->commission_percentage ?? 0;
+    }
+
+    protected function resolveLegacyFreeEsimPrice($owner, float $fallback): float
+    {
+        if (method_exists($owner, 'getAttribute')) {
+            $configuredPrice = $owner->getAttribute('free_esim_price');
+
+            if ($configuredPrice !== null && $configuredPrice !== '') {
+                return (float) $configuredPrice;
+            }
+        }
+
+        return $fallback;
     }
 }

@@ -73,11 +73,31 @@ class SuperPartnerDashboardController extends Controller
 
         $totalClientes = Cliente::whereIn('beneficiario_id', $partnerIds)->count();
 
-        $totalTransactions = Transaction::whereIn('beneficiario_id', $partnerIds)->count();
+        $totalTransactions = Transaction::where(function ($builder) use ($partnerIds, $superPartner) {
+            $builder->whereIn('beneficiario_id', $partnerIds)
+                ->orWhere('super_partner_id', $superPartner->id);
+        })->count();
+
+        $unpaidTransactions = Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])
+            ->where('is_paid', false)
+            ->where(function ($builder) use ($partnerIds, $superPartner) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+            })
+            ->get();
 
         $totalFreeEsims = Transaction::where('purchase_amount', 0)
-            ->whereIn('beneficiario_id', $partnerIds)
+            ->where(function ($builder) use ($partnerIds, $superPartner) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+            })
             ->count();
+
+        $totalDebt = round($unpaidTransactions->sum(function (Transaction $transaction) {
+            return $transaction->getCommissionAmount();
+        }), 2);
+
+        $totalUnpaidTransactions = $unpaidTransactions->count();
 
         return [
             'nombre'             => $superPartner->nombre,
@@ -85,6 +105,8 @@ class SuperPartnerDashboardController extends Controller
             'total_clientes'     => $totalClientes,
             'total_transactions' => $totalTransactions,
             'total_free_esims'   => $totalFreeEsims,
+            'total_unpaid_transactions' => $totalUnpaidTransactions,
+            'total_debt'         => $totalDebt,
         ];
     }
 }

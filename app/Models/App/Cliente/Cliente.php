@@ -12,10 +12,11 @@ class Cliente extends AppModel
 {
     use HasFactory;
 
-    protected $fillable = ['nombre', 'apellido', 'identificador', 'email', 'user_id', 'beneficiario_id', 'can_activate_free_esim'];
+    protected $fillable = ['nombre', 'apellido', 'identificador', 'email', 'user_id', 'beneficiario_id', 'can_activate_free_esim', 'free_esim_capacity'];
 
     protected $casts = [
         'can_activate_free_esim' => 'boolean',
+        'free_esim_capacity' => 'integer',
     ];
 
     /**

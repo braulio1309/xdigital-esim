@@ -467,7 +467,7 @@
     }
 @endphp
 
-<div id="planes-disponibles-app" class="container-scroller">
+<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-start auth px-0 py-5">
             <div class="row w-100 mx-0">
@@ -488,44 +488,6 @@
                             </div>
                         </div>
 
-                    <div class="sales-hero">
-                        <div class="sales-hero-content">
-                            <div class="sales-kicker">Amplia tu conectividad internacional</div>
-                            <h1 class="sales-title">Más datos, más destinos y una experiencia lista para viajar.</h1>
-                            <p class="sales-copy">
-                                Elige tu siguiente plan eSIM y sigue conectado con una activación simple, cobertura internacional y una compra pensada para convertir visitantes en viajeros conectados en minutos.
-                            </p>
-
-                            <div class="sales-badges">
-                                <span class="sales-badge"><i class="mdi mdi-earth mr-2"></i>Cobertura internacional</span>
-                                <span class="sales-badge"><i class="mdi mdi-lightning-bolt-outline mr-2"></i>Activación rápida</span>
-                                <span class="sales-badge"><i class="mdi mdi-cellphone-wireless mr-2"></i>Sin chip físico</span>
-                            </div>
-
-                            @if($displayPartner)
-                                <div class="sales-partner-chip">
-                                    <i class="mdi mdi-handshake-outline"></i>
-                                    Beneficio exclusivo con {{ $displayPartnerName }}
-                                </div>
-                            @endif
-
-                            <div class="sales-panel">
-                                <div class="sales-panel-item">
-                                    <span class="sales-panel-label">Ideal para</span>
-                                    <div class="sales-panel-value">Viajes, trabajo remoto y ampliaciones de datos sin fricción</div>
-                                </div>
-                                <div class="sales-panel-item">
-                                    <span class="sales-panel-label">Recomendación</span>
-                                    <div class="sales-panel-value">Compara 3GB, 5GB y 10GB para elegir el plan que mejor acompaña tu ruta</div>
-                                </div>
-                                <div class="sales-panel-item">
-                                    <span class="sales-panel-label">Ventaja</span>
-                                    <div class="sales-panel-value">Compra en línea y recibe tu eSIM lista para usar en el momento</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
                     {{-- Flash messages --}}
                     @if(session('error'))
                         @if($hasPermissionError)
@@ -614,6 +576,44 @@
                     <div v-if="!loading && selectedCountry && plans.length === 0" class="no-plans">
                         <i class="mdi mdi-alert-circle-outline" style="font-size: 3rem;"></i>
                         <p class="mt-3">No hay planes disponibles para el país seleccionado</p>
+                    </div>
+
+                    <div class="sales-hero mt-4">
+                        <div class="sales-hero-content">
+                            <div class="sales-kicker">Amplia tu conectividad internacional</div>
+                            <h1 class="sales-title">Más datos, más destinos y una experiencia lista para viajar.</h1>
+                            <p class="sales-copy">
+                                Elige tu siguiente plan eSIM y sigue conectado con una activación simple, cobertura internacional y una compra pensada para convertir visitantes en viajeros conectados en minutos.
+                            </p>
+
+                            <div class="sales-badges">
+                                <span class="sales-badge"><i class="mdi mdi-earth mr-2"></i>Cobertura internacional</span>
+                                <span class="sales-badge"><i class="mdi mdi-lightning-bolt-outline mr-2"></i>Activación rápida</span>
+                                <span class="sales-badge"><i class="mdi mdi-cellphone-wireless mr-2"></i>Sin chip físico</span>
+                            </div>
+
+                            @if($displayPartner)
+                                <div class="sales-partner-chip">
+                                    <i class="mdi mdi-handshake-outline"></i>
+                                    Beneficio exclusivo con {{ $displayPartnerName }}
+                                </div>
+                            @endif
+
+                            <div class="sales-panel">
+                                <div class="sales-panel-item">
+                                    <span class="sales-panel-label">Ideal para</span>
+                                    <div class="sales-panel-value">Viajes, trabajo remoto y ampliaciones de datos sin fricción</div>
+                                </div>
+                                <div class="sales-panel-item">
+                                    <span class="sales-panel-label">Recomendación</span>
+                                    <div class="sales-panel-value">Compara 3GB, 5GB y 10GB para elegir el plan que mejor acompaña tu ruta</div>
+                                </div>
+                                <div class="sales-panel-item">
+                                    <span class="sales-panel-label">Ventaja</span>
+                                    <div class="sales-panel-value">Compra en línea y recibe tu eSIM lista para usar en el momento</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
@@ -794,8 +794,10 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const appElement = document.getElementById('planes-disponibles-app');
     const searchInput = document.getElementById('planes-country-search');
     const countrySelect = document.getElementById('planes-country-code');
+    const initialCountry = appElement ? appElement.dataset.initialCountry || '' : '';
 
     new Vue({
         el: '#planes-disponibles-app',
@@ -855,6 +857,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         option.hidden = term !== '' && !label.includes(term);
                     });
                 });
+            }
+
+            if (initialCountry) {
+                this.selectedCountry = initialCountry;
+                this.loadPlans();
             }
         },
         methods: {
@@ -1031,7 +1038,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         product_id: this.selectedPlan.id,
                         plan_name: this.selectedPlan.name,
                         data_amount: this.selectedPlan.amount,
-                        duration: this.selectedPlan.duration
+                        duration: this.selectedPlan.duration,
+                        original_price: this.selectedPlan.original_price,
                     });
 
                     if (response.data.success) {

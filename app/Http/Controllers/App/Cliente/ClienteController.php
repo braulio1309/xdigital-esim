@@ -188,6 +188,7 @@ class ClienteController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+            'free_esim_capacity' => 'required|integer|in:1,3,5,10',
         ]);
 
         $beneficiarioId = null;
@@ -210,11 +211,11 @@ class ClienteController extends Controller
             $beneficiarioId = $request->input('beneficiario_id');
         }
 
-        $import = new ClienteImport($beneficiarioId);
+        $import = new ClienteImport($beneficiarioId, (int) $request->input('free_esim_capacity'));
         Excel::import($import, $request->file('file'));
 
         return response()->json([
-            'message' => "Importación completada: {$import->getImported()} clientes importados, {$import->getSkipped()} omitidos.",
+            'message' => "Importación completada: {$import->getImported()} clientes importados, {$import->getSkipped()} omitidos. eSIM gratis configurada en {$request->input('free_esim_capacity')} GB.",
             'imported' => $import->getImported(),
             'skipped'  => $import->getSkipped(),
             'errors'   => $import->getErrors(),

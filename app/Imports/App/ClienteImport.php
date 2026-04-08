@@ -15,13 +15,33 @@ use Illuminate\Support\Str;
 class ClienteImport implements ToCollection, WithHeadingRow
 {
     protected $beneficiarioId;
+    protected $freeEsimCapacity;
     protected $imported = 0;
     protected $skipped = 0;
     protected $errors = [];
 
-    public function __construct($beneficiarioId = null)
+    public function __construct($beneficiarioId = null, $freeEsimCapacity = null)
     {
         $this->beneficiarioId = $beneficiarioId;
+        $this->freeEsimCapacity = $freeEsimCapacity;
+    }
+
+    protected function resolveUserStatusId(): int
+    {
+        $status = Status::findByNameAndType('status_active', 'user');
+
+        if (!$status) {
+            $status = Status::query()
+                ->where('type', 'user')
+                ->orderBy('id')
+                ->first();
+        }
+
+        if (!$status) {
+            throw new \RuntimeException('No existe ningún estado configurado para usuarios. Verifica la tabla statuses o ejecuta los seeders de estados.');
+        }
+
+        return (int) $status->id;
     }
 
     public function collection(Collection $rows)
@@ -67,16 +87,15 @@ class ClienteImport implements ToCollection, WithHeadingRow
                     $user = User::where('email', $email)->first();
 
                     if (!$user) {
-                        $status = Status::findByNameAndType('status_active', 'user');
                         $user = User::create([
                             'first_name' => $nombre,
                             'last_name'  => $apellido,
                             'email'      => $email,
                             'password'   => Hash::make($password),
                             'user_type'  => 'cliente',
-                            'status_id'  => $status->id,
+                            'status_id'  => $this->resolveUserStatusId(),
                         ]);
-                        $user->assignRole('Moderator');
+                        $user->assignRole('cliente');
                     } elseif ($user->user_type !== 'cliente') {
                         // Skip rows where the email belongs to a non-cliente user
                         throw new \Exception("El email {$email} pertenece a un usuario de otro tipo ({$user->user_type}).");
@@ -90,6 +109,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
                         'user_id'                => $user->id,
                         'beneficiario_id'        => $this->beneficiarioId,
                         'can_activate_free_esim' => true,
+                        'free_esim_capacity'     => $this->freeEsimCapacity,
                     ]);
                 });
 

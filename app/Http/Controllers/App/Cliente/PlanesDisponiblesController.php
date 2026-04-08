@@ -17,6 +17,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 /**
@@ -102,6 +103,11 @@ class PlanesDisponiblesController extends Controller
     {
         $brandingContext = $this->resolveBrandingContext($referralCode);
         $partnerContext = $brandingContext['partnerContext'];
+        $initialCountry = strtoupper((string) $request->query('country', ''));
+
+        if (strlen($initialCountry) !== 2) {
+            $initialCountry = '';
+        }
 
         // Persistir contexto de partner para siguientes llamadas (planes, pagos, etc.)
         if ($partnerContext['beneficiario_id'] || $partnerContext['super_partner_id']) {
@@ -119,6 +125,7 @@ class PlanesDisponiblesController extends Controller
         return view('clientes.planes-disponibles', [
             'stripePublicKey' => $stripePublicKey,
             'allCountries' => $allCountries,
+            'initialCountry' => $initialCountry,
             'partnerContext' => $partnerContext,
             'beneficiario' => $brandingContext['beneficiario'],
             'superPartner' => $brandingContext['superPartner'],
@@ -159,6 +166,93 @@ class PlanesDisponiblesController extends Controller
         }
 
         return [$beneficiarioId, $superPartnerId];
+    }
+
+    protected function calculateFreeEsimCommissionAmount(?int $beneficiarioId, ?int $superPartnerId): float
+    {
+        if ($beneficiarioId) {
+            $beneficiario = Beneficiario::find($beneficiarioId);
+
+            if ($beneficiario) {
+                return $this->resolveLegacyFreeEsimPrice($beneficiario, (float) $beneficiario->free_esim_rate);
+            }
+        }
+
+        if ($superPartnerId) {
+            $superPartner = SuperPartner::find($superPartnerId);
+
+            if ($superPartner) {
+                return $this->resolveLegacyFreeEsimPrice($superPartner, (float) $superPartner->free_esim_rate);
+            }
+        }
+
+        return round((float) Beneficiario::DEFAULT_FREE_ESIM_RATE, 2);
+    }
+
+    protected function resolveLegacyFreeEsimPrice($owner, float $fallback): float
+    {
+        if (method_exists($owner, 'getAttribute')) {
+            $configuredPrice = $owner->getAttribute('free_esim_price');
+
+            if ($configuredPrice !== null && $configuredPrice !== '') {
+                return round((float) $configuredPrice, 2);
+            }
+        }
+
+        return round($fallback, 2);
+    }
+
+    protected function calculateFreeEsimPricingSnapshot(float $originalPrice, $planCapacity, ?int $beneficiarioId, ?int $superPartnerId): array
+    {
+        $capacityAsInt = (int) $planCapacity;
+
+        if ($capacityAsInt <= 1) {
+            $flatRate = $this->calculateFreeEsimCommissionAmount($beneficiarioId, $superPartnerId);
+
+            return [
+                'charge_amount' => $flatRate,
+                'commission_amount' => $flatRate,
+            ];
+        }
+
+        $normalizedCapacity = (string) $planCapacity;
+        $adminPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $normalizedCapacity);
+        $priceAfterSuperPartner = $superPartnerId
+            ? $this->superPartnerPlanMarginService->calculateFinalPrice($adminPrice, $normalizedCapacity, $superPartnerId)
+            : $adminPrice;
+        $finalPrice = $beneficiarioId
+            ? $this->beneficiaryPlanMarginService->calculateFinalPrice($priceAfterSuperPartner, $normalizedCapacity, $beneficiarioId)
+            : $priceAfterSuperPartner;
+
+        if ($beneficiarioId) {
+            return [
+                'charge_amount' => round((float) $finalPrice, 2),
+                'commission_amount' => round(max(0, (float) $finalPrice - (float) $priceAfterSuperPartner), 2),
+            ];
+        }
+
+        if ($superPartnerId) {
+            return [
+                'charge_amount' => round((float) $priceAfterSuperPartner, 2),
+                'commission_amount' => round(max(0, (float) $priceAfterSuperPartner - (float) $adminPrice), 2),
+            ];
+        }
+
+        return [
+            'charge_amount' => round((float) $finalPrice, 2),
+            'commission_amount' => 0.0,
+        ];
+    }
+
+    protected function sanitizeTransactionData(array $transactionData): array
+    {
+        static $transactionColumns;
+
+        if ($transactionColumns === null) {
+            $transactionColumns = array_flip(Schema::getColumnListing('transactions'));
+        }
+
+        return array_intersect_key($transactionData, $transactionColumns);
     }
 
     /**
@@ -241,6 +335,17 @@ class PlanesDisponiblesController extends Controller
             ->filter(function ($product) {
                 $amount = $product['amount'];
                 return in_array($amount, [3, 5, 10]);
+            })
+            ->sort(function ($first, $second) {
+                return [
+                    (float) $first['price'],
+                    (float) $first['amount'],
+                    (float) $first['duration'],
+                ] <=> [
+                    (float) $second['price'],
+                    (float) $second['amount'],
+                    (float) $second['duration'],
+                ];
             })
             ->values(); // Reset array keys
 
@@ -335,11 +440,14 @@ class PlanesDisponiblesController extends Controller
                 'qr_svg' => (string) $qrImage,
                 'smdp' => $parts[1] ?? 'N/A',
                 'code' => $parts[2] ?? 'N/A',
-                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
+                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A',
+                'data_amount' => $request->data_amount,
+                'duration_days' => $request->duration,
             ];
 
             // Resolver beneficiario asociado para atribuir comisiones
-            [$beneficiarioId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+            [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+            $commissionAmount = $this->calculateFreeEsimCommissionAmount($beneficiarioId, $superPartnerId);
 
             // Guardar la transacción en la base de datos
             $transactionData = [
@@ -360,6 +468,12 @@ class PlanesDisponiblesController extends Controller
             if ($beneficiarioId) {
                 $transactionData['beneficiario_id'] = $beneficiarioId;
             }
+
+            if ($superPartnerId) {
+                $transactionData['super_partner_id'] = $superPartnerId;
+            }
+
+            $transactionData = $this->sanitizeTransactionData($transactionData);
 
             Transaction::create($transactionData);
 
@@ -442,6 +556,8 @@ class PlanesDisponiblesController extends Controller
                 'plan_name' => 'nullable|string',
                 'data_amount' => 'nullable|numeric',
                 'duration' => 'nullable|integer',
+                'original_price' => 'nullable|numeric|min:0',
+                'reference_purchase_amount' => 'nullable|numeric|min:0',
             ]);
 
             // Verificar que el usuario esté autenticado
@@ -486,11 +602,19 @@ class PlanesDisponiblesController extends Controller
                 'qr_svg' => (string) $qrImage,
                 'smdp' => $parts[1] ?? 'N/A',
                 'code' => $parts[2] ?? 'N/A',
-                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
+                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A',
+                'data_amount' => $request->data_amount,
+                'duration_days' => $request->duration,
             ];
 
             // Resolver beneficiario asociado para atribuir comisiones
-            [$beneficiarioId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+            [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+            $pricingSnapshot = $this->calculateFreeEsimPricingSnapshot(
+                (float) $request->input('original_price', 0),
+                $request->data_amount,
+                $beneficiarioId,
+                $superPartnerId
+            );
 
             // Guardar la transacción en la base de datos
             $transactionData = [
@@ -505,12 +629,20 @@ class PlanesDisponiblesController extends Controller
                 'data_amount' => $request->data_amount,
                 'duration_days' => $request->duration,
                 'purchase_amount' => 0,
+                'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
+                'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
                 'currency' => 'USD',
             ];
 
             if ($beneficiarioId) {
                 $transactionData['beneficiario_id'] = $beneficiarioId;
             }
+
+            if ($superPartnerId) {
+                $transactionData['super_partner_id'] = $superPartnerId;
+            }
+
+            $transactionData = $this->sanitizeTransactionData($transactionData);
 
             Transaction::create($transactionData);
 

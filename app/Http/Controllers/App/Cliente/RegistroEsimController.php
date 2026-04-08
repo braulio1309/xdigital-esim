@@ -9,16 +9,23 @@ use App\Models\App\Cliente\Cliente;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
+use App\Services\App\Settings\BeneficiaryPlanMarginService;
+use App\Services\App\Settings\PlanMarginService;
+use App\Services\App\Settings\SuperPartnerPlanMarginService;
 use Illuminate\Http\Request as HttpRequest;
 // Importaciones necesarias
 use App\Services\EsimFxService;
+use App\Services\StripeService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Helpers\CountryTariffHelper;
 
 class RegistroEsimController extends Controller
 {
+    private const LEGACY_FREE_ESIM_AMOUNT = 1;
+
     /**
      * Resolve beneficiary or super partner from a referral code.
      *
@@ -66,6 +73,207 @@ class RegistroEsimController extends Controller
         return $parts[count($parts) - 1];
     }
 
+    private function syncPartnerContext(array $brandingContext, ?string $codigo = null): void
+    {
+        $beneficiario = $brandingContext['beneficiario'] ?? null;
+        $superPartner = $brandingContext['superPartner'] ?? null;
+
+        if ($beneficiario || $superPartner) {
+            session([
+                'planes_partner_context' => [
+                    'codigo' => $codigo,
+                    'beneficiario_id' => $beneficiario ? $beneficiario->id : null,
+                    'super_partner_id' => $beneficiario ? $beneficiario->super_partner_id : ($superPartner ? $superPartner->id : null),
+                ],
+            ]);
+
+            return;
+        }
+
+        session()->forget('planes_partner_context');
+    }
+
+    private function resolveFreeEsimCapacityForCliente(Cliente $cliente): int
+    {
+        $capacity = (int) ($cliente->free_esim_capacity ?? 0);
+
+        if (in_array($capacity, [3, 5, 10], true)) {
+            return $capacity;
+        }
+
+        return self::LEGACY_FREE_ESIM_AMOUNT;
+    }
+
+    private function resolveTransactionContext(array $brandingContext, ?Cliente $cliente = null): array
+    {
+        $beneficiario = $brandingContext['beneficiario'] ?? null;
+        $superPartner = $brandingContext['superPartner'] ?? null;
+
+        if (!$beneficiario && $cliente && $cliente->beneficiario) {
+            $beneficiario = $cliente->beneficiario;
+            $superPartner = $beneficiario->superPartner;
+        }
+
+        if (!$superPartner && $beneficiario) {
+            $superPartner = $beneficiario->superPartner;
+        }
+
+        return [
+            'beneficiario_id' => $beneficiario ? $beneficiario->id : null,
+            'super_partner_id' => $superPartner ? $superPartner->id : null,
+        ];
+    }
+
+    private function calculateFreeEsimPricingSnapshot(array $product, ?int $beneficiarioId, ?int $superPartnerId, array $brandingContext = [], ?Cliente $cliente = null): array
+    {
+        $originalPrice = (float) ($product['price'] ?? 0);
+        $planCapacity = (string) ($product['amount'] ?? $product['data_amount'] ?? '0');
+        $capacityAsInt = (int) $planCapacity;
+
+        if ($capacityAsInt <= self::LEGACY_FREE_ESIM_AMOUNT) {
+            $flatRate = $this->calculateFreeEsimCommissionAmount($brandingContext, $cliente);
+
+            return [
+                'charge_amount' => $flatRate,
+                'commission_amount' => $flatRate,
+            ];
+        }
+
+        $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
+        $priceAfterSuperPartner = $superPartnerId
+            ? app(SuperPartnerPlanMarginService::class)->calculateFinalPrice($adminPrice, $planCapacity, $superPartnerId)
+            : $adminPrice;
+
+        $finalPrice = $beneficiarioId
+            ? app(BeneficiaryPlanMarginService::class)->calculateFinalPrice($priceAfterSuperPartner, $planCapacity, $beneficiarioId)
+            : $priceAfterSuperPartner;
+
+        if ($beneficiarioId) {
+            return [
+                'charge_amount' => round((float) $finalPrice, 2),
+                'commission_amount' => round(max(0, (float) $finalPrice - (float) $priceAfterSuperPartner), 2),
+            ];
+        }
+
+        if ($superPartnerId) {
+            return [
+                'charge_amount' => round((float) $priceAfterSuperPartner, 2),
+                'commission_amount' => round(max(0, (float) $priceAfterSuperPartner - (float) $adminPrice), 2),
+            ];
+        }
+
+        return [
+            'charge_amount' => round((float) $finalPrice, 2),
+            'commission_amount' => 0.0,
+        ];
+    }
+
+    private function calculateFreeEsimCommissionAmount(array $brandingContext, ?Cliente $cliente = null): float
+    {
+        $beneficiario = $brandingContext['beneficiario'] ?? null;
+        $superPartner = $brandingContext['superPartner'] ?? null;
+
+        if (!$beneficiario && $cliente && $cliente->beneficiario) {
+            $beneficiario = $cliente->beneficiario;
+            $superPartner = $beneficiario->superPartner;
+        }
+
+        if (!$superPartner && $beneficiario) {
+            $superPartner = $beneficiario->superPartner;
+        }
+
+        if ($beneficiario) {
+            return $this->resolveLegacyFreeEsimPrice($beneficiario, (float) $beneficiario->free_esim_rate);
+        }
+
+        if ($superPartner) {
+            return $this->resolveLegacyFreeEsimPrice($superPartner, (float) $superPartner->free_esim_rate);
+        }
+
+        return round((float) Beneficiario::DEFAULT_FREE_ESIM_RATE, 2);
+    }
+
+    private function resolveLegacyFreeEsimPrice($owner, float $fallback): float
+    {
+        if (method_exists($owner, 'getAttribute')) {
+            $configuredPrice = $owner->getAttribute('free_esim_price');
+
+            if ($configuredPrice !== null && $configuredPrice !== '') {
+                return round((float) $configuredPrice, 2);
+            }
+        }
+
+        return round($fallback, 2);
+    }
+
+    private function selectFreeEsimProduct(array $products, int $preferredCapacity): ?array
+    {
+        $normalizedProducts = collect($products)
+            ->filter(function ($product) {
+                return isset($product['amount'], $product['amount_unit'])
+                    && strtoupper((string) $product['amount_unit']) === 'GB';
+            });
+
+        $matchingCapacity = $normalizedProducts
+            ->filter(function ($product) use ($preferredCapacity) {
+                return (int) $product['amount'] === $preferredCapacity;
+            })
+            ->sort(function ($first, $second) {
+                return [
+                    (float) ($first['price'] ?? 0),
+                    (int) ($first['duration'] ?? PHP_INT_MAX),
+                ] <=> [
+                    (float) ($second['price'] ?? 0),
+                    (int) ($second['duration'] ?? PHP_INT_MAX),
+                ];
+            })
+            ->values();
+
+        if ($matchingCapacity->isNotEmpty()) {
+            return $matchingCapacity->first();
+        }
+
+        return $normalizedProducts->first() ?: null;
+    }
+
+    private function resolveEsimPayload(array $orderResponse, array $activationResponse = []): ?array
+    {
+        if (!empty($activationResponse['esim']) && is_array($activationResponse['esim'])) {
+            return $activationResponse['esim'];
+        }
+
+        if (!empty($orderResponse['esim']) && is_array($orderResponse['esim'])) {
+            return $orderResponse['esim'];
+        }
+
+        if (!empty($activationResponse['esim_qr']) || !empty($activationResponse['iccid'])) {
+            return [
+                'esim_qr' => $activationResponse['esim_qr'] ?? null,
+                'iccid' => $activationResponse['iccid'] ?? null,
+            ];
+        }
+
+        if (!empty($orderResponse['esim_qr']) || !empty($orderResponse['iccid'])) {
+            return [
+                'esim_qr' => $orderResponse['esim_qr'] ?? null,
+                'iccid' => $orderResponse['iccid'] ?? null,
+            ];
+        }
+
+        return null;
+    }
+
+    private function sanitizeTransactionData(array $transactionData): array
+    {
+        static $transactionColumns;
+
+        if ($transactionColumns === null) {
+            $transactionColumns = array_flip(Schema::getColumnListing('transactions'));
+        }
+
+        return array_intersect_key($transactionData, $transactionColumns);
+    }
+
     /**
      * Mostrar el formulario de registro de eSIM
      * 
@@ -79,9 +287,11 @@ class RegistroEsimController extends Controller
     public function mostrarFormulario(HttpRequest $request, $referralCode = null)
     {
         $brandingContext = $this->resolveBrandingContext($referralCode);
+        $this->syncPartnerContext($brandingContext, $this->extractCodigoFromReferralCode($referralCode));
         
         // Get affordable countries (tariff <= $0.67)
         $affordableCountries = CountryTariffHelper::getAffordableCountries();
+        $stripePublicKey = app(StripeService::class)->getPublishableKey();
         
         return view('clientes.registro-esim', [
             'beneficiario' => $brandingContext['beneficiario'],
@@ -89,7 +299,8 @@ class RegistroEsimController extends Controller
             'brandPartner' => $brandingContext['brandPartner'],
             'referralCode' => $referralCode,
             'parametro' => $request->query('parametro', ''),
-            'affordableCountries' => $affordableCountries
+            'affordableCountries' => $affordableCountries,
+            'stripePublicKey' => $stripePublicKey,
         ]);
     }
 
@@ -121,6 +332,7 @@ class RegistroEsimController extends Controller
 
             // Buscar referralCode si existe (para usarlo en la vista)
             $brandingContext = $this->resolveBrandingContext($validated['referralCode'] ?? null);
+            $this->syncPartnerContext($brandingContext, $this->extractCodigoFromReferralCode($validated['referralCode'] ?? null));
             $beneficiario = $brandingContext['beneficiario'];
 
             // 2. Verificar si el email ya existe
@@ -136,13 +348,11 @@ class RegistroEsimController extends Controller
 
             // agrega la validacion de que si no encontro el cliente te mande tambien a la vista de planes, esto para evitar que alguien pueda usar un email existente para activar la eSIM gratuita
             if (!$existingCliente || !$existingCliente->can_activate_free_esim) {
-                
-                // No tiene permiso para activar eSIM gratuita
-                // Redirigimos a planes-disponibles, preservando el referralCode para aplicar comisiones de partner/super partner
-                $referralForRedirect = $validated['referralCode'] ?? $request->referralCode;
-
-                return redirect()->route('planes.index', ['referralCode' => $referralForRedirect])
-                    ->with('error', 'No tienes permiso para activar una eSIM gratuita. Por favor, contacta al administrador.');
+                return redirect()->back()
+                    ->with('error', 'No tienes permiso para activar una eSIM gratuita. Te mostramos los planes disponibles para el país que seleccionaste.')
+                    ->with('show_available_plans', true)
+                    ->with('selected_country', strtoupper($validated['country_code']))
+                    ->withInput();
                 
             } 
 
@@ -159,46 +369,35 @@ class RegistroEsimController extends Controller
             if ($request->filled('country_code') && $existingCliente) {
                 try {
                     $countryCode = strtoupper($validated['country_code']);
+                    $preferredCapacity = $this->resolveFreeEsimCapacityForCliente($cliente);
 
                     // Obtener productos del país desde la API
-                    Log::info("Buscando productos para país: {$countryCode}");
+                    Log::info("Buscando productos para país: {$countryCode} con capacidad gratuita {$preferredCapacity}GB");
                     $products = $esimService->getProducts([
                         'countries' => $countryCode
                     ]);
 
-                    // Filtrar el producto de 1GB con 7 días de duración
-                    $selectedProduct = null;
+                    $selectedProduct = is_array($products)
+                        ? $this->selectFreeEsimProduct($products, $preferredCapacity)
+                        : null;
 
-                    if (is_array($products) && !empty($products)) {
-                        foreach ($products as $product) {
-                            // Buscar producto con 1GB y 7 días
-                            if (isset($product['amount']) && 
-                                isset($product['amount_unit']) && 
-                                isset($product['duration']) &&
-                                isset($product['duration_unit'])) {
-                                
-                                // Verificar si es 1GB
-                                $isOneGb = ($product['amount'] === 1 && 
-                                           strtoupper($product['amount_unit']) === 'GB');
-                                
-                                // Verificar si es 7 días
-                                $isSevenDays = ($product['duration'] === 7 && 
-                                               strtoupper($product['duration_unit']) === 'DAY');
-                                
-                                if ($isOneGb && $isSevenDays) {
-                                    $selectedProduct = $product;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    // Si no se encontró producto de 1GB/7días, usar el primero disponible
                     if (!$selectedProduct && isset($products[0])) {
                         $selectedProduct = $products[0];
-                        Log::warning("No se encontró producto 1GB/7días para {$countryCode}, usando primer producto disponible");
+                    }
+
+                    if ($selectedProduct && (int) ($selectedProduct['amount'] ?? 0) !== $preferredCapacity) {
+                        Log::warning("No se encontró producto {$preferredCapacity}GB para {$countryCode}, usando {$selectedProduct['amount']}{$selectedProduct['amount_unit']}");
                     }
 
                     if ($selectedProduct) {
+                        $transactionContext = $this->resolveTransactionContext($brandingContext, $cliente);
+                        $pricingSnapshot = $this->calculateFreeEsimPricingSnapshot(
+                            $selectedProduct,
+                            $transactionContext['beneficiario_id'],
+                            $transactionContext['super_partner_id'],
+                            $brandingContext,
+                            $cliente
+                        );
                         $productId = $selectedProduct['id'];
                         Log::info("Producto seleccionado: {$productId}");
 
@@ -207,43 +406,72 @@ class RegistroEsimController extends Controller
 
                         // Crear orden en eSIM FX
                         $apiResponse = $esimService->createOrder($productId, $transactionId);
+
+                        if (empty($apiResponse['id'])) {
+                            Log::error('La API de eSIM no devolvió un ID de orden válido.', ['response' => $apiResponse]);
+
+                            return redirect()->back()
+                                ->with('error', 'No fue posible crear la orden de eSIM. Inténtalo nuevamente en unos minutos.')
+                                ->withInput();
+                        }
                         
                         // Activar la suscripción
                         $activate = $esimService->activateOrder($apiResponse['id']);
 
-                        if (isset($apiResponse['esim'])) {
+                        $esimPayload = $this->resolveEsimPayload($apiResponse, is_array($activate) ? $activate : []);
+
+                        if ($esimPayload) {
                             // Guardar datos técnicos en la transacción
-                            Transaction::create([
+                            $transactionData = $this->sanitizeTransactionData([
                                 'order_id' => $apiResponse['id'],
                                 'transaction_id' => $transactionId,
                                 'status' => $apiResponse['status'] ?? 'completed',
-                                'iccid' => $apiResponse['esim']['iccid'] ?? null,
-                                'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
+                                'iccid' => $esimPayload['iccid'] ?? null,
+                                'esim_qr' => $esimPayload['esim_qr'] ?? null,
                                 'creation_time' => now(),
                                 'cliente_id' => $cliente->id,
-                                'beneficiario_id' => $beneficiario ? $beneficiario->id : null,
+                                'beneficiario_id' => $transactionContext['beneficiario_id'],
+                                'super_partner_id' => $transactionContext['super_partner_id'],
                                 'plan_name' => $selectedProduct['name'] ?? null,
-                                'data_amount' => $selectedProduct['data_amount'] ?? null,
-                                'duration_days' => $selectedProduct['validity_period'] ?? null,
+                                'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
+                                'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
                                 'purchase_amount' => 0,
+                                'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
+                                'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
                                 'currency' => 'USD',
                             ]);
 
+                            Transaction::create($transactionData);
+
                             // Sync client-partner association in pivot table
-                            if ($beneficiario) {
-                                $cliente->partners()->syncWithoutDetaching([$beneficiario->id]);
+                            if ($transactionContext['beneficiario_id']) {
+                                $cliente->partners()->syncWithoutDetaching([$transactionContext['beneficiario_id']]);
                             }
 
                             // Generar código QR
-                            $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
+                            $qrValue = $esimPayload['esim_qr'] ?? null;
+
+                            if (!$qrValue) {
+                                Log::warning('No se recibió esim_qr en la activación gratuita.', [
+                                    'order_id' => $apiResponse['id'],
+                                    'activation_response' => $activate,
+                                    'order_response' => $apiResponse,
+                                ]);
+
+                                return redirect()->back()
+                                    ->with('error', 'La eSIM fue creada pero no se recibieron los datos del QR de activación.')
+                                    ->withInput();
+                            }
+
+                            $qrImage = QrCode::size(300)->generate($qrValue);
 
                             // Separar datos para instalación manual
                             // Formato esperado: LPA:1$smdp.address$activationCode
-                            $parts = explode('$', $apiResponse['esim']['esim_qr']);
+                            $parts = explode('$', $qrValue);
                             
                             // Validar que tenemos las partes necesarias
                             if (count($parts) < 3) {
-                                Log::warning("Formato de QR inesperado: " . $apiResponse['esim']['esim_qr']);
+                                Log::warning("Formato de QR inesperado: " . $qrValue);
                             }
 
                             // Preparar datos para la vista
@@ -251,7 +479,9 @@ class RegistroEsimController extends Controller
                                 'qr_svg' => (string) $qrImage,
                                 'smdp' => $parts[1] ?? 'N/A',
                                 'code' => $parts[2] ?? 'N/A',
-                                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A'
+                                'iccid' => $esimPayload['iccid'] ?? 'N/A',
+                                'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
+                                'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
                             ];
 
                             // If this client has the can_activate_free_esim flag, deactivate it after successful activation
@@ -263,18 +493,37 @@ class RegistroEsimController extends Controller
                             Log::info("eSIM activada exitosamente para cliente ID: {$cliente->id}");
                         } else {
                             Log::warning("No se recibieron datos de eSIM en la respuesta de la API");
+
+                            return redirect()->back()
+                                ->with('error', 'La eSIM fue procesada pero no se recibieron los datos de activación. Inténtalo nuevamente o contacta soporte.')
+                                ->withInput();
                         }
                     } else {
                         Log::error("No se encontraron productos disponibles para el país: {$countryCode}");
+
+                        return redirect()->back()
+                            ->with('error', 'No encontramos un plan gratuito disponible para el país seleccionado.')
+                            ->withInput();
                     }
 
                 } catch (\Exception $e) {
                     Log::error("Error al activar eSIM: " . $e->getMessage());
+
+                    return redirect()->back()
+                        ->with('error', 'Ocurrió un error al activar la eSIM. Por favor, inténtalo nuevamente.')
+                        ->withInput();
                 }
+            }
+
+            if (!$esimDataView) {
+                return redirect()->back()
+                    ->with('error', 'No fue posible completar la activación de la eSIM.')
+                    ->withInput();
             }
 
             // Get affordable countries (tariff <= $0.67)
             $affordableCountries = CountryTariffHelper::getAffordableCountries();
+            $stripePublicKey = app(StripeService::class)->getPublishableKey();
             
             // Retornar la vista con los datos
             return view('clientes.registro-esim', [
@@ -284,7 +533,8 @@ class RegistroEsimController extends Controller
                 'brandPartner' => $brandingContext['brandPartner'],
                 'referralCode' => $request->referralCode,
                 'parametro' => $request->query('parametro', ''),
-                'affordableCountries' => $affordableCountries
+                'affordableCountries' => $affordableCountries,
+                'stripePublicKey' => $stripePublicKey,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

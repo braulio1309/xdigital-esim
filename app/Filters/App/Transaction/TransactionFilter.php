@@ -106,22 +106,14 @@ class TransactionFilter extends FilterBuilder
     }
 
     /**
-     * Filter by super_partner_id by resolving all beneficiarios that belong to the given super partner
-     * and constraining transactions to those beneficiario_ids.
+     * Filter strictly by the super_partner_id stored on the transaction.
      *
      * Request key: super_partner_id -> method: superPartnerId (camelCase)
      */
     public function superPartnerId($superPartnerId = null)
     {
         $this->builder->when($superPartnerId !== '' && $superPartnerId !== null, function ($query) use ($superPartnerId) {
-            $beneficiarioIds = Beneficiario::where('super_partner_id', $superPartnerId)->pluck('id');
-
-            if ($beneficiarioIds->isEmpty()) {
-                // No beneficiarios for this super partner; force empty result set
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->whereIn('beneficiario_id', $beneficiarioIds);
-            }
+            $query->where('super_partner_id', $superPartnerId);
         });
     }
 

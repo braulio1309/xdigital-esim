@@ -35,7 +35,7 @@ class TransactionController extends Controller
     {
         $query = $this->service
             ->filters($this->filter)
-            ->with('cliente.beneficiario.planMargins', 'beneficiario.planMargins');
+            ->with('cliente.beneficiario.planMargins', 'beneficiario.planMargins', 'superPartner');
 
         // Filter by beneficiario_id if user is a beneficiario
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
@@ -50,7 +50,10 @@ class TransactionController extends Controller
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
 
                 // Super partner solo ve transacciones de sus propios beneficiarios.
-                $query = $query->whereIn('beneficiario_id', $partnerIds);
+                $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                    $builder->whereIn('beneficiario_id', $partnerIds)
+                        ->orWhere('super_partner_id', $superPartner->id);
+                });
             }
         }
         
@@ -61,6 +64,10 @@ class TransactionController extends Controller
             $transaction->commission_amount = $transaction->getCommissionAmount();
             $transaction->commission_percentage = $transaction->getCommissionPercentage();
             $transaction->beneficiario = $transaction->beneficiario ?? ($transaction->cliente->beneficiario ?? null);
+            $transaction->super_partner_name = $transaction->superPartner ? $transaction->superPartner->nombre : null;
+            $transaction->partner_name = $transaction->beneficiario
+                ? $transaction->beneficiario->nombre
+                : ($transaction->superPartner ? 'SP: ' . $transaction->superPartner->nombre : 'N/A');
             return $transaction;
         });
         
@@ -75,8 +82,37 @@ class TransactionController extends Controller
     public function paymentStats()
     {
         $query = Transaction::with(['beneficiario', 'cliente.beneficiario'])
-            ->where('is_paid', false)
-            ->where('purchase_amount', 0); // Only free eSIMs
+            ->where('is_paid', false);
+
+        if ($requestBeneficiarioId = request()->get('beneficiario_id')) {
+            if ($requestBeneficiarioId === 'none') {
+                $query->whereNull('beneficiario_id');
+            } else {
+                $query->where('beneficiario_id', $requestBeneficiarioId);
+            }
+        }
+
+        if ($requestSuperPartnerId = request()->get('super_partner_id')) {
+            $query->where('super_partner_id', $requestSuperPartnerId);
+        }
+
+        if ($startDateRaw = request()->get('start_date')) {
+            $cleanDate = preg_replace('/\s*\(.*?\)/', '', $startDateRaw);
+            $query->where('creation_time', '>=', Carbon::parse($cleanDate)->startOfDay());
+        }
+
+        if ($endDateRaw = request()->get('end_date')) {
+            $cleanDate = preg_replace('/\s*\(.*?\)/', '', $endDateRaw);
+            $query->where('creation_time', '<=', Carbon::parse($cleanDate)->endOfDay());
+        }
+
+        if ($type = request()->get('type')) {
+            if ($type === 'free') {
+                $query->where('purchase_amount', 0);
+            } elseif ($type === 'paid') {
+                $query->where('purchase_amount', '>', 0);
+            }
+        }
         
         // Filter by beneficiario if not admin
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
@@ -90,7 +126,10 @@ class TransactionController extends Controller
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
                 // Super partner solo ve transacciones de los beneficiarios que pertenecen a su red.
-                $query = $query->whereIn('beneficiario_id', $partnerIds);
+                $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                    $builder->whereIn('beneficiario_id', $partnerIds)
+                        ->orWhere('super_partner_id', $superPartner->id);
+                });
             }
         }
         
@@ -116,6 +155,7 @@ class TransactionController extends Controller
     public function calculatePaymentAmount(\Illuminate\Http\Request $request)
     {
         $beneficiarioId = $request->get('beneficiario_id');
+        $superPartnerId = $request->get('super_partner_id');
         $startDateRaw = $request->get('start_date');
         $endDateRaw = $request->get('end_date');
 
@@ -136,8 +176,7 @@ class TransactionController extends Controller
             return response()->json(['error' => 'Formato de fecha inválido'], 422);
         }
 
-        $query = Transaction::where('purchase_amount', 0)
-            ->where('is_paid', false);
+        $query = Transaction::where('is_paid', false);
 
         // Filtro explícito de beneficiario desde el front
         if ($beneficiarioId) {
@@ -145,6 +184,18 @@ class TransactionController extends Controller
                 $query->whereNull('beneficiario_id');
             } else {
                 $query->where('beneficiario_id', $beneficiarioId);
+            }
+        }
+
+        if ($superPartnerId) {
+            $query->where('super_partner_id', $superPartnerId);
+        }
+
+        if ($type = $request->get('type')) {
+            if ($type === 'free') {
+                $query->where('purchase_amount', 0);
+            } elseif ($type === 'paid') {
+                $query->where('purchase_amount', '>', 0);
             }
         }
 
@@ -161,7 +212,10 @@ class TransactionController extends Controller
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
                 // Super partner solo ve transacciones de sus beneficiarios,
                 // incluso cuando se filtra por rango de fechas o por beneficiario.
-                $query->whereIn('beneficiario_id', $partnerIds);
+                $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                    $builder->whereIn('beneficiario_id', $partnerIds)
+                        ->orWhere('super_partner_id', $superPartner->id);
+                });
             }
         }
 
@@ -226,8 +280,7 @@ class TransactionController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $updated = Transaction::where('purchase_amount', 0) // Only free eSIMs
-            ->where('is_paid', false)
+        $updated = Transaction::where('is_paid', false)
             ->where('beneficiario_id', $validated['beneficiario_id'])
             ->whereBetween('creation_time', [
                 Carbon::parse($validated['start_date'])->startOfDay(),

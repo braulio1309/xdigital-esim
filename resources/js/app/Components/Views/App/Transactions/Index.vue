@@ -261,7 +261,10 @@
                             key: 'purchase_amount',
                             modifier: (value, row) => {
                                 if (value === 0 || value === '0' || value === 0.0) {
-                                    return `<span class="badge badge-success">${this.$t('free')}</span>`;
+                                    const reference = row.reference_purchase_amount
+                                        ? ` <small class="text-muted">($${parseFloat(row.reference_purchase_amount).toFixed(2)})</small>`
+                                        : '';
+                                    return `<span class="badge badge-success">${this.$t('free')}</span>${reference}`;
                                 }
                                 return value ? `$${parseFloat(value).toFixed(2)}` : 'N/A';
                             }
@@ -280,11 +283,11 @@
                             }
                         },
                         {
-                            title: this.$t('beneficiary'),
+                            title: 'Partner / Super Partner',
                             type: 'custom-html',
-                            key: 'beneficiario',
+                            key: 'partner_name',
                             modifier: (value) => {
-                                return value ? value.nombre : 'N/A';
+                                return value || 'N/A';
                             }
                         },
                         {
@@ -435,7 +438,14 @@
         },
         methods: {
             loadPaymentStats() {
-                this.axiosGet(actions.TRANSACTIONS_PAYMENT_STATS)
+                const params = new URLSearchParams();
+                if (this.activeFilters.beneficiario_id) params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                if (this.activeFilters.super_partner_id) params.append('super_partner_id', this.activeFilters.super_partner_id);
+                if (this.activeFilters.type) params.append('type', this.activeFilters.type);
+                if (this.activeFilters.start_date) params.append('start_date', this.activeFilters.start_date);
+                if (this.activeFilters.end_date) params.append('end_date', this.activeFilters.end_date);
+
+                this.axiosGet(actions.TRANSACTIONS_PAYMENT_STATS + (params.toString() ? '?' + params.toString() : ''))
                     .then(response => {
                         this.paymentStats = response.data;
                     })
@@ -536,12 +546,13 @@
                     this.$hub.$emit('reload-' + this.tableId);
                 });
 
-                // If date or beneficiario filter changed, recalculate debt amount.
-                // Do not attempt this calculation when filtering by super partner.
+                this.loadPaymentStats();
+
                 const hasBeneficiarioFilter = !!this.activeFilters.beneficiario_id;
+                const hasSuperPartnerFilter = !!this.activeFilters.super_partner_id;
                 const hasDateFilters = !!(this.activeFilters.start_date || this.activeFilters.end_date);
 
-                if ((hasBeneficiarioFilter || hasDateFilters) && !this.activeFilters.super_partner_id) {
+                if (hasBeneficiarioFilter || hasSuperPartnerFilter || hasDateFilters) {
                     this.fetchFilterAmount();
                 } else {
                     this.filterAmountResult = null;
@@ -552,7 +563,7 @@
                 if (this.filterAmountTimer) {
                     clearTimeout(this.filterAmountTimer);
                 }
-                const hasFilters = this.activeFilters.beneficiario_id || this.activeFilters.start_date || this.activeFilters.end_date;
+                const hasFilters = this.activeFilters.beneficiario_id || this.activeFilters.super_partner_id || this.activeFilters.start_date || this.activeFilters.end_date;
                 if (!hasFilters) {
                     this.filterAmountResult = null;
                     return;
@@ -561,6 +572,8 @@
                     this.filterAmountLoading = true;
                     const params = new URLSearchParams();
                     if (this.activeFilters.beneficiario_id) params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                    if (this.activeFilters.super_partner_id) params.append('super_partner_id', this.activeFilters.super_partner_id);
+                    if (this.activeFilters.type) params.append('type', this.activeFilters.type);
                     if (this.activeFilters.start_date) params.append('start_date', this.activeFilters.start_date);
                     if (this.activeFilters.end_date) params.append('end_date', this.activeFilters.end_date);
                     this.axiosGet(actions.TRANSACTIONS_CALCULATE_AMOUNT + '?' + params.toString())
@@ -592,6 +605,7 @@
                 this.$nextTick(() => {
                     this.$hub.$emit('reload-' + this.tableId);
                 });
+                this.loadPaymentStats();
             },
 
             openAddEditModal() {

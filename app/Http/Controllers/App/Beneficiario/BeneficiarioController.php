@@ -11,6 +11,8 @@ use App\Services\App\Beneficiario\BeneficiarioService;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use App\Services\App\Settings\PlanMarginService;
 use App\Services\EsimFxService;
+use App\Models\App\Transaction\Transaction;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
 class BeneficiarioController extends Controller
@@ -45,13 +47,15 @@ class BeneficiarioController extends Controller
         
         // Add unpaid transactions count and total owed for each beneficiary
         $beneficiarios->getCollection()->transform(function ($beneficiario) {
-            $unpaidCount = \App\Models\App\Transaction\Transaction::where('purchase_amount', 0)
+            $unpaidTransactions = Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])
                 ->where('is_paid', false)
                 ->where('beneficiario_id', $beneficiario->id)
-                ->count();
-            
-            $beneficiario->unpaid_transactions_count = $unpaidCount;
-            $beneficiario->total_owed = round($unpaidCount * (float) $beneficiario->free_esim_rate, 2);
+                ->get();
+
+            $beneficiario->unpaid_transactions_count = $unpaidTransactions->count();
+            $beneficiario->total_owed = round($unpaidTransactions->sum(function (Transaction $transaction) {
+                return $transaction->getCommissionAmount();
+            }), 2);
             
             return $beneficiario;
         });
@@ -79,7 +83,7 @@ class BeneficiarioController extends Controller
             $beneficiaryPlanMarginService
         );
 
-        $filename = 'comisiones-' . \Str::slug($beneficiario->nombre) . '.xlsx';
+        $filename = 'comisiones-' . Str::slug($beneficiario->nombre) . '.xlsx';
 
         return Excel::download($export, $filename);
     }

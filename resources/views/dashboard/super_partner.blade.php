@@ -65,6 +65,32 @@
                     </div>
                 </div>
             </div>
+
+            <div class="col-md-3 grid-margin stretch-card">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="card-title mb-0">Pendientes</h4>
+                            <i class="mdi mdi-cash-multiple text-danger icon-lg"></i>
+                        </div>
+                        <h2 class="font-weight-bold mb-2">{{ $total_unpaid_transactions }}</h2>
+                        <p class="text-muted mb-0">Transacciones sin pagar</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 grid-margin stretch-card">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="card-title mb-0">Deuda Total</h4>
+                            <i class="mdi mdi-currency-usd text-danger icon-lg"></i>
+                        </div>
+                        <h2 class="font-weight-bold mb-2">${{ number_format($total_debt, 2) }}</h2>
+                        <p class="text-muted mb-0">Incluye cualquier cantidad de GB</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="row">
