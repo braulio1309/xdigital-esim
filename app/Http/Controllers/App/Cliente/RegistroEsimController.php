@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Helpers\CountryTariffHelper;
+use App\Mail\App\Cliente\EsimActivationMail;
+use Illuminate\Support\Facades\Mail;
 
 class RegistroEsimController extends Controller
 {
@@ -322,6 +324,8 @@ class RegistroEsimController extends Controller
     public function registrarCliente(HttpRequest $request, ClienteService $service, EsimFxService $esimService)
     {
         try {
+            $emailDeliveryStatus = null;
+
             // 1. Validar datos del formulario (email sin unique, lo validamos manualmente)
             $validated = $request->validate([
                 'identificador' => 'required|string|max:255',
@@ -484,6 +488,34 @@ class RegistroEsimController extends Controller
                                 'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
                             ];
 
+                            try {
+                                $cachedMailSettings = cache()->get('app-delivery-settings');
+
+
+                                Mail::to($cliente->email)->send(new EsimActivationMail(
+                                    $esimDataView,
+                                    $cliente->email,
+                                    $brandingContext['brandPartner']->nombre ?? null
+                                ));
+
+                                $emailDeliveryStatus = [
+                                    'sent' => true,
+                                    'message' => 'Se ha enviado por correo los datos para activar la eSIM.',
+                                ];
+                            } catch (\Throwable $mailException) {
+                                Log::error('No fue posible enviar el correo de activacion de eSIM.', [
+                                    'cliente_id' => $cliente->id,
+                                    'email' => $cliente->email,
+                                    'message' => $mailException->getMessage(),
+                                ]);
+                                dd($mailException->getMessage());
+
+                                $emailDeliveryStatus = [
+                                    'sent' => false,
+                                    'message' => 'La eSIM se activo correctamente, pero no fue posible enviar el correo con los datos de activacion.',
+                                ];
+                            }
+
                             // If this client has the can_activate_free_esim flag, deactivate it after successful activation
                             if ($cliente->can_activate_free_esim) {
                                 $cliente->can_activate_free_esim = false;
@@ -528,6 +560,7 @@ class RegistroEsimController extends Controller
             // Retornar la vista con los datos
             return view('clientes.registro-esim', [
                 'esim_data' => $esimDataView,
+                'esim_email_status' => $emailDeliveryStatus,
                 'beneficiario' => $beneficiario,
                 'superPartner' => $brandingContext['superPartner'],
                 'brandPartner' => $brandingContext['brandPartner'],

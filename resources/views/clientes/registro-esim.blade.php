@@ -244,6 +244,7 @@
     $selectedCountryForPlans = session('selected_country', old('country_code'));
     $showAvailablePlans = session('show_available_plans') && !empty($selectedCountryForPlans);
     $esimData = $esim_data ?? session('esim_data');
+    $esimEmailStatus = $esim_email_status ?? session('esim_email_status');
     $showFreeEsimForm = !$showAvailablePlans && empty($esimData);
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
@@ -312,6 +313,12 @@
                                 <h4 class="mb-2 font-weight-bold" style="color: var(--nomad-navy);">Has activado una eSIM</h4>
                                 <p class="text-muted mb-0 small">Escanea el QR o usa los datos manuales para terminar la activación.</p>
                             </div>
+
+                            @if(!empty($esimEmailStatus))
+                                <div class="alert {{ !empty($esimEmailStatus['sent']) ? 'alert-success' : 'alert-warning' }} mb-4">
+                                    {{ $esimEmailStatus['message'] }}
+                                </div>
+                            @endif
 
                             <div class="registro-plan-summary">
                                 <strong>{{ ($esimData['data_amount'] ?? 'N/A') . ' GB' }}</strong>
