@@ -138,7 +138,7 @@
                         }
                     ],
                     showFilter: false,
-                    showSearch: false,
+                    showSearch: true,
                     paginationType: "pagination",
                     responsive: true,
                     rowLimit: 10,

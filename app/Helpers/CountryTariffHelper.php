@@ -228,6 +228,20 @@ class CountryTariffHelper
     }
 
     /**
+     * Determine whether a country qualifies for the free eSIM flow.
+     */
+    public static function isAffordableCountryCode($code): bool
+    {
+        $country = self::getCountryByCode($code);
+
+        if (!$country || !isset($country['price'])) {
+            return false;
+        }
+
+        return (float) $country['price'] <= self::AFFORDABLE_TARIFF_THRESHOLD;
+    }
+
+    /**
      * Get country by code
      */
     public static function getCountryByCode($code)

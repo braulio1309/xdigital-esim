@@ -291,8 +291,8 @@ class RegistroEsimController extends Controller
         $brandingContext = $this->resolveBrandingContext($referralCode);
         $this->syncPartnerContext($brandingContext, $this->extractCodigoFromReferralCode($referralCode));
         
-        // Get affordable countries (tariff <= $0.67)
-        $affordableCountries = CountryTariffHelper::getAffordableCountriesForRegistration();
+        // Get all countries so non-free destinations can redirect to the plans catalog.
+        $affordableCountries = CountryTariffHelper::getAllCountries();
         $stripePublicKey = app(StripeService::class)->getPublishableKey();
         
         return view('clientes.registro-esim', [
@@ -340,15 +340,17 @@ class RegistroEsimController extends Controller
             $beneficiario = $brandingContext['beneficiario'];
             $selectedCountryCode = strtoupper($validated['country_code']);
 
-            if ($selectedCountryCode === CountryTariffHelper::OTHER_COUNTRY_CODE) {
+            if (!CountryTariffHelper::isAffordableCountryCode($selectedCountryCode)) {
                 $routeParams = [];
 
                 if (!empty($validated['referralCode'])) {
                     $routeParams['referralCode'] = $validated['referralCode'];
                 }
 
+                $routeParams['country'] = $selectedCountryCode;
+
                 return redirect()->route('planes.index', $routeParams)
-                    ->with('success', 'Selecciona el pais que necesites. Te mostramos todos los paises sin filtro.')
+                    ->with('success', 'Este pais no aplica para eSIM gratis. Te mostramos los planes disponibles para ese destino.')
                     ->withInput();
             }
 
@@ -566,7 +568,7 @@ class RegistroEsimController extends Controller
             }
 
             // Get affordable countries (tariff <= $0.67)
-            $affordableCountries = CountryTariffHelper::getAffordableCountriesForRegistration();
+            $affordableCountries = CountryTariffHelper::getAllCountries();
             $stripePublicKey = app(StripeService::class)->getPublishableKey();
             
             // Retornar la vista con los datos

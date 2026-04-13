@@ -304,9 +304,11 @@
             'code' => $country['code'],
             'name' => $country['name'],
             'emoji' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']),
+            'is_affordable' => isset($country['price']) && (float) $country['price'] <= \App\Helpers\CountryTariffHelper::AFFORDABLE_TARIFF_THRESHOLD,
+            'price' => $country['price'] ?? null,
         ];
     })->values()->all();
-    $otherPlansUrl = isset($referralCode)
+    $plansBaseUrl = isset($referralCode)
         ? route('planes.index', ['referralCode' => $referralCode])
         : route('planes.index');
 
@@ -455,9 +457,8 @@
                                            name="country_code"
                                            id="registro-country-code"
                                            value="{{ $selectedCountryForForm }}"
-                                           data-other-code="{{ \App\Helpers\CountryTariffHelper::OTHER_COUNTRY_CODE }}"
-                                           data-others-url="{{ $otherPlansUrl }}">
-                                    <small class="form-text text-muted mt-2">Empieza a escribir para autocompletar. Si eliges Otros te llevamos directo a todos los planes.</small>
+                                         data-plans-base-url="{{ $plansBaseUrl }}">
+                                     <small class="form-text text-muted mt-2">Puedes buscar cualquier pais. Si no aplica para eSIM gratis, te llevamos directo a sus planes disponibles.</small>
                                 </div>
 
                                 <div class="mt-4">
@@ -682,9 +683,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (countryAutocomplete && countryCodeInput && countrySuggestions && countryOptionsElement) {
         const countryOptions = JSON.parse(countryOptionsElement.textContent || '[]');
-        const otherCountryCode = (countryCodeInput.dataset.otherCode || 'OT').toUpperCase();
-        const othersUrl = countryCodeInput.dataset.othersUrl || '';
+        const plansBaseUrl = countryCodeInput.dataset.plansBaseUrl || '';
         let activeSuggestionIndex = -1;
+
+        const buildPlansUrl = function(countryCode) {
+            if (!plansBaseUrl || !countryCode) {
+                return '';
+            }
+
+            return plansBaseUrl + (plansBaseUrl.indexOf('?') === -1 ? '?' : '&') + 'country=' + encodeURIComponent(countryCode);
+        };
 
         const hideSuggestions = function() {
             countrySuggestions.classList.add('d-none');
@@ -715,8 +723,12 @@ document.addEventListener('DOMContentLoaded', function() {
             countryAutocomplete.setCustomValidity('');
             hideSuggestions();
 
-            if (shouldRedirect && (option.code || '').toUpperCase() === otherCountryCode && othersUrl) {
-                window.location.href = othersUrl;
+            if (shouldRedirect && option.is_affordable === false) {
+                const plansUrl = buildPlansUrl(option.code || '');
+
+                if (plansUrl) {
+                    window.location.href = plansUrl;
+                }
             }
         };
 
@@ -734,7 +746,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const activeClass = index === activeSuggestionIndex ? ' is-active' : '';
                 return '<button type="button" class="country-suggestion-item' + activeClass + '" data-index="' + index + '">' +
                     '<span>' + (option.emoji || '🌍') + '</span>' +
-                    '<span>' + (option.name || '') + '</span>' +
+                    '<span>' + (option.name || '') + (option.is_affordable === false ? ' <small style="color:rgba(24,28,54,0.55);">- ver planes</small>' : '') + '</span>' +
                     '</button>';
             }).join('');
 
@@ -824,6 +836,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!countryCodeInput.value) {
                     event.preventDefault();
                     countryAutocomplete.reportValidity();
+                    return;
+                }
+
+                const matchedOption = countryOptions.find(function(option) {
+                    return (option.code || '').toUpperCase() === (countryCodeInput.value || '').toUpperCase();
+                });
+
+                if (matchedOption && matchedOption.is_affordable === false) {
+                    event.preventDefault();
+                    const plansUrl = buildPlansUrl(matchedOption.code || '');
+
+                    if (plansUrl) {
+                        window.location.href = plansUrl;
+                    }
                 }
             });
         }
