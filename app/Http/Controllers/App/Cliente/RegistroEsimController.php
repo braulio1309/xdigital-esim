@@ -552,6 +552,7 @@ class RegistroEsimController extends Controller
 
                 } catch (\Exception $e) {
                     Log::error("Error al activar eSIM: " . $e->getMessage());
+                    dd($e->getMessage());
 
                     return redirect()->back()
                         ->with('error', 'Ocurrió un error al activar la eSIM. Por favor, inténtalo nuevamente.')
