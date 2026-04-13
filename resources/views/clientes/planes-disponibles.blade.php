@@ -232,13 +232,13 @@
         margin-bottom: 12px;
     }
 
-    .country-selector select {
+    .country-selector .form-control {
         border: 2px solid var(--nomad-blue);
         font-size: 1.1rem;
         padding: 12px;
     }
 
-    .country-selector select:focus {
+    .country-selector .form-control:focus {
         border-color: var(--xcertus-purple);
         box-shadow: 0 0 0 0.2rem rgba(98, 59, 134, 0.25);
     }
@@ -461,13 +461,21 @@
     $displayPartnerLogo = $displayPartner->logo_url ?? null;
     $permissionError = session('error');
     $hasPermissionError = is_string($permissionError) && str_contains($permissionError, 'No tienes permiso');
+    $initialCountryOption = collect($allCountries ?? [])->firstWhere('code', $initialCountry ?? '');
+    $initialCountryLabel = $initialCountryOption['name'] ?? '';
+    $countryAutocompleteOptions = collect($allCountries ?? [])->map(function ($country) {
+        return [
+            'code' => $country['code'],
+            'name' => $country['name'],
+        ];
+    })->values()->all();
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
         $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
     }
 @endphp
 
-<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}">
+<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}" data-initial-country-label="{{ $initialCountryLabel }}">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-start auth px-0 py-5">
             <div class="row w-100 mx-0">
@@ -520,17 +528,19 @@
                     <div class="country-selector">
                         <input type="text"
                                class="form-control form-control-lg country-search-input"
-                               id="planes-country-search"
-                               placeholder="Buscar país">
-                        <select class="form-control form-control-lg" id="planes-country-code" v-model="selectedCountry" @change="loadPlans">
-                            <option value="">Seleccione un país</option>
+                               id="planes-country-autocomplete"
+                               list="planes-country-options"
+                               v-model="countryAutocomplete"
+                               @input="handleCountryAutocomplete"
+                               @change="handleCountryAutocomplete"
+                               placeholder="Escribe y selecciona un país"
+                               autocomplete="off">
+                        <datalist id="planes-country-options">
                             @foreach($allCountries as $country)
-                                <option value="{{ $country['code'] }}"
-                                        data-country-label="{{ mb_strtolower(\App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name']) }}">
-                                    {{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}
-                                </option>
+                                <option value="{{ $country['name'] }}" label="{{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}"></option>
                             @endforeach
-                        </select>
+                        </datalist>
+                        <small class="form-text text-muted mt-2">Empieza a escribir para autocompletar y cargar planes mas rapido.</small>
                     </div>
 
                     {{-- Mensajes informativos --}}
@@ -792,17 +802,20 @@
 
 {{-- Scripts --}}
 <script src="https://js.stripe.com/v3/"></script>
+<script type="application/json" id="planes-country-options-json">{!! json_encode($countryAutocompleteOptions) !!}</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const appElement = document.getElementById('planes-disponibles-app');
-    const searchInput = document.getElementById('planes-country-search');
-    const countrySelect = document.getElementById('planes-country-code');
+    const countryOptionsElement = document.getElementById('planes-country-options-json');
     const initialCountry = appElement ? appElement.dataset.initialCountry || '' : '';
+    const initialCountryLabel = appElement ? appElement.dataset.initialCountryLabel || '' : '';
+    const countryOptions = countryOptionsElement ? JSON.parse(countryOptionsElement.textContent || '[]') : [];
 
     new Vue({
         el: '#planes-disponibles-app',
         data: {
             selectedCountry: '',
+            countryAutocomplete: '',
             plans: [],
             loading: false,
             selectedPlan: null,
@@ -843,28 +856,32 @@ document.addEventListener('DOMContentLoaded', function() {
             // Verificar si el usuario está autenticado
             this.checkAuth();
 
-            if (searchInput && countrySelect) {
-                searchInput.addEventListener('input', function() {
-                    const term = searchInput.value.trim().toLowerCase();
-
-                    Array.from(countrySelect.options).forEach(function(option, index) {
-                        if (index === 0) {
-                            option.hidden = false;
-                            return;
-                        }
-
-                        const label = option.dataset.countryLabel || option.text.toLowerCase();
-                        option.hidden = term !== '' && !label.includes(term);
-                    });
-                });
-            }
-
             if (initialCountry) {
                 this.selectedCountry = initialCountry;
+                this.countryAutocomplete = initialCountryLabel;
                 this.loadPlans();
             }
         },
         methods: {
+            handleCountryAutocomplete() {
+                const typedValue = (this.countryAutocomplete || '').trim().toLowerCase();
+                const matchedOption = countryOptions.find(function(option) {
+                    return (option.name || '').trim().toLowerCase() === typedValue;
+                });
+
+                if (!matchedOption) {
+                    this.selectedCountry = '';
+                    this.plans = [];
+                    return;
+                }
+
+                if (this.selectedCountry === matchedOption.code) {
+                    return;
+                }
+
+                this.selectedCountry = matchedOption.code;
+                this.loadPlans();
+            },
             async checkAuth() {
                 try {
                     const response = await axios.get('/api/auth/check');

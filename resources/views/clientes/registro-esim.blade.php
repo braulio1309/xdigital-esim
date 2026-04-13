@@ -246,6 +246,12 @@
     $esimData = $esim_data ?? session('esim_data');
     $esimEmailStatus = $esim_email_status ?? session('esim_email_status');
     $showFreeEsimForm = !$showAvailablePlans && empty($esimData);
+    $selectedCountryForForm = old('country_code');
+    $selectedCountryOption = collect($affordableCountries ?? [])->firstWhere('code', $selectedCountryForForm);
+    $selectedCountryAutocompleteValue = $selectedCountryOption['name'] ?? '';
+    $otherPlansUrl = isset($referralCode)
+        ? route('planes.index', ['referralCode' => $referralCode])
+        : route('planes.index');
 
     if (!$displayPartnerLogo && $displayPartner && !empty($displayPartner->logo)) {
         $displayPartnerLogo = asset('storage/' . $displayPartner->logo);
@@ -360,7 +366,7 @@
                             <h4 class="text-center mb-2 font-weight-bold" style="color: var(--nomad-navy);">Activar eSIM gratis</h4>
                             <p class="text-center text-muted mb-4 small">Completa tus datos para validar si tienes habilitada la activación gratuita.</p>
 
-                            <form class="pt-3" method="POST" action="{{ route('registro.esim.store') }}">
+                            <form class="pt-3" method="POST" action="{{ route('registro.esim.store') }}" id="registro-esim-form">
                                 @csrf
                                 @if(isset($referralCode))
                                     <input type="hidden" name="referralCode" value="{{ $referralCode }}">
@@ -380,18 +386,26 @@
                                     <label for="country_code" class="font-weight-bold text-small">Seleccione su País</label>
                                     <input type="text"
                                            class="form-control form-control-lg country-search-input"
-                                           id="registro-country-search"
-                                           placeholder="Buscar país">
-                                    <select class="form-control form-control-lg" name="country_code" id="registro-country-code" required>
-                                        <option value="">-- Seleccionar País --</option>
+                                           id="registro-country-autocomplete"
+                                           list="registro-country-options"
+                                           value="{{ $selectedCountryAutocompleteValue }}"
+                                           placeholder="Escribe y selecciona un país"
+                                           autocomplete="off"
+                                           required>
+                                    <datalist id="registro-country-options">
                                         @foreach($affordableCountries as $country)
-                                            <option value="{{ $country['code'] }}"
-                                                    data-country-label="{{ mb_strtolower(\App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) . ' ' . $country['name']) }}"
-                                                    {{ old('country_code') === $country['code'] ? 'selected' : '' }}>
-                                                {{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}
-                                            </option>
+                                            <option value="{{ $country['name'] }}"
+                                                    data-code="{{ $country['code'] }}"
+                                                    label="{{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}"></option>
                                         @endforeach
-                                    </select>
+                                    </datalist>
+                                    <input type="hidden"
+                                           name="country_code"
+                                           id="registro-country-code"
+                                           value="{{ $selectedCountryForForm }}"
+                                           data-other-code="{{ \App\Helpers\CountryTariffHelper::OTHER_COUNTRY_CODE }}"
+                                           data-others-url="{{ $otherPlansUrl }}">
+                                    <small class="form-text text-muted mt-2">Empieza a escribir para autocompletar. Si eliges Otros te llevamos directo a todos los planes.</small>
                                 </div>
 
                                 <div class="mt-4">
@@ -606,24 +620,54 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('registro-country-search');
-    const countrySelect = document.getElementById('registro-country-code');
+    const countryAutocomplete = document.getElementById('registro-country-autocomplete');
+    const countryCodeInput = document.getElementById('registro-country-code');
+    const countryForm = document.getElementById('registro-esim-form');
     const availablePlansContainer = document.getElementById('registro-available-plans-app');
 
-    if (searchInput && countrySelect) {
-        searchInput.addEventListener('input', function() {
-            const term = searchInput.value.trim().toLowerCase();
+    if (countryAutocomplete && countryCodeInput) {
+        const countryOptions = Array.from(document.querySelectorAll('#registro-country-options option'));
+        const otherCountryCode = (countryCodeInput.dataset.otherCode || 'OT').toUpperCase();
+        const othersUrl = countryCodeInput.dataset.othersUrl || '';
 
-            Array.from(countrySelect.options).forEach(function(option, index) {
-                if (index === 0) {
-                    option.hidden = false;
-                    return;
-                }
-
-                const label = option.dataset.countryLabel || option.text.toLowerCase();
-                option.hidden = term !== '' && !label.includes(term);
+        const syncCountryCode = function(shouldRedirect) {
+            const typedValue = countryAutocomplete.value.trim().toLowerCase();
+            const matchedOption = countryOptions.find(function(option) {
+                return (option.value || '').trim().toLowerCase() === typedValue;
             });
+
+            if (!matchedOption) {
+                countryCodeInput.value = '';
+                countryAutocomplete.setCustomValidity('Selecciona un pais de la lista.');
+                return;
+            }
+
+            countryCodeInput.value = matchedOption.dataset.code || '';
+            countryAutocomplete.setCustomValidity('');
+
+            if (shouldRedirect && countryCodeInput.value.toUpperCase() === otherCountryCode && othersUrl) {
+                window.location.href = othersUrl;
+            }
+        };
+
+        countryAutocomplete.addEventListener('input', function() {
+            syncCountryCode(true);
         });
+
+        countryAutocomplete.addEventListener('change', function() {
+            syncCountryCode(true);
+        });
+
+        if (countryForm) {
+            countryForm.addEventListener('submit', function(event) {
+                syncCountryCode(false);
+
+                if (!countryCodeInput.value) {
+                    event.preventDefault();
+                    countryAutocomplete.reportValidity();
+                }
+            });
+        }
     }
 
     document.addEventListener('click', function(event) {

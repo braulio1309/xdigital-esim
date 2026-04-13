@@ -8,6 +8,7 @@ class CountryTariffHelper
      * Maximum tariff threshold for affordable countries
      */
     const AFFORDABLE_TARIFF_THRESHOLD = 0.67;
+    const OTHER_COUNTRY_CODE = 'OT';
 
     /**
      * Get all countries with their tariff information
@@ -209,6 +210,24 @@ class CountryTariffHelper
     }
 
     /**
+     * Get affordable countries for the free eSIM form plus a catch-all option.
+     */
+    public static function getAffordableCountriesForRegistration()
+    {
+        $countries = array_values(self::getAffordableCountries());
+
+        $countries[] = [
+            'code' => self::OTHER_COUNTRY_CODE,
+            'name' => 'Otros',
+            'region' => 'Global',
+            'tier' => null,
+            'price' => null,
+        ];
+
+        return $countries;
+    }
+
+    /**
      * Get country by code
      */
     public static function getCountryByCode($code)
@@ -266,6 +285,10 @@ class CountryTariffHelper
             'VI' => '🇻🇮', 'VN' => '🇻🇳', 'XK' => '🇽🇰', 'YT' => '🇾🇹', 'ZA' => '🇿🇦',
             'ZM' => '🇿🇲',
         ];
+        if (strtoupper($code) === self::OTHER_COUNTRY_CODE) {
+            return '🌍';
+        }
+
         return $emojis[strtoupper($code)] ?? '🌍';
     }
 }

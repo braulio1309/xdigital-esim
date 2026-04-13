@@ -292,7 +292,7 @@ class RegistroEsimController extends Controller
         $this->syncPartnerContext($brandingContext, $this->extractCodigoFromReferralCode($referralCode));
         
         // Get affordable countries (tariff <= $0.67)
-        $affordableCountries = CountryTariffHelper::getAffordableCountries();
+        $affordableCountries = CountryTariffHelper::getAffordableCountriesForRegistration();
         $stripePublicKey = app(StripeService::class)->getPublishableKey();
         
         return view('clientes.registro-esim', [
@@ -338,6 +338,19 @@ class RegistroEsimController extends Controller
             $brandingContext = $this->resolveBrandingContext($validated['referralCode'] ?? null);
             $this->syncPartnerContext($brandingContext, $this->extractCodigoFromReferralCode($validated['referralCode'] ?? null));
             $beneficiario = $brandingContext['beneficiario'];
+            $selectedCountryCode = strtoupper($validated['country_code']);
+
+            if ($selectedCountryCode === CountryTariffHelper::OTHER_COUNTRY_CODE) {
+                $routeParams = [];
+
+                if (!empty($validated['referralCode'])) {
+                    $routeParams['referralCode'] = $validated['referralCode'];
+                }
+
+                return redirect()->route('planes.index', $routeParams)
+                    ->with('success', 'Selecciona el pais que necesites. Te mostramos todos los paises sin filtro.')
+                    ->withInput();
+            }
 
             // 2. Verificar si el email ya existe
             //
@@ -355,7 +368,7 @@ class RegistroEsimController extends Controller
                 return redirect()->back()
                     ->with('error', 'No tienes permiso para activar una eSIM gratuita. Te mostramos los planes disponibles para el país que seleccionaste.')
                     ->with('show_available_plans', true)
-                    ->with('selected_country', strtoupper($validated['country_code']))
+                    ->with('selected_country', $selectedCountryCode)
                     ->withInput();
                 
             } 
@@ -372,7 +385,7 @@ class RegistroEsimController extends Controller
             // 3. Buscar producto por país
             if ($request->filled('country_code') && $existingCliente) {
                 try {
-                    $countryCode = strtoupper($validated['country_code']);
+                    $countryCode = $selectedCountryCode;
                     $preferredCapacity = $this->resolveFreeEsimCapacityForCliente($cliente);
 
                     // Obtener productos del país desde la API
@@ -508,7 +521,6 @@ class RegistroEsimController extends Controller
                                     'email' => $cliente->email,
                                     'message' => $mailException->getMessage(),
                                 ]);
-                                dd($mailException->getMessage());
 
                                 $emailDeliveryStatus = [
                                     'sent' => false,
@@ -554,7 +566,7 @@ class RegistroEsimController extends Controller
             }
 
             // Get affordable countries (tariff <= $0.67)
-            $affordableCountries = CountryTariffHelper::getAffordableCountries();
+            $affordableCountries = CountryTariffHelper::getAffordableCountriesForRegistration();
             $stripePublicKey = app(StripeService::class)->getPublishableKey();
             
             // Retornar la vista con los datos
