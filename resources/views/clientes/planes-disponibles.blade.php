@@ -232,6 +232,52 @@
         margin-bottom: 12px;
     }
 
+    .country-autocomplete {
+        position: relative;
+    }
+
+    .country-suggestions {
+        position: absolute;
+        top: calc(100% - 10px);
+        left: 0;
+        right: 0;
+        z-index: 30;
+        background: #fff;
+        border: 1px solid rgba(24, 28, 54, 0.12);
+        border-radius: 14px;
+        box-shadow: 0 18px 28px rgba(24, 28, 54, 0.12);
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .country-suggestion-item {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: var(--nomad-navy);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .country-suggestion-item:hover,
+    .country-suggestion-item.is-active {
+        background: rgba(45, 156, 219, 0.12);
+        color: var(--xcertus-purple);
+        outline: none;
+    }
+
+    .country-suggestion-empty {
+        padding: 10px 12px;
+        color: rgba(24, 28, 54, 0.62);
+        font-size: 0.92rem;
+    }
+
     .country-selector .form-control {
         border: 2px solid var(--nomad-blue);
         font-size: 1.1rem;
@@ -467,6 +513,7 @@
         return [
             'code' => $country['code'],
             'name' => $country['name'],
+            'emoji' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']),
         ];
     })->values()->all();
 
@@ -526,20 +573,34 @@
                     
                     {{-- Selector de país --}}
                     <div class="country-selector">
-                        <input type="text"
-                               class="form-control form-control-lg country-search-input"
-                               id="planes-country-autocomplete"
-                               list="planes-country-options"
-                               v-model="countryAutocomplete"
-                               @input="handleCountryAutocomplete"
-                               @change="handleCountryAutocomplete"
-                               placeholder="Escribe y selecciona un país"
-                               autocomplete="off">
-                        <datalist id="planes-country-options">
-                            @foreach($allCountries as $country)
-                                <option value="{{ $country['name'] }}" label="{{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}"></option>
-                            @endforeach
-                        </datalist>
+                        <div class="country-autocomplete">
+                            <input type="text"
+                                   class="form-control form-control-lg country-search-input"
+                                   id="planes-country-autocomplete"
+                                   v-model="countryAutocomplete"
+                                   @input="handleCountryAutocompleteInput"
+                                   @focus="openCountrySuggestions"
+                                   @keydown.down.prevent="moveCountrySuggestion(1)"
+                                   @keydown.up.prevent="moveCountrySuggestion(-1)"
+                                   @keydown.enter.prevent="confirmActiveCountrySuggestion"
+                                   @keydown.esc="hideCountrySuggestions"
+                                   placeholder="Escribe y selecciona un país"
+                                   autocomplete="off">
+                            <div v-if="showCountrySuggestions" class="country-suggestions" role="listbox" aria-label="Paises sugeridos">
+                                <template v-if="filteredCountryOptions.length">
+                                    <button v-for="(country, index) in filteredCountryOptions"
+                                            :key="country.code"
+                                            type="button"
+                                            class="country-suggestion-item"
+                                            :class="{ 'is-active': index === activeCountrySuggestionIndex }"
+                                            @mousedown.prevent="selectCountrySuggestion(country)">
+                                        <span>@{{ country.emoji || '🌍' }}</span>
+                                        <span>@{{ country.name }}</span>
+                                    </button>
+                                </template>
+                                <div v-else class="country-suggestion-empty">No encontramos paises con ese criterio.</div>
+                            </div>
+                        </div>
                         <small class="form-text text-muted mt-2">Empieza a escribir para autocompletar y cargar planes mas rapido.</small>
                     </div>
 
@@ -816,6 +877,8 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
             selectedCountry: '',
             countryAutocomplete: '',
+            showCountrySuggestions: false,
+            activeCountrySuggestionIndex: -1,
             plans: [],
             loading: false,
             selectedPlan: null,
@@ -840,6 +903,20 @@ document.addEventListener('DOMContentLoaded', function() {
             paymentIntentId: null,
             errorMessage: ''
         },
+        computed: {
+            filteredCountryOptions() {
+                const typedValue = (this.countryAutocomplete || '').trim().toLowerCase();
+
+                if (!typedValue) {
+                    return countryOptions.slice(0, 8);
+                }
+
+                return countryOptions.filter(function(option) {
+                    return (option.name || '').toLowerCase().includes(typedValue)
+                        || (option.code || '').toLowerCase().includes(typedValue);
+                }).slice(0, 8);
+            }
+        },
         mounted() {
             // Inicializar Stripe
             this.stripe = Stripe('{{ $stripePublicKey }}');
@@ -861,26 +938,87 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.countryAutocomplete = initialCountryLabel;
                 this.loadPlans();
             }
+
+            document.addEventListener('click', this.handleOutsideCountryClick);
+        },
+        beforeDestroy() {
+            document.removeEventListener('click', this.handleOutsideCountryClick);
         },
         methods: {
-            handleCountryAutocomplete() {
-                const typedValue = (this.countryAutocomplete || '').trim().toLowerCase();
-                const matchedOption = countryOptions.find(function(option) {
-                    return (option.name || '').trim().toLowerCase() === typedValue;
-                });
+            openCountrySuggestions() {
+                this.showCountrySuggestions = true;
+                this.activeCountrySuggestionIndex = -1;
+            },
+            hideCountrySuggestions() {
+                this.showCountrySuggestions = false;
+                this.activeCountrySuggestionIndex = -1;
+            },
+            handleCountryAutocompleteInput() {
+                this.showCountrySuggestions = true;
+                this.activeCountrySuggestionIndex = -1;
+                this.selectedCountry = '';
+                this.plans = [];
+            },
+            moveCountrySuggestion(direction) {
+                if (!this.showCountrySuggestions) {
+                    this.showCountrySuggestions = true;
+                }
 
-                if (!matchedOption) {
-                    this.selectedCountry = '';
-                    this.plans = [];
+                if (!this.filteredCountryOptions.length) {
                     return;
                 }
 
-                if (this.selectedCountry === matchedOption.code) {
+                const nextIndex = this.activeCountrySuggestionIndex + direction;
+                const maxIndex = this.filteredCountryOptions.length - 1;
+
+                if (nextIndex < 0) {
+                    this.activeCountrySuggestionIndex = 0;
                     return;
                 }
 
-                this.selectedCountry = matchedOption.code;
+                if (nextIndex > maxIndex) {
+                    this.activeCountrySuggestionIndex = maxIndex;
+                    return;
+                }
+
+                this.activeCountrySuggestionIndex = nextIndex;
+            },
+            confirmActiveCountrySuggestion() {
+                if (!this.showCountrySuggestions || !this.filteredCountryOptions.length) {
+                    const exactMatch = countryOptions.find((option) => {
+                        return (option.name || '').trim().toLowerCase() === (this.countryAutocomplete || '').trim().toLowerCase();
+                    });
+
+                    if (exactMatch) {
+                        this.selectCountrySuggestion(exactMatch);
+                    }
+
+                    return;
+                }
+
+                const option = this.filteredCountryOptions[this.activeCountrySuggestionIndex >= 0 ? this.activeCountrySuggestionIndex : 0];
+                this.selectCountrySuggestion(option);
+            },
+            selectCountrySuggestion(country) {
+                if (!country) {
+                    return;
+                }
+
+                this.countryAutocomplete = country.name;
+
+                if (this.selectedCountry === country.code) {
+                    this.hideCountrySuggestions();
+                    return;
+                }
+
+                this.selectedCountry = country.code;
+                this.hideCountrySuggestions();
                 this.loadPlans();
+            },
+            handleOutsideCountryClick(event) {
+                if (!event.target.closest('.country-autocomplete')) {
+                    this.hideCountrySuggestions();
+                }
             },
             async checkAuth() {
                 try {

@@ -98,6 +98,56 @@
         margin-bottom: 12px;
     }
 
+    .country-autocomplete {
+        position: relative;
+    }
+
+    .country-suggestions {
+        position: absolute;
+        top: calc(100% - 10px);
+        left: 0;
+        right: 0;
+        z-index: 30;
+        background: #fff;
+        border: 1px solid rgba(24, 28, 54, 0.12);
+        border-radius: 14px;
+        box-shadow: 0 18px 28px rgba(24, 28, 54, 0.12);
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .country-suggestions.d-none {
+        display: none;
+    }
+
+    .country-suggestion-item {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: var(--nomad-navy);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .country-suggestion-item:hover,
+    .country-suggestion-item.is-active {
+        background: rgba(45, 156, 219, 0.12);
+        color: var(--xcertus-purple);
+        outline: none;
+    }
+
+    .country-suggestion-empty {
+        padding: 10px 12px;
+        color: rgba(24, 28, 54, 0.62);
+        font-size: 0.92rem;
+    }
+
     .inline-plans-panel {
         margin-top: 28px;
         padding: 22px;
@@ -249,6 +299,13 @@
     $selectedCountryForForm = old('country_code');
     $selectedCountryOption = collect($affordableCountries ?? [])->firstWhere('code', $selectedCountryForForm);
     $selectedCountryAutocompleteValue = $selectedCountryOption['name'] ?? '';
+    $registrationCountryOptions = collect($affordableCountries ?? [])->map(function ($country) {
+        return [
+            'code' => $country['code'],
+            'name' => $country['name'],
+            'emoji' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']),
+        ];
+    })->values()->all();
     $otherPlansUrl = isset($referralCode)
         ? route('planes.index', ['referralCode' => $referralCode])
         : route('planes.index');
@@ -384,21 +441,16 @@
 
                                 <div class="form-group">
                                     <label for="country_code" class="font-weight-bold text-small">Seleccione su País</label>
-                                    <input type="text"
-                                           class="form-control form-control-lg country-search-input"
-                                           id="registro-country-autocomplete"
-                                           list="registro-country-options"
-                                           value="{{ $selectedCountryAutocompleteValue }}"
-                                           placeholder="Escribe y selecciona un país"
-                                           autocomplete="off"
-                                           required>
-                                    <datalist id="registro-country-options">
-                                        @foreach($affordableCountries as $country)
-                                            <option value="{{ $country['name'] }}"
-                                                    data-code="{{ $country['code'] }}"
-                                                    label="{{ \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']) }} {{ $country['name'] }}"></option>
-                                        @endforeach
-                                    </datalist>
+                                    <div class="country-autocomplete">
+                                        <input type="text"
+                                               class="form-control form-control-lg country-search-input"
+                                               id="registro-country-autocomplete"
+                                               value="{{ $selectedCountryAutocompleteValue }}"
+                                               placeholder="Escribe y selecciona un país"
+                                               autocomplete="off"
+                                               required>
+                                        <div id="registro-country-suggestions" class="country-suggestions d-none" role="listbox" aria-label="Paises sugeridos"></div>
+                                    </div>
                                     <input type="hidden"
                                            name="country_code"
                                            id="registro-country-code"
@@ -618,22 +670,88 @@
 <script src="https://js.stripe.com/v3/"></script>
 @endif
 
+<script type="application/json" id="registro-country-options-json">{!! json_encode($registrationCountryOptions) !!}</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const countryAutocomplete = document.getElementById('registro-country-autocomplete');
     const countryCodeInput = document.getElementById('registro-country-code');
     const countryForm = document.getElementById('registro-esim-form');
+    const countrySuggestions = document.getElementById('registro-country-suggestions');
+    const countryOptionsElement = document.getElementById('registro-country-options-json');
     const availablePlansContainer = document.getElementById('registro-available-plans-app');
 
-    if (countryAutocomplete && countryCodeInput) {
-        const countryOptions = Array.from(document.querySelectorAll('#registro-country-options option'));
+    if (countryAutocomplete && countryCodeInput && countrySuggestions && countryOptionsElement) {
+        const countryOptions = JSON.parse(countryOptionsElement.textContent || '[]');
         const otherCountryCode = (countryCodeInput.dataset.otherCode || 'OT').toUpperCase();
         const othersUrl = countryCodeInput.dataset.othersUrl || '';
+        let activeSuggestionIndex = -1;
+
+        const hideSuggestions = function() {
+            countrySuggestions.classList.add('d-none');
+            countrySuggestions.innerHTML = '';
+            activeSuggestionIndex = -1;
+        };
+
+        const getFilteredCountries = function() {
+            const typedValue = countryAutocomplete.value.trim().toLowerCase();
+
+            if (!typedValue) {
+                return countryOptions.slice(0, 8);
+            }
+
+            return countryOptions.filter(function(option) {
+                return (option.name || '').toLowerCase().includes(typedValue)
+                    || (option.code || '').toLowerCase().includes(typedValue);
+            }).slice(0, 8);
+        };
+
+        const applySuggestionSelection = function(option, shouldRedirect) {
+            if (!option) {
+                return;
+            }
+
+            countryAutocomplete.value = option.name || '';
+            countryCodeInput.value = option.code || '';
+            countryAutocomplete.setCustomValidity('');
+            hideSuggestions();
+
+            if (shouldRedirect && (option.code || '').toUpperCase() === otherCountryCode && othersUrl) {
+                window.location.href = othersUrl;
+            }
+        };
+
+        const renderSuggestions = function() {
+            const filteredCountries = getFilteredCountries();
+
+            if (!filteredCountries.length) {
+                countrySuggestions.innerHTML = '<div class="country-suggestion-empty">No encontramos paises con ese criterio.</div>';
+                countrySuggestions.classList.remove('d-none');
+                activeSuggestionIndex = -1;
+                return;
+            }
+
+            countrySuggestions.innerHTML = filteredCountries.map(function(option, index) {
+                const activeClass = index === activeSuggestionIndex ? ' is-active' : '';
+                return '<button type="button" class="country-suggestion-item' + activeClass + '" data-index="' + index + '">' +
+                    '<span>' + (option.emoji || '🌍') + '</span>' +
+                    '<span>' + (option.name || '') + '</span>' +
+                    '</button>';
+            }).join('');
+
+            countrySuggestions.classList.remove('d-none');
+
+            Array.from(countrySuggestions.querySelectorAll('.country-suggestion-item')).forEach(function(button, index) {
+                button.addEventListener('mousedown', function(event) {
+                    event.preventDefault();
+                    applySuggestionSelection(filteredCountries[index], true);
+                });
+            });
+        };
 
         const syncCountryCode = function(shouldRedirect) {
             const typedValue = countryAutocomplete.value.trim().toLowerCase();
             const matchedOption = countryOptions.find(function(option) {
-                return (option.value || '').trim().toLowerCase() === typedValue;
+                return (option.name || '').trim().toLowerCase() === typedValue;
             });
 
             if (!matchedOption) {
@@ -642,20 +760,61 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            countryCodeInput.value = matchedOption.dataset.code || '';
-            countryAutocomplete.setCustomValidity('');
-
-            if (shouldRedirect && countryCodeInput.value.toUpperCase() === otherCountryCode && othersUrl) {
-                window.location.href = othersUrl;
-            }
+            applySuggestionSelection(matchedOption, shouldRedirect);
         };
 
         countryAutocomplete.addEventListener('input', function() {
-            syncCountryCode(true);
+            countryCodeInput.value = '';
+            countryAutocomplete.setCustomValidity('');
+            activeSuggestionIndex = -1;
+            renderSuggestions();
+        });
+
+        countryAutocomplete.addEventListener('focus', function() {
+            activeSuggestionIndex = -1;
+            renderSuggestions();
         });
 
         countryAutocomplete.addEventListener('change', function() {
             syncCountryCode(true);
+        });
+
+        countryAutocomplete.addEventListener('keydown', function(event) {
+            const filteredCountries = getFilteredCountries();
+
+            if (!filteredCountries.length) {
+                return;
+            }
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, filteredCountries.length - 1);
+                renderSuggestions();
+                return;
+            }
+
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, 0);
+                renderSuggestions();
+                return;
+            }
+
+            if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
+                event.preventDefault();
+                applySuggestionSelection(filteredCountries[activeSuggestionIndex], true);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                hideSuggestions();
+            }
+        });
+
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.country-autocomplete')) {
+                hideSuggestions();
+            }
         });
 
         if (countryForm) {
