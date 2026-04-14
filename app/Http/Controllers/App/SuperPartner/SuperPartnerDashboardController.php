@@ -4,8 +4,8 @@ namespace App\Http\Controllers\App\SuperPartner;
 
 use App\Http\Controllers\Controller;
 use App\Models\App\Beneficiario\Beneficiario;
-use App\Models\App\Cliente\Cliente;
 use App\Models\App\Transaction\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class SuperPartnerDashboardController extends Controller
@@ -67,30 +67,39 @@ class SuperPartnerDashboardController extends Controller
      */
     private function getDashboardData($superPartner, Request $request): array
     {
-        $partnerIds = $superPartner->beneficiarios()->pluck('id');
-
-        $totalPartners = $partnerIds->count();
-
-        $totalClientes = Cliente::whereIn('beneficiario_id', $partnerIds)->count();
-
-        $totalTransactions = Transaction::where(function ($builder) use ($partnerIds, $superPartner) {
-            $builder->whereIn('beneficiario_id', $partnerIds)
-                ->orWhere('super_partner_id', $superPartner->id);
-        })->count();
-
-        $unpaidTransactions = Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])
-            ->where('is_paid', false)
-            ->where(function ($builder) use ($partnerIds, $superPartner) {
-                $builder->whereIn('beneficiario_id', $partnerIds)
-                    ->orWhere('super_partner_id', $superPartner->id);
-            })
+        $partners = $superPartner->beneficiarios()
+            ->orderBy('nombre')
             ->get();
 
-        $totalFreeEsims = Transaction::where('purchase_amount', 0)
-            ->where(function ($builder) use ($partnerIds, $superPartner) {
-                $builder->whereIn('beneficiario_id', $partnerIds)
-                    ->orWhere('super_partner_id', $superPartner->id);
-            })
+        $partnerIds = $partners->pluck('id');
+
+        $totalPartners = $partners->count();
+
+        $transactionsQuery = $this->scopeTransactionsForSuperPartner(
+            Transaction::query(),
+            $partnerIds->all(),
+            $superPartner->id
+        );
+
+        $totalTransactions = (clone $transactionsQuery)->count();
+
+        $totalClientes = (clone $transactionsQuery)
+            ->whereNotNull('cliente_id')
+            ->distinct()
+            ->count('cliente_id');
+
+        $unpaidTransactions = $this->scopeTransactionsForSuperPartner(
+            Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])->where('is_paid', false),
+            $partnerIds->all(),
+            $superPartner->id
+        )
+            ->get();
+
+        $totalFreeEsims = $this->scopeTransactionsForSuperPartner(
+            Transaction::where('purchase_amount', 0),
+            $partnerIds->all(),
+            $superPartner->id
+        )
             ->count();
 
         $totalDebt = round($unpaidTransactions->sum(function (Transaction $transaction) {
@@ -99,14 +108,55 @@ class SuperPartnerDashboardController extends Controller
 
         $totalUnpaidTransactions = $unpaidTransactions->count();
 
+        $partnerTransactionSummary = Transaction::query()
+            ->selectRaw('beneficiario_id, COUNT(*) as total_transactions, COUNT(DISTINCT cliente_id) as total_clientes')
+            ->whereIn('beneficiario_id', $partnerIds)
+            ->groupBy('beneficiario_id')
+            ->get()
+            ->keyBy('beneficiario_id');
+
+        $partnerRows = $partners->map(function (Beneficiario $partner) use ($partnerTransactionSummary) {
+            $summary = $partnerTransactionSummary->get($partner->id);
+
+            return [
+                'id' => $partner->id,
+                'nombre' => $partner->nombre,
+                'clientes' => (int) ($summary->total_clientes ?? 0),
+                'transactions' => (int) ($summary->total_transactions ?? 0),
+                'codigo' => $partner->codigo,
+            ];
+        })->values();
+
         return [
             'nombre'             => $superPartner->nombre,
             'total_partners'     => $totalPartners,
-            'total_clientes'     => $totalClientes,
+            'total_clients_with_transactions' => $totalClientes,
             'total_transactions' => $totalTransactions,
             'total_free_esims'   => $totalFreeEsims,
             'total_unpaid_transactions' => $totalUnpaidTransactions,
             'total_debt'         => $totalDebt,
+            'related_partners'   => $partnerRows,
         ];
+    }
+
+    private function scopeTransactionsForSuperPartner(Builder $query, array $partnerIds, int $superPartnerId, bool $includeDirectSuperPartnerTransactions = true): Builder
+    {
+        return $query->where(function (Builder $builder) use ($partnerIds, $superPartnerId, $includeDirectSuperPartnerTransactions) {
+            if (!empty($partnerIds)) {
+                $builder->whereIn('beneficiario_id', $partnerIds);
+
+                if ($includeDirectSuperPartnerTransactions) {
+                    $builder->orWhere('super_partner_id', $superPartnerId);
+                }
+
+                return;
+            }
+
+            if ($includeDirectSuperPartnerTransactions) {
+                $builder->where('super_partner_id', $superPartnerId);
+            } else {
+                $builder->whereRaw('1 = 0');
+            }
+        });
     }
 }

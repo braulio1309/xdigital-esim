@@ -20,6 +20,11 @@ class CustomRoute extends HookContract
                     'route_name' => 'beneficiario.dashboard',
                     'route_params' => null
                 ];
+            } elseif ($user->user_type === 'super_partner') {
+                return [
+                    'route_name' => 'super-partner.dashboard',
+                    'route_params' => null
+                ];
             } elseif ($user->user_type === 'cliente') {
                 return [
                     'route_name' => 'cliente.dashboard',

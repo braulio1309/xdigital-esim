@@ -23,6 +23,10 @@ class AdminMetricsDashboardController extends Controller
      */
     public function index()
     {
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            return redirect()->route('super-partner.dashboard');
+        }
+
         return view('dashboard.admin-metrics');
     }
 
@@ -34,6 +38,12 @@ class AdminMetricsDashboardController extends Controller
      */
     public function getMetrics(Request $request)
     {
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            return response()->json([
+                'message' => 'Super partners must use their dedicated dashboard.',
+            ], 403);
+        }
+
         // Validate date parameters
         $request->validate([
             'start_date' => 'nullable|date',

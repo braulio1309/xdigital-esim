@@ -6,6 +6,7 @@ use App\Models\App\Cliente\Cliente;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
 use App\Services\App\AppService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -24,7 +25,11 @@ class ClienteService extends AppService
     public function save($options = [])
     {
         return DB::transaction(function () use ($options) {
-            $attributes = request()->all();
+            $attributes = count($options) ? $options : request()->all();
+
+            if (isset($attributes['email'])) {
+                $attributes['email'] = mb_strtolower(trim((string) $attributes['email']));
+            }
             
             // Create the cliente
             $cliente = parent::save($attributes);
@@ -49,7 +54,22 @@ class ClienteService extends AppService
     protected function createUserForCliente(Cliente $cliente, array $attributes)
     {
         // Use the cliente's email
-        $email = $cliente->email;
+        $email = mb_strtolower(trim((string) $cliente->email));
+
+        $existingUser = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($existingUser) {
+            if (!$existingUser->roles()->where('name', 'cliente')->exists()) {
+                $existingUser->assignRole('cliente');
+            }
+
+            if ($existingUser->user_type !== 'cliente') {
+                $existingUser->user_type = 'cliente';
+                $existingUser->save();
+            }
+
+            return $existingUser;
+        }
         
         // Use the provided password
         $password = $attributes['password'];

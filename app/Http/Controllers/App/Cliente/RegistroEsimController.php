@@ -367,10 +367,16 @@ class RegistroEsimController extends Controller
 
             // agrega la validacion de que si no encontro el cliente te mande tambien a la vista de planes, esto para evitar que alguien pueda usar un email existente para activar la eSIM gratuita
             if (!$existingCliente || !$existingCliente->can_activate_free_esim) {
-                return redirect()->back()
+                $routeParams = [];
+
+                if (!empty($validated['referralCode'])) {
+                    $routeParams['referralCode'] = $validated['referralCode'];
+                }
+
+                $routeParams['country'] = $selectedCountryCode;
+
+                return redirect()->route('planes.index', $routeParams)
                     ->with('error', 'No tienes permiso para activar una eSIM gratuita. Te mostramos los planes disponibles para el país que seleccionaste.')
-                    ->with('show_available_plans', true)
-                    ->with('selected_country', $selectedCountryCode)
                     ->withInput();
                 
             } 

@@ -6,7 +6,9 @@ use App\Filters\App\Cliente\ClienteFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Imports\App\ClienteImport;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Services\App\Cliente\ClienteService;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -83,19 +85,41 @@ class ClienteController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge([
+            'email' => mb_strtolower(trim((string) $request->input('email'))),
+        ]);
+
+        [$beneficiario, $superPartner, $partnerIds] = $this->resolveClientOwnershipContext();
+
         // Simply save the client without automatic eSIM activation
         // The flag can_activate_free_esim controls whether they can activate it later
         //Valida si es un beneficiario que lo esta creando, si es asi asigna el beneficiario_id del cliente al beneficiario del usuario
-        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
-            if ($beneficiario) {
+        if ($beneficiario) {
                 $request->merge(['beneficiario_id' => $beneficiario->id]);
-            }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+        } elseif ($superPartner) {
             // Para super_partner ya no asignamos automáticamente el cliente al
             // "primer beneficiario". Se creará sin beneficiario primario y,
             // opcionalmente, se podrá asociar por pivot si se requiere.
         }
+
+        if ($beneficiario || $superPartner) {
+            $existingCliente = Cliente::where('email', $request->input('email'))->first();
+
+            if ($existingCliente) {
+                $wasAlreadyVisible = $this->isClienteVisibleForCurrentNetwork($existingCliente, $beneficiario, $partnerIds);
+
+                $this->associateClienteToCurrentNetwork($existingCliente, $beneficiario, $partnerIds);
+
+                return response()->json([
+                    'status' => true,
+                    'message' => $wasAlreadyVisible
+                        ? 'El cliente ya existia y ya estaba visible para tu red.'
+                        : 'El cliente ya existia y ahora quedo asociado a tu red para que puedas verlo.',
+                    'data' => $existingCliente->load('beneficiario:id,nombre'),
+                ]);
+            }
+        }
+
         $request->merge(['type' => 'cliente']);
         $cliente = $this->service->save($request->all());
 
@@ -103,17 +127,81 @@ class ClienteController extends Controller
         // tabla pivot con todos sus beneficiarios, para que tanto el
         // super_partner como sus partners compartan ese cliente sin que
         // cuente como cliente "primario" de un solo partner.
-        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $partnerIds = $superPartner->beneficiarios()->pluck('id')->toArray();
-                if (!empty($partnerIds)) {
-                    $cliente->partners()->syncWithoutDetaching($partnerIds);
-                }
-            }
+        if ($superPartner && !empty($partnerIds)) {
+            $cliente->partners()->syncWithoutDetaching($partnerIds);
         }
 
         return created_responses('cliente');
+    }
+
+    private function resolveClientOwnershipContext(): array
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return [null, null, []];
+        }
+
+        if ($user->user_type === 'beneficiario') {
+            $beneficiario = Beneficiario::where('user_id', $user->id)->first();
+
+            return [$beneficiario, null, $beneficiario ? [$beneficiario->id] : []];
+        }
+
+        if ($user->user_type === 'super_partner') {
+            $superPartner = SuperPartner::where('user_id', $user->id)->first();
+            $partnerIds = $superPartner
+                ? $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
+                    return (int) $id;
+                })->all()
+                : [];
+
+            return [null, $superPartner, $partnerIds];
+        }
+
+        return [null, null, []];
+    }
+
+    private function isClienteVisibleForCurrentNetwork(Cliente $cliente, ?Beneficiario $beneficiario, array $partnerIds): bool
+    {
+        $networkPartnerIds = $this->normalizePartnerIds($beneficiario, $partnerIds);
+
+        if (empty($networkPartnerIds)) {
+            return false;
+        }
+
+        if ($cliente->beneficiario_id && in_array((int) $cliente->beneficiario_id, $networkPartnerIds, true)) {
+            return true;
+        }
+
+        return $cliente->partners()->whereIn('beneficiario_id', $networkPartnerIds)->exists();
+    }
+
+    private function associateClienteToCurrentNetwork(Cliente $cliente, ?Beneficiario $beneficiario, array $partnerIds): void
+    {
+        $networkPartnerIds = $this->normalizePartnerIds($beneficiario, $partnerIds);
+
+        if (empty($networkPartnerIds)) {
+            return;
+        }
+
+        $cliente->partners()->syncWithoutDetaching($networkPartnerIds);
+
+        if (!$cliente->beneficiario_id && $beneficiario) {
+            $cliente->beneficiario_id = $beneficiario->id;
+            $cliente->save();
+        }
+    }
+
+    private function normalizePartnerIds(?Beneficiario $beneficiario, array $partnerIds): array
+    {
+        $resolvedPartnerIds = $partnerIds;
+
+        if ($beneficiario) {
+            $resolvedPartnerIds[] = $beneficiario->id;
+        }
+
+        return array_values(array_unique(array_map('intval', array_filter($resolvedPartnerIds))));
     }
 
     /**

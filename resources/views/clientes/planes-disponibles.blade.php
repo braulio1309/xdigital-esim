@@ -224,8 +224,88 @@
     }
 
     .country-selector {
-        max-width: 300px;
+        max-width: 540px;
         margin: 0 auto 30px;
+    }
+
+    .country-flow-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin: 0 auto 18px;
+        max-width: 760px;
+        padding: 20px 22px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(24, 28, 54, 0.04) 0%, rgba(45, 156, 219, 0.10) 100%);
+        border: 1px solid rgba(24, 28, 54, 0.08);
+    }
+
+    .country-flow-kicker {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--nomad-blue);
+        margin-bottom: 6px;
+    }
+
+    .country-flow-title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--nomad-navy);
+    }
+
+    .country-flow-copy {
+        margin: 8px 0 0;
+        color: rgba(24, 28, 54, 0.72);
+        line-height: 1.6;
+    }
+
+    .country-flow-button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: var(--nomad-navy);
+        color: white;
+        font-weight: 700;
+        white-space: nowrap;
+        box-shadow: 0 14px 28px rgba(24, 28, 54, 0.14);
+    }
+
+    .country-flow-button:hover,
+    .country-flow-button:focus {
+        color: white;
+        text-decoration: none;
+        outline: none;
+    }
+
+    .country-current-selection {
+        margin-top: 12px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(45, 156, 219, 0.08);
+        color: var(--nomad-navy);
+    }
+
+    .country-current-selection strong {
+        display: block;
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+
+    .country-current-selection small,
+    .country-selection-hint {
+        display: block;
+        color: rgba(24, 28, 54, 0.7);
+        line-height: 1.5;
+    }
+
+    .country-selection-hint {
+        margin-top: 10px;
+        font-size: 0.88rem;
     }
 
     .country-search-input {
@@ -494,6 +574,16 @@
             max-width: 180px;
         }
 
+        .country-flow-card {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .country-flow-button {
+            width: 100%;
+            text-align: center;
+        }
+
         .brand-footnote {
             font-size: 0.68rem;
         }
@@ -570,6 +660,20 @@
                     @endif
 
                     <h2 class="page-title">Planes eSIM Disponibles</h2>
+
+                    <div class="country-flow-card">
+                        <div>
+                            <span class="country-flow-kicker">Comparar destinos</span>
+                            <h3 class="country-flow-title">Consulta precios para otro país sin salir de esta pantalla.</h3>
+                            <p class="country-flow-copy" v-if="selectedCountry">
+                                Estás viendo tarifas para <strong>@{{ displayedCountryName }}</strong>. Si quieres comparar otro destino, escríbelo abajo y selecciónalo de la lista.
+                            </p>
+                            <p class="country-flow-copy" v-else>
+                                Selecciona un país y te mostramos primero las opciones más claras para comparar precio y capacidad.
+                            </p>
+                        </div>
+                        <button type="button" class="country-flow-button" @click="focusCountrySelector">Elegir otro país</button>
+                    </div>
                     
                     {{-- Selector de país --}}
                     <div class="country-selector">
@@ -601,7 +705,12 @@
                                 <div v-else class="country-suggestion-empty">No encontramos paises con ese criterio.</div>
                             </div>
                         </div>
-                        <small class="form-text text-muted mt-2">Empieza a escribir para autocompletar y cargar planes mas rapido.</small>
+                        <div v-if="selectedCountry" class="country-current-selection">
+                            <strong>@{{ displayedCountryName }}</strong>
+                            <small>Los precios mostrados corresponden a este destino. Selecciona otro país para actualizar la comparación.</small>
+                        </div>
+                        <small v-if="hasPendingCountrySelection" class="country-selection-hint">Selecciona una opción de la lista para actualizar los precios.</small>
+                        <small class="form-text text-muted mt-2">Empieza a escribir para autocompletar. Mantendremos los planes actuales visibles hasta que elijas un nuevo país.</small>
                     </div>
 
                     {{-- Mensajes informativos --}}
@@ -877,6 +986,7 @@ document.addEventListener('DOMContentLoaded', function() {
         el: '#planes-disponibles-app',
         data: {
             selectedCountry: '',
+            selectedCountryLabel: '',
             countryAutocomplete: '',
             showCountrySuggestions: false,
             activeCountrySuggestionIndex: -1,
@@ -905,6 +1015,15 @@ document.addEventListener('DOMContentLoaded', function() {
             errorMessage: ''
         },
         computed: {
+            displayedCountryName() {
+                return this.selectedCountryLabel || this.countryAutocomplete || '';
+            },
+            hasPendingCountrySelection() {
+                const typedValue = (this.countryAutocomplete || '').trim().toLowerCase();
+                const selectedLabel = (this.selectedCountryLabel || '').trim().toLowerCase();
+
+                return !!typedValue && typedValue !== selectedLabel;
+            },
             filteredCountryOptions() {
                 const typedValue = (this.countryAutocomplete || '').trim().toLowerCase();
 
@@ -936,6 +1055,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (initialCountry) {
                 this.selectedCountry = initialCountry;
+                this.selectedCountryLabel = initialCountryLabel;
                 this.countryAutocomplete = initialCountryLabel;
                 this.loadPlans();
             }
@@ -957,8 +1077,6 @@ document.addEventListener('DOMContentLoaded', function() {
             handleCountryAutocompleteInput() {
                 this.showCountrySuggestions = true;
                 this.activeCountrySuggestionIndex = -1;
-                this.selectedCountry = '';
-                this.plans = [];
             },
             moveCountrySuggestion(direction) {
                 if (!this.showCountrySuggestions) {
@@ -1006,20 +1124,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 this.countryAutocomplete = country.name;
+                this.selectedCountryLabel = country.name;
 
                 if (this.selectedCountry === country.code) {
+                    this.syncBrowserCountry(country.code);
                     this.hideCountrySuggestions();
                     return;
                 }
 
                 this.selectedCountry = country.code;
+                this.syncBrowserCountry(country.code);
                 this.hideCountrySuggestions();
                 this.loadPlans();
+            },
+            focusCountrySelector() {
+                const input = document.getElementById('planes-country-autocomplete');
+
+                if (!input) {
+                    return;
+                }
+
+                input.focus();
+                input.select();
+                this.openCountrySuggestions();
             },
             handleOutsideCountryClick(event) {
                 if (!event.target.closest('.country-autocomplete')) {
                     this.hideCountrySuggestions();
                 }
+            },
+            syncBrowserCountry(countryCode) {
+                if (!window.history || !window.history.replaceState) {
+                    return;
+                }
+
+                const nextUrl = new URL(window.location.href);
+
+                if (countryCode) {
+                    nextUrl.searchParams.set('country', countryCode);
+                } else {
+                    nextUrl.searchParams.delete('country');
+                }
+
+                window.history.replaceState({}, '', nextUrl.toString());
             },
             async checkAuth() {
                 try {
