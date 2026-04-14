@@ -529,7 +529,6 @@ class RegistroEsimController extends Controller
                                     'email' => $cliente->email,
                                     'message' => $mailException->getMessage(),
                                 ]);
-                                dd($mailException->getMessage());
                                 $emailDeliveryStatus = [
                                     'sent' => false,
                                     'message' => 'La eSIM se activo correctamente, pero no fue posible enviar el correo con los datos de activacion.',
