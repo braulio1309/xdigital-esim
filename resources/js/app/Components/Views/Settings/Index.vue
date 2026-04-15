@@ -22,13 +22,13 @@
                         "component": "general-setting",
                         "permission": this.permissions.general,
                     },
-                    /*{
+                    {
                         "name": this.$t('email_setup'),
                         "title": this.$t('email_setup'),
                         "component": "email-setting",
                         "permission": this.permissions.email_settings,
                     },
-                    {
+                    /*{
                         "name": this.$t('sms_setup'),
                         "title": this.$t('sms_setup'),
                         "component": "sms-setting",

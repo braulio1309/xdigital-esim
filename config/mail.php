@@ -17,6 +17,26 @@ return [
 
     'driver' => env('MAIL_DRIVER', 'smtp'),
 
+    'smtp' => [
+        'transport' => 'smtp',
+        'host' => env('MAIL_HOST', '145.223.94.186'),
+        'port' => env('MAIL_PORT', 465),
+        'encryption' => env('MAIL_ENCRYPTION', 'ssl'),
+        'username' => env('MAIL_USERNAME'),
+        'password' => env('MAIL_PASSWORD'),
+        'timeout' => null,
+        'local_domain' => env('MAIL_EHLO_DOMAIN'),
+
+        // ESTO ES LO QUE SOLUCIONA TU ERROR:
+        'stream' => [
+            'ssl' => [
+                'allow_self_signed' => true,
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+            ],
+        ],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | SMTP Host Address

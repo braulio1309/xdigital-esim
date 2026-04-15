@@ -508,10 +508,10 @@ class RegistroEsimController extends Controller
                                 'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
                                 'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
                             ];
+                           
 
                             try {
-                                $cachedMailSettings = cache()->get('app-delivery-settings');
-
+                                
 
                                 Mail::to($cliente->email)->send(new EsimActivationMail(
                                     $esimDataView,
@@ -519,9 +519,14 @@ class RegistroEsimController extends Controller
                                     $brandingContext['brandPartner']->nombre ?? null
                                 ));
 
+                                Log::info('Correo de activacion de eSIM enviado.', [
+                                    'cliente_id' => $cliente->id,
+                                    'email' => $cliente->email,
+                                ]);
+
                                 $emailDeliveryStatus = [
                                     'sent' => true,
-                                    'message' => 'Se ha enviado por correo los datos para activar la eSIM.',
+                                    'message' => 'Se ha enviado por correo los datos para activar la eSIM. Revisa tambien la carpeta de spam.',
                                 ];
                             } catch (\Throwable $mailException) {
                                 Log::error('No fue posible enviar el correo de activacion de eSIM.', [
