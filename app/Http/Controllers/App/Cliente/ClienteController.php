@@ -219,26 +219,39 @@ class ClienteController extends Controller
         ]);
 
         $beneficiarioId = null;
+        $partnerIds = [];
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
                 $beneficiarioId = $beneficiario->id;
+                $partnerIds = [$beneficiario->id];
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner' && $request->filled('beneficiario_id')) {
             // Super partner must specify a valid beneficiario from their partners
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
+                    return (int) $id;
+                })->all();
                 $requestedId = (int) $request->input('beneficiario_id');
                 $ownsPartner = $superPartner->beneficiarios()->where('id', $requestedId)->exists();
                 if ($ownsPartner) {
                     $beneficiarioId = $requestedId;
                 }
             }
+        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if ($superPartner) {
+                $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
+                    return (int) $id;
+                })->all();
+            }
         } elseif ($request->filled('beneficiario_id')) {
             $beneficiarioId = $request->input('beneficiario_id');
+            $partnerIds = [(int) $beneficiarioId];
         }
 
-        $import = new ClienteImport($beneficiarioId, (int) $request->input('free_esim_capacity'));
+        $import = new ClienteImport($beneficiarioId, $partnerIds, (int) $request->input('free_esim_capacity'));
         Excel::import($import, $request->file('file'));
 
         return response()->json([

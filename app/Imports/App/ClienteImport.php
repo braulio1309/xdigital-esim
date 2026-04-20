@@ -15,15 +15,17 @@ use Illuminate\Support\Str;
 class ClienteImport implements ToCollection, WithHeadingRow
 {
     protected $beneficiarioId;
+    protected $partnerIds;
     protected $freeEsimCapacity;
     protected $imported = 0;
     protected $skipped = 0;
     protected $errors = [];
     protected $skippedDetails = [];
 
-    public function __construct($beneficiarioId = null, $freeEsimCapacity = null)
+    public function __construct($beneficiarioId = null, array $partnerIds = [], $freeEsimCapacity = null)
     {
         $this->beneficiarioId = $beneficiarioId;
+        $this->partnerIds = array_values(array_unique(array_map('intval', array_filter($partnerIds))));
         $this->freeEsimCapacity = $freeEsimCapacity;
     }
 
@@ -135,7 +137,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
                         throw new \Exception("El email {$email} pertenece a un usuario de otro tipo ({$user->user_type}).");
                     }
 
-                    Cliente::create([
+                    $cliente = Cliente::create([
                         'nombre'                 => $nombre,
                         'apellido'               => $apellido,
                         'identificador'          => $identificador,
@@ -145,6 +147,10 @@ class ClienteImport implements ToCollection, WithHeadingRow
                         'can_activate_free_esim' => true,
                         'free_esim_capacity'     => $this->freeEsimCapacity,
                     ]);
+
+                    if (!empty($this->partnerIds)) {
+                        $cliente->partners()->syncWithoutDetaching($this->partnerIds);
+                    }
                 });
 
                 $this->imported++;
