@@ -16,17 +16,19 @@ class ClienteImport implements ToCollection, WithHeadingRow
 {
     protected $beneficiarioId;
     protected $partnerIds;
+    protected $superPartnerId;
     protected $freeEsimCapacity;
     protected $imported = 0;
     protected $skipped = 0;
     protected $errors = [];
     protected $skippedDetails = [];
 
-    public function __construct($beneficiarioId = null, array $partnerIds = [], $freeEsimCapacity = null)
+    public function __construct($beneficiarioId = null, array $partnerIds = [], $freeEsimCapacity = null, $superPartnerId = null)
     {
         $this->beneficiarioId = $beneficiarioId;
         $this->partnerIds = array_values(array_unique(array_map('intval', array_filter($partnerIds))));
         $this->freeEsimCapacity = $freeEsimCapacity;
+        $this->superPartnerId = $superPartnerId ? (int) $superPartnerId : null;
     }
 
     protected function resolveUserStatusId(): int
@@ -130,6 +132,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
                             'password'   => Hash::make($password),
                             'user_type'  => 'cliente',
                             'status_id'  => $this->resolveUserStatusId(),
+                            'super_partner_id' => $this->superPartnerId,
                         ]);
                         $user->assignRole('cliente');
                     } elseif ($user->user_type !== 'cliente') {

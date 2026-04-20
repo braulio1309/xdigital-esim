@@ -58,11 +58,16 @@ class ClienteController extends Controller
 
                 // A super_partner ve todos los clientes de sus partners, tanto
                 // los asignados directamente (beneficiario_id) como los
-                // asociados vía pivot (cliente_beneficiario).
-                $query = $query->where(function ($q) use ($partnerIds) {
+                // asociados vía pivot (cliente_beneficiario). Si todavía no
+                // tiene partners, también ve los clientes cuyo usuario quedó
+                // marcado directamente con su super_partner_id.
+                $query = $query->where(function ($q) use ($partnerIds, $superPartner) {
                     $q->whereIn('beneficiario_id', $partnerIds)
                       ->orWhereHas('partners', function ($partnerQuery) use ($partnerIds) {
                           $partnerQuery->whereIn('beneficiario_id', $partnerIds);
+                      })
+                      ->orWhereHas('user', function ($userQuery) use ($superPartner) {
+                          $userQuery->where('super_partner_id', $superPartner->id);
                       });
                 });
             }
@@ -97,6 +102,7 @@ class ClienteController extends Controller
         if ($beneficiario) {
                 $request->merge(['beneficiario_id' => $beneficiario->id]);
         } elseif ($superPartner) {
+            $request->merge(['super_partner_id' => $superPartner->id]);
             // Para super_partner ya no asignamos automáticamente el cliente al
             // "primer beneficiario". Se creará sin beneficiario primario y,
             // opcionalmente, se podrá asociar por pivot si se requiere.
@@ -220,16 +226,19 @@ class ClienteController extends Controller
 
         $beneficiarioId = null;
         $partnerIds = [];
+        $superPartnerId = null;
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
                 $beneficiarioId = $beneficiario->id;
                 $partnerIds = [$beneficiario->id];
+                $superPartnerId = $beneficiario->super_partner_id ? (int) $beneficiario->super_partner_id : null;
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner' && $request->filled('beneficiario_id')) {
             // Super partner must specify a valid beneficiario from their partners
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
+                $superPartnerId = (int) $superPartner->id;
                 $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
                     return (int) $id;
                 })->all();
@@ -242,6 +251,7 @@ class ClienteController extends Controller
         } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
+                $superPartnerId = (int) $superPartner->id;
                 $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
                     return (int) $id;
                 })->all();
@@ -249,9 +259,13 @@ class ClienteController extends Controller
         } elseif ($request->filled('beneficiario_id')) {
             $beneficiarioId = $request->input('beneficiario_id');
             $partnerIds = [(int) $beneficiarioId];
+            $selectedBeneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
+            $superPartnerId = $selectedBeneficiario && $selectedBeneficiario->super_partner_id
+                ? (int) $selectedBeneficiario->super_partner_id
+                : null;
         }
 
-        $import = new ClienteImport($beneficiarioId, $partnerIds, (int) $request->input('free_esim_capacity'));
+        $import = new ClienteImport($beneficiarioId, $partnerIds, (int) $request->input('free_esim_capacity'), $superPartnerId);
         Excel::import($import, $request->file('file'));
 
         return response()->json([

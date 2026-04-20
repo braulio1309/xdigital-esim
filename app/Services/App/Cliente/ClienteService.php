@@ -55,6 +55,7 @@ class ClienteService extends AppService
     {
         // Use the cliente's email
         $email = mb_strtolower(trim((string) $cliente->email));
+        $superPartnerId = !empty($attributes['super_partner_id']) ? (int) $attributes['super_partner_id'] : null;
 
         $existingUser = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
@@ -84,6 +85,7 @@ class ClienteService extends AppService
             'password'   => Hash::make($password),
             'user_type'  => 'cliente',
             'status_id'  => $status->id,
+            'super_partner_id' => $superPartnerId,
         ]);
         $user->assignRole('cliente');
         
