@@ -19,6 +19,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
     protected $imported = 0;
     protected $skipped = 0;
     protected $errors = [];
+    protected $skippedDetails = [];
 
     public function __construct($beneficiarioId = null, $freeEsimCapacity = null)
     {
@@ -44,9 +45,24 @@ class ClienteImport implements ToCollection, WithHeadingRow
         return (int) $status->id;
     }
 
+    protected function registerSkippedRow(int $rowNumber, array $payload, string $reason): void
+    {
+        $this->skipped++;
+        $this->skippedDetails[] = [
+            'row' => $rowNumber,
+            'nombre' => $payload['nombre'] ?? '',
+            'apellido' => $payload['apellido'] ?? '',
+            'identificador' => $payload['identificador'] ?? '',
+            'email' => $payload['email'] ?? '',
+            'reason' => $reason,
+        ];
+    }
+
     public function collection(Collection $rows)
     {
-        foreach ($rows as $row) {
+        foreach ($rows as $index => $row) {
+            $rowNumber = (int) $index + 2;
+
             // --- NORMALIZACIÓN DE LLAVES ---
             // Convertimos todas las llaves a "slug" (ej: "Nombre Completo" -> "nombre_completo")
             $row = $row->mapWithKeys(function ($value, $key) {
@@ -65,17 +81,35 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 ?? $row['passport']
                 ?? ''
             );
-            $email    = trim($row['email'] ?? $row['correo'] ?? $row['e_mail'] ?? $row['Email'] ?? $row['Correo'] ?? '');
+            $email    = mb_strtolower(trim((string) ($row['email'] ?? $row['correo'] ?? $row['e_mail'] ?? $row['Email'] ?? $row['Correo'] ?? '')));
+            $rowPayload = [
+                'nombre' => $nombre,
+                'apellido' => $apellido,
+                'identificador' => $identificador,
+                'email' => $email,
+            ];
 
             // --- LÓGICA ORIGINAL ---
-            if (empty($nombre) || empty($email) || empty($identificador)) {
-                $this->skipped++;
-                continue;
+            $missingFields = [];
+
+            if (empty($nombre)) {
+                $missingFields[] = 'nombre';
             }
 
-            // Skip if email already exists as a cliente
-            if (Cliente::where('email', $email)->exists()) {
-                $this->skipped++;
+            if (empty($identificador)) {
+                $missingFields[] = 'identificador';
+            }
+
+            if (empty($email)) {
+                $missingFields[] = 'email';
+            }
+
+            if (!empty($missingFields)) {
+                $this->registerSkippedRow(
+                    $rowNumber,
+                    $rowPayload,
+                    'Faltan columnas o valores obligatorios: ' . implode(', ', $missingFields)
+                );
                 continue;
             }
 
@@ -83,8 +117,8 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 DB::transaction(function () use ($nombre, $apellido, $identificador, $email) {
                     $password = $nombre . '123*';
 
-                    // Skip if user with this email already exists
-                    $user = User::where('email', $email)->first();
+                    // Reuse the auth user if the email already exists there, but always create the cliente row.
+                    $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
                     if (!$user) {
                         $user = User::create([
@@ -115,8 +149,8 @@ class ClienteImport implements ToCollection, WithHeadingRow
 
                 $this->imported++;
             } catch (\Exception $e) {
-                $this->skipped++;
                 $this->errors[] = "Error al importar {$email}: " . $e->getMessage();
+                $this->registerSkippedRow($rowNumber, $rowPayload, $e->getMessage());
             }
         }
     }
@@ -134,5 +168,10 @@ class ClienteImport implements ToCollection, WithHeadingRow
     public function getErrors(): array
     {
         return $this->errors;
+    }
+
+    public function getSkippedDetails(): array
+    {
+        return $this->skippedDetails;
     }
 }

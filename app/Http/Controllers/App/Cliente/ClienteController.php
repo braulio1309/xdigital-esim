@@ -102,24 +102,6 @@ class ClienteController extends Controller
             // opcionalmente, se podrá asociar por pivot si se requiere.
         }
 
-        if ($beneficiario || $superPartner) {
-            $existingCliente = Cliente::where('email', $request->input('email'))->first();
-
-            if ($existingCliente) {
-                $wasAlreadyVisible = $this->isClienteVisibleForCurrentNetwork($existingCliente, $beneficiario, $partnerIds);
-
-                $this->associateClienteToCurrentNetwork($existingCliente, $beneficiario, $partnerIds);
-
-                return response()->json([
-                    'status' => true,
-                    'message' => $wasAlreadyVisible
-                        ? 'El cliente ya existia y ya estaba visible para tu red.'
-                        : 'El cliente ya existia y ahora quedo asociado a tu red para que puedas verlo.',
-                    'data' => $existingCliente->load('beneficiario:id,nombre'),
-                ]);
-            }
-        }
-
         $request->merge(['type' => 'cliente']);
         $cliente = $this->service->save($request->all());
 
@@ -161,49 +143,6 @@ class ClienteController extends Controller
 
         return [null, null, []];
     }
-
-    private function isClienteVisibleForCurrentNetwork(Cliente $cliente, ?Beneficiario $beneficiario, array $partnerIds): bool
-    {
-        $networkPartnerIds = $this->normalizePartnerIds($beneficiario, $partnerIds);
-
-        if (empty($networkPartnerIds)) {
-            return false;
-        }
-
-        if ($cliente->beneficiario_id && in_array((int) $cliente->beneficiario_id, $networkPartnerIds, true)) {
-            return true;
-        }
-
-        return $cliente->partners()->whereIn('beneficiario_id', $networkPartnerIds)->exists();
-    }
-
-    private function associateClienteToCurrentNetwork(Cliente $cliente, ?Beneficiario $beneficiario, array $partnerIds): void
-    {
-        $networkPartnerIds = $this->normalizePartnerIds($beneficiario, $partnerIds);
-
-        if (empty($networkPartnerIds)) {
-            return;
-        }
-
-        $cliente->partners()->syncWithoutDetaching($networkPartnerIds);
-
-        if (!$cliente->beneficiario_id && $beneficiario) {
-            $cliente->beneficiario_id = $beneficiario->id;
-            $cliente->save();
-        }
-    }
-
-    private function normalizePartnerIds(?Beneficiario $beneficiario, array $partnerIds): array
-    {
-        $resolvedPartnerIds = $partnerIds;
-
-        if ($beneficiario) {
-            $resolvedPartnerIds[] = $beneficiario->id;
-        }
-
-        return array_values(array_unique(array_map('intval', array_filter($resolvedPartnerIds))));
-    }
-
     /**
      * Display the specified resource.
      *
@@ -307,6 +246,7 @@ class ClienteController extends Controller
             'imported' => $import->getImported(),
             'skipped'  => $import->getSkipped(),
             'errors'   => $import->getErrors(),
+            'skipped_details' => $import->getSkippedDetails(),
         ]);
     }
 }

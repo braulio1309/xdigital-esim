@@ -2,9 +2,6 @@
 
 namespace App\Http\Requests\App;
 
-use App\Models\App\Cliente\Cliente;
-use Illuminate\Validation\Rule;
-
 class ClienteRequest extends AppRequest
 {
     protected function prepareForValidation()
@@ -23,24 +20,13 @@ class ClienteRequest extends AppRequest
      */
     public function rules()
     {
-        $clienteId = $this->route('cliente') ? $this->route('cliente')->id : null;
         $isCreate = $this->isMethod('post');
-        $user = auth()->user();
-        $canAssociateExistingClient = $isCreate
-            && $user
-            && in_array($user->user_type, ['beneficiario', 'super_partner'], true);
 
-        $emailRules = ['required', 'email', 'max:255'];
-
-        if (!$canAssociateExistingClient) {
-            $emailRules[] = Rule::unique('clientes', 'email')->ignore($clienteId);
-        }
-        
         return [
             'nombre'   => 'required|string|max:255',
             'apellido' => 'required|string|max:255',
             'identificador' => 'required|string|max:255',
-            'email'    => $emailRules,
+            'email'    => ['required', 'email', 'max:255'],
             'password' => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
         ];
     }

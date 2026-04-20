@@ -333,6 +333,7 @@ class RegistroEsimController extends Controller
                 'country_code' => 'required|string|max:2',
                 'referralCode' => 'nullable|string'
             ]);
+            $validated['email'] = mb_strtolower(trim((string) $validated['email']));
 
             // Buscar referralCode si existe (para usarlo en la vista)
             $brandingContext = $this->resolveBrandingContext($validated['referralCode'] ?? null);
@@ -357,9 +358,23 @@ class RegistroEsimController extends Controller
             // 2. Verificar si el email ya existe
             //
 
-            $existingCliente = Cliente::where('email', $validated['email'])->first();
+            $clientesWithSameEmail = Cliente::query()
+                ->whereRaw('LOWER(email) = ?', [$validated['email']]);
 
-            if ($existingCliente && !empty($existingCliente->identificador) && $existingCliente->identificador !== $validated['identificador']) {
+            $existingCliente = (clone $clientesWithSameEmail)
+                ->where('identificador', $validated['identificador'])
+                ->first();
+
+            if (!$existingCliente) {
+                $existingCliente = (clone $clientesWithSameEmail)
+                    ->where(function ($query) {
+                        $query->whereNull('identificador')
+                            ->orWhere('identificador', '');
+                    })
+                    ->first();
+            }
+
+            if (!$existingCliente && $clientesWithSameEmail->exists()) {
                 return redirect()->back()
                     ->with('error', 'El identificador ingresado no coincide con el registrado para este cliente.')
                     ->withInput();

@@ -57,6 +57,31 @@
                         <ul v-if="result.errors && result.errors.length" class="list-unstyled text-danger small">
                             <li v-for="(err, i) in result.errors" :key="i">{{ err }}</li>
                         </ul>
+                        <div v-if="result.skipped_details && result.skipped_details.length" class="mt-3">
+                            <h6 class="mb-2 text-danger">Filas omitidas</h6>
+                            <div class="table-responsive border rounded">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead>
+                                    <tr>
+                                        <th>Fila</th>
+                                        <th>Nombre</th>
+                                        <th>Identificador</th>
+                                        <th>Email</th>
+                                        <th>Motivo</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr v-for="(item, index) in result.skipped_details" :key="`${item.row}-${index}`">
+                                        <td>{{ item.row }}</td>
+                                        <td>{{ item.nombre || item.apellido ? `${item.nombre || ''} ${item.apellido || ''}`.trim() : '-' }}</td>
+                                        <td>{{ item.identificador || '-' }}</td>
+                                        <td>{{ item.email || '-' }}</td>
+                                        <td class="text-danger">{{ item.reason }}</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -117,6 +142,9 @@
                     }
                     this.file = null;
                 }).catch(error => {
+                    if (error.response?.data) {
+                        this.result = error.response.data;
+                    }
                     this.$toastr.e(error.response?.data?.message || this.$t('error_importing_clients') || 'Error al importar clientes.');
                 }).finally(() => {
                     this.preloader = false;
