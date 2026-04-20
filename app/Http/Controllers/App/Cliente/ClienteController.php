@@ -10,6 +10,7 @@ use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Services\App\Cliente\ClienteService;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ClienteController extends Controller
@@ -67,7 +68,7 @@ class ClienteController extends Controller
                           $partnerQuery->whereIn('beneficiario_id', $partnerIds);
                       })
                       ->orWhereHas('user', function ($userQuery) use ($superPartner) {
-                          $userQuery->where('super_partner_id', $superPartner->id);
+                          $userQuery->where('created_by', Auth::user()->id);
                       });
                 });
             }
