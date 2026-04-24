@@ -60,7 +60,7 @@ class CountryTariffHelper
             ['code' => 'CM', 'name' => 'Cameroon', 'region' => 'Africa', 'tier' => 'Lilac', 'price' => 4.64],
             ['code' => 'CD', 'name' => 'Congo, (DRC)', 'region' => 'Africa', 'tier' => 'Sapphire', 'price' => 3.50],
             ['code' => 'CG', 'name' => 'Congo, Republic', 'region' => 'Africa', 'tier' => 'Lilac', 'price' => 4.64],
-            ['code' => 'CO', 'name' => 'Colombia', 'region' => 'Latin America', 'tier' => 'Green', 'price' => 2.50],
+            ['code' => 'CO', 'name' => 'Colombia', 'region' => 'Latin America', 'tier' => 'Green', 'price' => 0.6],
             ['code' => 'CV', 'name' => 'Cape Verde', 'region' => 'Africa', 'tier' => 'Green', 'price' => 5.63],
             ['code' => 'CR', 'name' => 'Costa Rica', 'region' => 'Latin America', 'tier' => 'Green', 'price' => 1.63],
             ['code' => 'CU', 'name' => 'Cuba', 'region' => 'Latin America', 'tier' => 'Lilac', 'price' => 16.34],
