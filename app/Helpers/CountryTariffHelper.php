@@ -8,6 +8,7 @@ class CountryTariffHelper
      * Maximum tariff threshold for affordable countries
      */
     const AFFORDABLE_TARIFF_THRESHOLD = 0.67;
+    const FREE_ESIM_OVERRIDE_COUNTRY_CODES = ['CO'];
     const OTHER_COUNTRY_CODE = 'OT';
 
     /**
@@ -205,8 +206,23 @@ class CountryTariffHelper
     public static function getAffordableCountries()
     {
         return array_filter(self::getAllCountries(), function($country) {
-            return $country['price'] <= self::AFFORDABLE_TARIFF_THRESHOLD;
+            return self::qualifiesForFreeEsim($country);
         });
+    }
+
+    /**
+     * Determine whether a country entry qualifies for the free eSIM flow.
+     */
+    private static function qualifiesForFreeEsim(array $country): bool
+    {
+        $countryCode = strtoupper((string) ($country['code'] ?? ''));
+
+        if (in_array($countryCode, self::FREE_ESIM_OVERRIDE_COUNTRY_CODES, true)) {
+            return true;
+        }
+
+        return isset($country['price'])
+            && (float) $country['price'] <= self::AFFORDABLE_TARIFF_THRESHOLD;
     }
 
     /**
@@ -234,11 +250,11 @@ class CountryTariffHelper
     {
         $country = self::getCountryByCode($code);
 
-        if (!$country || !isset($country['price'])) {
+        if (!$country) {
             return false;
         }
 
-        return (float) $country['price'] <= self::AFFORDABLE_TARIFF_THRESHOLD;
+        return self::qualifiesForFreeEsim($country);
     }
 
     /**
