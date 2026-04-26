@@ -277,6 +277,149 @@
         font-size: 1rem;
         margin-bottom: 4px;
     }
+
+    .compatibility-link-wrap {
+        margin-top: 14px;
+        text-align: center;
+    }
+
+    .compatibility-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: var(--xcertus-purple);
+        text-decoration: none;
+    }
+
+    .compatibility-link:hover,
+    .compatibility-link:focus {
+        color: var(--nomad-navy);
+        text-decoration: none;
+    }
+
+    .compatibility-modal .modal-dialog {
+        max-width: 860px;
+    }
+
+    .compatibility-modal .modal-header {
+        background: linear-gradient(90deg, var(--nomad-navy) 0%, var(--xcertus-purple) 100%);
+        color: #fff;
+    }
+
+    .compatibility-modal .modal-body {
+        max-height: 72vh;
+        overflow-y: auto;
+        background: linear-gradient(180deg, rgba(45, 156, 219, 0.04) 0%, rgba(255, 255, 255, 1) 28%);
+    }
+
+    .compatibility-intro {
+        color: rgba(24, 28, 54, 0.72);
+        font-size: 0.92rem;
+        margin-bottom: 18px;
+    }
+
+    .compatibility-group {
+        border: 1px solid rgba(24, 28, 54, 0.12);
+        border-radius: 16px;
+        background: #fff;
+        margin-bottom: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 24px rgba(24, 28, 54, 0.06);
+    }
+
+    .compatibility-summary {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        font-weight: 700;
+        color: var(--nomad-navy);
+        text-align: left;
+    }
+
+    .compatibility-summary:focus {
+        outline: none;
+        box-shadow: inset 0 0 0 2px rgba(45, 156, 219, 0.2);
+    }
+
+    .compatibility-summary::after {
+        content: '+';
+        font-size: 1.35rem;
+        line-height: 1;
+        color: var(--xcertus-purple);
+        flex-shrink: 0;
+        transition: transform 0.28s ease, color 0.28s ease;
+    }
+
+    .compatibility-group.is-open .compatibility-summary::after {
+        transform: rotate(45deg);
+        color: var(--nomad-navy);
+    }
+
+    .compatibility-count {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: rgba(24, 28, 54, 0.54);
+        white-space: nowrap;
+    }
+
+    .compatibility-content {
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-height 0.35s ease, opacity 0.25s ease;
+    }
+
+    .compatibility-group.is-open .compatibility-content {
+        opacity: 1;
+    }
+
+    .compatibility-content-inner {
+        padding: 0 18px 18px;
+    }
+
+    .compatibility-model-list {
+        margin: 0;
+        padding-left: 18px;
+        color: rgba(24, 28, 54, 0.82);
+        columns: 2;
+        column-gap: 24px;
+    }
+
+    .compatibility-model-list li {
+        break-inside: avoid;
+        margin-bottom: 6px;
+    }
+
+    .compatibility-note {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(24, 28, 54, 0.05);
+    }
+
+    .compatibility-note h6 {
+        margin-bottom: 8px;
+        font-weight: 700;
+        color: var(--nomad-navy);
+    }
+
+    .compatibility-note p,
+    .compatibility-note li {
+        margin-bottom: 6px;
+        color: rgba(24, 28, 54, 0.72);
+    }
+
+    .compatibility-note ul {
+        margin: 0;
+        padding-left: 18px;
+    }
     
     @media (max-width: 576px) {
         .auth-form-light { padding: 2rem 1.5rem !important; }
@@ -284,6 +427,11 @@
         .logo-partner { max-height: 45px; }
         .brand-footnote { font-size: 0.68rem; }
         .inline-plans-panel { padding: 18px; }
+        .compatibility-model-list { columns: 1; }
+        .compatibility-summary {
+            flex-direction: column;
+            align-items: flex-start;
+        }
     }
 </style>
 
@@ -308,6 +456,160 @@
             'price' => $country['price'] ?? null,
         ];
     })->values()->all();
+    $compatibleDeviceBrands = [
+        [
+            'brand' => 'Apple',
+            'models' => [
+                'iPhone Air', 'iPhone 17 Pro Max', 'iPhone 17 Pro', 'iPhone 17', 'iPhone 16e', 'iPhone 16 Pro Max',
+                'iPhone 16 Plus', 'iPhone 16 Pro', 'iPhone 16', 'iPhone 15 Pro Max', 'iPhone 15 Plus', 'iPhone 15 Pro',
+                'iPhone 15', 'iPhone 14 Pro Max', 'iPhone 14 Plus', 'iPhone 14 Pro', 'iPhone 14', 'iPhone SE 3 (2022)',
+                'iPhone 13 Pro Max', 'iPhone 13 Pro', 'iPhone 13 Mini', 'iPhone 13', 'iPhone 12 Pro Max', 'iPhone 12 Pro',
+                'iPhone 12 Mini', 'iPhone 12', 'iPhone SE 2 (2020)', 'iPhone 11 Pro Max', 'iPhone 11 Pro', 'iPhone 11',
+                'iPhone XS Max', 'iPhone XS', 'iPhone XR',
+            ],
+            'note' => [
+                'title' => 'Importante',
+                'paragraphs' => [
+                    'Los iPhone vendidos en China continental no son compatibles con eSIM, y solo algunos modelos vendidos en Hong Kong y Macao la admiten. Si compraste tu iPhone en alguno de esos mercados, verifica la compatibilidad antes de instalarla.',
+                ],
+            ],
+        ],
+        [
+            'brand' => 'Google',
+            'models' => [
+                'Google Pixel 10 Pro XL', 'Google Pixel 10 Pro', 'Google Pixel 10', 'Google Pixel 9 Pro Fold', 'Google Pixel 9 Pro XL',
+                'Google Pixel 9 Pro', 'Google Pixel 9', 'Google Pixel 9a', 'Google Pixel Fold', 'Google Pixel 8 Pro', 'Google Pixel 8',
+                'Google Pixel 8a', 'Google Pixel 7 Pro', 'Google Pixel 7', 'Google Pixel 7a', 'Google Pixel 6 Pro', 'Google Pixel 6a',
+                'Google Pixel 6', 'Google Pixel 5a', 'Google Pixel 5', 'Google Pixel 4 XL', 'Google Pixel 4a', 'Google Pixel 4',
+                'Google Pixel 3a XL', 'Google Pixel 3a', 'Google Pixel 3 XL', 'Google Pixel 3', 'Google Pixel 2 XL', 'Google Pixel 2',
+            ],
+            'note' => [
+                'title' => 'Importante',
+                'paragraphs' => ['Los siguientes dispositivos Google Pixel no tienen capacidad eSIM:'],
+                'items' => [
+                    'Modelos Pixel 3 originarios de Australia, Taiwan y Japon, y aquellos adquiridos con servicio de operadores estadounidenses o canadienses distintos de Sprint y Google Fi.',
+                    'Modelos Pixel 3a comprados en el sudeste asiatico y con servicio de Verizon.',
+                ],
+            ],
+        ],
+        [
+            'brand' => 'Hammer',
+            'models' => ['Hammer Explorer PRO', 'Hammer Blade 3', 'Hammer Blade 5G', 'Hammer myPhone NOW eSIM', 'Hammer myPhone Hammer Construction'],
+        ],
+        [
+            'brand' => 'Honor',
+            'models' => [
+                'Honor 400 Pro', 'Honor 400', 'Honor 400 Lite', 'Honor Magic7 Lite', 'Honor 50', 'Honor X8', 'Honor 90',
+                'Honor Magic6 Pro', 'Honor Magic6 Pro RSR', 'Honor Magic5 Pro', 'Honor Magic4 Pro', 'Honor 200 Pro', 'Honor 200',
+                'Honor Magic Vs3', 'Honor Magic V2', 'Honor Magic V3',
+            ],
+        ],
+        [
+            'brand' => 'Huawei',
+            'models' => ['Huawei Mate 40 Pro', 'Huawei P40 Pro', 'Huawei P40'],
+            'note' => [
+                'title' => 'Importante',
+                'paragraphs' => ['Todos los dispositivos Huawei comprados en China continental no son compatibles con eSIM.'],
+            ],
+        ],
+        [
+            'brand' => 'Motorola',
+            'models' => [
+                'Motorola Razr (2025)', 'Motorola Razr+ (2025)', 'Motorola Razr Ultra (2025)', 'Motorola Razr+', 'Motorola G52J 5G',
+                'Motorola G52J 5G II', 'Motorola G53J 5G', 'Motorola Moto G (2025)', 'Motorola Moto G34', 'Motorola Moto G35',
+                'Motorola Moto G53', 'Motorola Moto G54', 'Motorola Moto G54 Power', 'Motorola Moto G55', 'Motorola Moto G75',
+                'Motorola Moto G84', 'Motorola Moto G85', 'Motorola Moto G86', 'Motorola Moto G (2024)', 'Motorola Moto G Power (2024)',
+                'Motorola Moto G Stylus 5G (2023)', 'Motorola Moto G Stylus 5G (2024)', 'Motorola Edge Fusion', 'Motorola Edge 60',
+                'Motorola Edge 60 Pro', 'Motorola Edge 60 Fusion', 'Motorola Edge 60 Stylus', 'Motorola Edge 50', 'Motorola Edge 50 Fusion',
+                'Motorola Edge 50 Pro', 'Motorola Edge 50 Neo', 'Motorola Edge 50 Ultra', 'Motorola Edge 40 Neo', 'Motorola Edge 40 Pro',
+                'Motorola Edge 40', 'Motorola Edge+', 'Motorola Edge+ (2023)', 'Motorola Edge (2024)', 'Motorola Edge (2023)',
+                'Motorola Edge (2022)', 'Motorola Razr 40', 'Motorola Razr 40 Ultra', 'Motorola Razr 60', 'Motorola Razr 50',
+                'Motorola Razr 50 Ultra', 'Motorola Razr 2024', 'Motorola Razr+ 2024', 'Motorola Razr 2022', 'Motorola Razr 2019',
+                'Motorola Razr 5G', 'Motorola ThinkPhone 25',
+            ],
+        ],
+        [
+            'brand' => 'OnePlus',
+            'models' => ['OnePlus Open', 'OnePlus 11', 'OnePlus 12', 'OnePlus 13', 'OnePlus 13R'],
+        ],
+        [
+            'brand' => 'Oppo',
+            'models' => [
+                'Oppo Find X3 Pro', 'Oppo Find N2 Flip', 'Oppo Find N5', 'Oppo Reno 5A', 'Oppo Reno 6 Pro 5G', 'Oppo Reno 9A',
+                'Oppo Find X5', 'Oppo Find X5 Pro', 'Oppo A55s 5G', 'Oppo Find X8 Pro', 'Oppo Find X8', 'Oppo Find X3',
+                'Oppo Reno14', 'Oppo Reno14 Pro',
+            ],
+        ],
+        [
+            'brand' => 'Others',
+            'models' => [
+                'Nokia G60 5G', 'Nokia X30', 'Nokia XR21', 'Rakuten Big', 'Rakuten Big-S', 'Rakuten Mini', 'Rakuten Hand',
+                'Rakuten Hand 5G', 'Nuu X5', 'Fairphone 4', 'Fairphone 5', 'T-Mobile Revvl 7', 'T-Mobile Revvl 7 Pro', 'Gemini PDA 4G+Wi-Fi',
+                'Nothing Phone (3a) Pro', 'Realme 14 Pro+', 'ASUS Zenfone 12 Ultra', 'ZTE nubia Flip2', 'Alcatel V3 Ultra', 'Trump Mobile T1',
+            ],
+        ],
+        [
+            'brand' => 'Samsung',
+            'models' => [
+                'Samsung Galaxy XCover7 Pro', 'Samsung Galaxy A56', 'Samsung Galaxy A55 5G', 'Samsung Galaxy A54 5G', 'Samsung Galaxy A36',
+                'Samsung Galaxy A35 5G', 'Samsung Galaxy A23 5G', 'Samsung Galaxy Z Flip5', 'Samsung Galaxy Z Flip6', 'Samsung Galaxy Z Fold',
+                'Samsung Galaxy Z Fold3', 'Samsung Galaxy Z Fold5', 'Samsung Galaxy Z Fold6', 'Samsung Galaxy S25', 'Samsung Galaxy S25 Edge',
+                'Samsung Galaxy S25+', 'Samsung Galaxy S25 Ultra', 'Samsung Galaxy S25 Slim', 'Samsung Galaxy S24 Ultra', 'Samsung Galaxy S24+',
+                'Samsung Galaxy S24 FE', 'Samsung Galaxy S24', 'Samsung Galaxy S23 FE', 'Samsung Galaxy S23 Ultra', 'Samsung Galaxy S23+',
+                'Samsung Galaxy S23', 'Samsung Galaxy S22 Ultra', 'Samsung Galaxy S22+', 'Samsung Galaxy S22', 'Samsung Galaxy S21+ Ultra 5G',
+                'Samsung Galaxy S21+ 5G', 'Samsung Galaxy S21', 'Samsung Galaxy S20 Ultra 5G', 'Samsung Galaxy S20 Ultra', 'Samsung Galaxy S20+ 5G',
+                'Samsung Galaxy S20+', 'Samsung Galaxy S20', 'Samsung Galaxy Z Fold5 5G', 'Samsung Galaxy Z Fold4', 'Samsung Galaxy Z Fold3 5G',
+                'Samsung Galaxy Z Fold2 5G', 'Samsung Galaxy Fold', 'Samsung Galaxy Z Flip5 5G', 'Samsung Galaxy Z Flip4', 'Samsung Galaxy Z Flip3 5G',
+                'Samsung Galaxy Z Flip', 'Samsung Galaxy A54', 'Samsung Galaxy Note 20 Ultra 5G', 'Samsung Galaxy Note 20',
+            ],
+            'note' => [
+                'title' => 'Importante',
+                'paragraphs' => ['Los siguientes dispositivos Samsung Galaxy no son compatibles con eSIM:'],
+                'items' => [
+                    'Todos los dispositivos Galaxy originarios de China continental, Hong Kong y Taiwan.',
+                    'Todos los modelos Galaxy FE, excepto Galaxy S23 FE y S24 FE.',
+                    'Modelos estadounidenses de Galaxy S20, S21 y Note 20 Ultra.',
+                    'La mayoria de los Samsung Galaxy comprados en Corea del Sur, excepto Galaxy S24, S23, Z Fold 5, Z Fold 4, Z Flip 5, Z Flip 4 y A54 5G.',
+                ],
+            ],
+        ],
+        [
+            'brand' => 'Sharp',
+            'models' => [
+                'Sharp AQUOS R10', 'Sharp AQUOS R9 Pro', 'Sharp AQUOS R9', 'Sharp AQUOS R8 Pro', 'Sharp AQUOS R8', 'Sharp AQUOS R7',
+                'Sharp Simple Sumaho 6', 'Sharp AQUOS zero6', 'Sharp AQUOS wish3', 'Sharp AQUOS wish 2 SHG08', 'Sharp AQUOS wish',
+                'Sharp AQUOS sense7 plus', 'Sharp AQUOS sense7', 'Sharp AQUOS sense6s', 'Sharp AQUOS sense4 lite', 'Sharp AQUOS sense9',
+                'Sharp AQUOS sense8',
+            ],
+        ],
+        [
+            'brand' => 'Sony',
+            'models' => [
+                'Sony Xperia 10 III Lite', 'Sony Xperia 10 VI', 'Sony Xperia 10 V', 'Sony Xperia 10 IV', 'Sony Xperia 1 VI', 'Sony Xperia 1 V',
+                'Sony Xperia 1 IV', 'Sony Xperia 5 IV', 'Sony Xperia Ace III', 'Sony Xperia 5 V',
+            ],
+        ],
+        [
+            'brand' => 'TCL',
+            'models' => ['TCL 60', 'TCL 60 XE NxtPaper', 'TCL 50 5G', 'TCL 50 NxtPaper', 'TCL 50 Pro NxtPaper', 'TCL 40 XL'],
+        ],
+        [
+            'brand' => 'Vivo',
+            'models' => [
+                'Vivo X200 Pro', 'Vivo X200', 'Vivo X200s', 'Vivo X200 FE', 'Vivo X100 Pro', 'Vivo X90 Pro', 'Vivo V29', 'Vivo V29 Lite 5G',
+                'Vivo V40', 'Vivo V40 Lite', 'Vivo V50',
+            ],
+        ],
+        [
+            'brand' => 'Xiaomi',
+            'models' => [
+                'Xiaomi 15', 'Xiaomi 15 Ultra', 'Xiaomi 14', 'Xiaomi 14 Pro', 'Xiaomi 14T', 'Xiaomi 14T Pro', 'Xiaomi 13T', 'Xiaomi 13T Pro',
+                'Xiaomi 13 Pro', 'Xiaomi 13 Lite', 'Xiaomi 13', 'Xiaomi 12T Pro', 'Xiaomi Poco X7', 'Xiaomi Redmi Note 14 Pro',
+                'Xiaomi Redmi Note 14 Pro 5G', 'Xiaomi Redmi Note 14 Pro+', 'Xiaomi Redmi Note 14 Pro+ 5G', 'Xiaomi Redmi Note 13 Pro',
+                'Xiaomi Redmi Note 13 Pro+', 'Xiaomi Redmi Note 11 Pro 5G',
+            ],
+        ],
+    ];
     $plansBaseUrl = isset($referralCode)
         ? route('planes.index', ['referralCode' => $referralCode])
         : route('planes.index');
@@ -438,11 +740,11 @@
 
                                 <div class="form-group">
                                     <label for="email" class="font-weight-bold text-small">Email</label>
-                                    <input type="email" class="form-control form-control-lg" name="email" value="{{ old('email') }}" required>
+                                    <input type="email" class="form-control form-control-lg" name="email" placeholder="Ingrese su correo electrónico asignado" value="{{ old('email') }}" required>
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="country_code" class="font-weight-bold text-small">Seleccione su País</label>
+                                    <label for="country_code" class="font-weight-bold text-small">Seleccione su País de destino</label>
                                     <div class="country-autocomplete">
                                         <input type="text"
                                                class="form-control form-control-lg country-search-input"
@@ -458,7 +760,13 @@
                                            id="registro-country-code"
                                            value="{{ $selectedCountryForForm }}"
                                          data-plans-base-url="{{ $plansBaseUrl }}">
-                                     <small class="form-text text-muted mt-2">Puedes buscar cualquier pais. Si no aplica para eSIM gratis, te llevamos directo a sus planes disponibles.</small>
+                                     <small class="form-text text-muted mt-2">Selecciona el país de destino. Si no aplica para eSIM gratis, te llevamos directo a sus planes disponibles.</small>
+                                     <div class="compatibility-link-wrap">
+                                        <a href="#" class="compatibility-link" data-toggle="modal" data-target="#deviceCompatibilityModal">
+                                            <i class="mdi mdi-cellphone-link"></i>
+                                            <span>Verifica la compatibilidad de tu dispositivo</span>
+                                        </a>
+                                     </div>
                                 </div>
 
                                 <div class="mt-4">
@@ -656,6 +964,61 @@
                             </div>
                         @endif
 
+                        <div class="modal fade compatibility-modal" id="deviceCompatibilityModal" tabindex="-1" role="dialog" aria-labelledby="deviceCompatibilityModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deviceCompatibilityModalLabel">Compatibilidad de dispositivos eSIM</h5>
+                                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Cerrar">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="compatibility-intro mb-3">
+                                            Revisa tu marca y despliega la lista para validar si tu equipo aparece entre los dispositivos compatibles con eSIM.
+                                        </p>
+
+                                        @foreach($compatibleDeviceBrands as $brandGroup)
+                                            <div class="compatibility-group" data-compatibility-group>
+                                                <button type="button" class="compatibility-summary" data-compatibility-toggle aria-expanded="false">
+                                                    <span>{{ $brandGroup['brand'] }}</span>
+                                                    <span class="compatibility-count">{{ count($brandGroup['models']) }} modelos</span>
+                                                </button>
+
+                                                <div class="compatibility-content" data-compatibility-content>
+                                                    <div class="compatibility-content-inner">
+                                                        <ul class="compatibility-model-list">
+                                                            @foreach($brandGroup['models'] as $model)
+                                                                <li>{{ $model }}</li>
+                                                            @endforeach
+                                                        </ul>
+
+                                                        @if(!empty($brandGroup['note']))
+                                                            <div class="compatibility-note">
+                                                                <h6>{{ $brandGroup['note']['title'] ?? 'Importante' }}</h6>
+
+                                                                @foreach($brandGroup['note']['paragraphs'] ?? [] as $paragraph)
+                                                                    <p>{{ $paragraph }}</p>
+                                                                @endforeach
+
+                                                                @if(!empty($brandGroup['note']['items']))
+                                                                    <ul>
+                                                                        @foreach($brandGroup['note']['items'] as $item)
+                                                                            <li>{{ $item }}</li>
+                                                                        @endforeach
+                                                                    </ul>
+                                                                @endif
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                     <div class="brand-footnote px-4 px-sm-5">
                         Servicio de Nomad eSIM con distribución para Iberoamérica mediante alianza con Xcertus.
@@ -680,6 +1043,63 @@ document.addEventListener('DOMContentLoaded', function() {
     const countrySuggestions = document.getElementById('registro-country-suggestions');
     const countryOptionsElement = document.getElementById('registro-country-options-json');
     const availablePlansContainer = document.getElementById('registro-available-plans-app');
+    const compatibilityGroups = Array.from(document.querySelectorAll('[data-compatibility-group]'));
+
+    if (compatibilityGroups.length) {
+        const setCompatibilityState = function(group, shouldOpen) {
+            const toggle = group.querySelector('[data-compatibility-toggle]');
+            const content = group.querySelector('[data-compatibility-content]');
+
+            if (!toggle || !content) {
+                return;
+            }
+
+            group.classList.toggle('is-open', shouldOpen);
+            toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+
+            if (shouldOpen) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                return;
+            }
+
+            content.style.maxHeight = '0px';
+        };
+
+        compatibilityGroups.forEach(function(group) {
+            const toggle = group.querySelector('[data-compatibility-toggle]');
+            const content = group.querySelector('[data-compatibility-content]');
+
+            if (!toggle || !content) {
+                return;
+            }
+
+            content.style.maxHeight = '0px';
+
+            toggle.addEventListener('click', function() {
+                setCompatibilityState(group, !group.classList.contains('is-open'));
+            });
+        });
+
+        window.addEventListener('resize', function() {
+            compatibilityGroups.forEach(function(group) {
+                if (!group.classList.contains('is-open')) {
+                    return;
+                }
+
+                const content = group.querySelector('[data-compatibility-content]');
+
+                if (content) {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                }
+            });
+        });
+
+        $('#deviceCompatibilityModal').on('shown.bs.modal', function() {
+            compatibilityGroups.forEach(function(group) {
+                setCompatibilityState(group, false);
+            });
+        });
+    }
 
     if (countryAutocomplete && countryCodeInput && countrySuggestions && countryOptionsElement) {
         const countryOptions = JSON.parse(countryOptionsElement.textContent || '[]');
