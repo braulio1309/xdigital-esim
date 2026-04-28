@@ -17,11 +17,19 @@
                     </tr>
                     <tr>
                         <td style="padding:32px;">
+                            @php
+                                $identifier = trim((string) ($cliente->identificador ?? ''));
+                                $passwordHasSuffix = $plainPassword !== $identifier;
+                            @endphp
                             <p style="margin:0 0 16px;">Hola {{ trim(($cliente->nombre ?? '') . ' ' . ($cliente->apellido ?? '')) ?: 'cliente' }},</p>
                             <p style="margin:0 0 16px;">Se creó tu cuenta para ingresar a la plataforma.</p>
-                            <p style="margin:0 0 8px;"><strong>Usuario:</strong> tu correo electrónico, {{ $cliente->email }}</p>
-                            <p style="margin:0 0 16px;"><strong>Clave:</strong> tu cédula de identidad, {{ $plainPassword }}</p>
-                            <p style="margin:0 0 20px;">Usa tu número de cédula exactamente como clave, sin caracteres adicionales al final.</p>
+                            <p style="margin:0 0 8px;"><strong>Usuario:</strong> {{ $cliente->email }}</p>
+                            <p style="margin:0 0 16px;"><strong>Clave:</strong> {{ $plainPassword }}</p>
+                            @if($passwordHasSuffix)
+                                <p style="margin:0 0 20px;">Como tu cédula tiene menos de 7 dígitos, tu clave es tu cédula concatenada con un punto al final.</p>
+                            @else
+                                <p style="margin:0 0 20px;">Usa tu número de cédula exactamente como clave, sin caracteres adicionales al final.</p>
+                            @endif
                             <p style="margin:0 0 24px;">
                                 <a href="{{ $loginUrl }}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Ir a iniciar sesión</a>
                             </p>

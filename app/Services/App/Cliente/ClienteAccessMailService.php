@@ -11,7 +11,14 @@ class ClienteAccessMailService
 {
     public function buildPasswordFromIdentifier(string $identifier): string
     {
-        return trim($identifier);
+        $trimmedIdentifier = trim($identifier);
+        $digitsOnly = preg_replace('/\D+/', '', $trimmedIdentifier);
+
+        if ($digitsOnly !== '' && strlen($digitsOnly) < 7) {
+            return $trimmedIdentifier . '.';
+        }
+
+        return $trimmedIdentifier;
     }
 
     public function sendAccessCredentials(Cliente $cliente): void
