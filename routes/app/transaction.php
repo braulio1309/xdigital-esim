@@ -9,4 +9,5 @@ Route::get('transactions/export', [TransactionController::class, 'export'])->nam
 Route::post('transactions/mark-as-paid', [TransactionController::class, 'markAsPaid'])->name('transactions.mark-as-paid');
 Route::get('transactions/{transaction}/esim-status', [TransactionController::class, 'esimStatus'])->name('transactions.esim-status');
 Route::post('transactions/{transaction}/terminate-subscription', [TransactionController::class, 'terminateSubscription'])->name('transactions.terminate-subscription');
+Route::post('transactions/{transaction}/recharge', [TransactionController::class, 'recharge'])->name('transactions.recharge');
 Route::resource('transactions', TransactionController::class);

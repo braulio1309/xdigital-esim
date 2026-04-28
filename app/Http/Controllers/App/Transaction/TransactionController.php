@@ -6,11 +6,14 @@ use App\Models\App\Beneficiario\Beneficiario;
 use App\Filters\App\Transaction\TransactionFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\TransactionRequest as Request;
+use App\Mail\App\Cliente\EsimRechargeMail;
 use App\Models\App\PaymentHistory\PaymentHistory;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
 use App\Services\EsimFxService;
 use App\Exports\App\Transaction\TransactionExport;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -441,6 +444,141 @@ class TransactionController extends Controller
         $filename = 'transacciones-' . now()->format('Y-m-d_H-i-s') . '.xlsx';
 
         return Excel::download(new TransactionExport($filters), $filename);
+    }
+
+    /**
+     * Recharge an existing eSIM with a new data top-up (admin only).
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param Transaction $transaction
+     * @return \Illuminate\Http\Response
+     */
+    public function recharge(\Illuminate\Http\Request $request, Transaction $transaction)
+    {
+        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+            return response()->json(['message' => 'Unauthorized. Only administrators can recharge eSIMs.'], 403);
+        }
+
+        $validated = $request->validate([
+            'gb_amount' => 'required|integer|in:1,3,5,10',
+        ]);
+
+        $gbAmount = (int) $validated['gb_amount'];
+
+        if (empty($transaction->iccid)) {
+            return response()->json(['message' => 'This transaction does not have an ICCID and cannot be recharged.'], 422);
+        }
+
+        try {
+            $esimService = app(EsimFxService::class);
+
+            // Try to determine the country from the plan_name for better product matching.
+            // Plan names typically include a 2-letter country code (e.g. "US 3GB 30 Days").
+            $countryCode = null;
+            if (!empty($transaction->plan_name)) {
+                if (preg_match('/\b([A-Z]{2})\b/', strtoupper($transaction->plan_name), $matches)) {
+                    $countryCode = $matches[1];
+                }
+            }
+
+            $productFilters = $countryCode ? ['countries' => $countryCode] : [];
+            $products = $esimService->getProducts($productFilters);
+
+            // Find a product matching the requested GB amount
+            $selectedProduct = collect($products)
+                ->filter(function ($product) use ($gbAmount) {
+                    return isset($product['amount'], $product['amount_unit'])
+                        && strtoupper((string) $product['amount_unit']) === 'GB'
+                        && (int) $product['amount'] === $gbAmount;
+                })
+                ->sortBy(function ($product) {
+                    return [(float) ($product['price'] ?? 0), (int) ($product['duration'] ?? PHP_INT_MAX)];
+                })
+                ->first();
+
+            if (!$selectedProduct) {
+                // Fallback: try without country filter
+                if ($countryCode) {
+                    $allProducts = $esimService->getProducts([]);
+                    $selectedProduct = collect($allProducts)
+                        ->filter(function ($product) use ($gbAmount) {
+                            return isset($product['amount'], $product['amount_unit'])
+                                && strtoupper((string) $product['amount_unit']) === 'GB'
+                                && (int) $product['amount'] === $gbAmount;
+                        })
+                        ->sortBy(function ($product) {
+                            return [(float) ($product['price'] ?? 0), (int) ($product['duration'] ?? PHP_INT_MAX)];
+                        })
+                        ->first();
+                }
+
+                if (!$selectedProduct) {
+                    return response()->json(['message' => "No product found for {$gbAmount} GB. Please try a different amount."], 422);
+                }
+            }
+
+            $topupTransactionId = 'TOPUP-ADMIN-' . $transaction->id . '-' . time() . '-' . uniqid();
+
+            $apiResponse = $esimService->createOrder(
+                $selectedProduct['id'],
+                $topupTransactionId,
+                [
+                    'operation_type' => 'TOPUP',
+                    'iccid' => $transaction->iccid,
+                ]
+            );
+
+            if (empty($apiResponse['id'])) {
+                throw new \Exception('No valid order ID received from the API');
+            }
+
+            $esimService->activateOrder($apiResponse['id']);
+
+            // Create a new transaction record for the recharge (purchase_amount = 0, admin-managed)
+            Transaction::create([
+                'order_id' => $apiResponse['id'],
+                'transaction_id' => $topupTransactionId,
+                'status' => $apiResponse['status'] ?? 'completed',
+                'iccid' => $transaction->iccid,
+                'esim_qr' => $transaction->esim_qr,
+                'creation_time' => now(),
+                'cliente_id' => $transaction->cliente_id,
+                'beneficiario_id' => $transaction->beneficiario_id,
+                'super_partner_id' => $transaction->super_partner_id,
+                'plan_name' => $selectedProduct['name'] ?? $transaction->plan_name,
+                'data_amount' => $gbAmount,
+                'duration_days' => $selectedProduct['duration'] ?? null,
+                'purchase_amount' => 0,
+                'currency' => 'USD',
+                'is_paid' => true,
+                'paid_at' => now(),
+            ]);
+
+            // Send recharge notification email to the client
+            if ($transaction->cliente && !empty($transaction->cliente->email)) {
+                try {
+                    Mail::to($transaction->cliente->email)->send(new EsimRechargeMail(
+                        $transaction->cliente->email,
+                        $gbAmount,
+                        $transaction->iccid,
+                        $selectedProduct['name'] ?? $transaction->plan_name
+                    ));
+                } catch (\Throwable $mailException) {
+                    Log::error('Could not send eSIM recharge email.', [
+                        'transaction_id' => $transaction->id,
+                        'email' => $transaction->cliente->email,
+                        'message' => $mailException->getMessage(),
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'message' => "eSIM recharged successfully with {$gbAmount} GB.",
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error recharging eSIM: ' . $e->getMessage(), ['transaction_id' => $transaction->id]);
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
     }
 
     /**

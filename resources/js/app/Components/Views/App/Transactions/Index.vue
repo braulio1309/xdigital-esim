@@ -160,6 +160,11 @@
                            :prefill-end-date="activeFilters.end_date"
                            @close-modal="closeMarkAsPaidModal"/>
 
+        <recharge-modal v-if="isRechargeModalActive"
+                        :table-id="tableId"
+                        :transaction="rowData"
+                        @close-modal="closeRechargeModal"/>
+
         <app-delete-modal v-if="terminateConfirmationModalActive"
                           :preloader="terminateLoader"
                           modal-id="transaction-terminate"
@@ -177,6 +182,7 @@
     import AddModal from "./AddModal"; 
     import DetailModal from "./DetailModal";
     import MarkAsPaidModal from "./MarkAsPaidModal"; 
+    import RechargeModal from "./RechargeModal";
 
     export default {
         extends: CoreLibrary,
@@ -185,7 +191,8 @@
         components: {
             AddModal,
             DetailModal,
-            MarkAsPaidModal
+            MarkAsPaidModal,
+            RechargeModal
         },
         data() {
             return {
@@ -193,6 +200,7 @@
                 isAddEditModalActive: false,
                 isDetailModalActive: false,
                 isMarkAsPaidModalActive: false,
+                isRechargeModalActive: false,
                 terminateConfirmationModalActive: false,
                 selectedUrl: '',
                 tableId: 'transactions-table',
@@ -342,6 +350,12 @@
                             type: 'none',
                             component: 'app-add-modal',
                             modalId: 'transaction-add-edit-modal',
+                        }, {
+                            title: this.$t('recharge_esim'),
+                            icon: 'refresh-cw',
+                            type: 'none',
+                            component: 'app-recharge-modal',
+                            modalId: 'transaction-recharge-modal',
                         }, {
                             title: this.$t('terminate_subscription'),
                             icon: 'slash',
@@ -636,9 +650,21 @@
                     this.openAddEditModal();
                 } else if (actionObj.title == this.$t('details')) {
                     this.openDetailModal();
+                } else if (actionObj.title == this.$t('recharge_esim')) {
+                    this.openRechargeModal();
                 } else if (actionObj.title == this.$t('terminate_subscription')) {
                     this.openTerminateModal();
                 }
+            },
+
+            openRechargeModal() {
+                this.isRechargeModalActive = true;
+            },
+
+            closeRechargeModal() {
+                $("#transaction-recharge-modal").modal('hide');
+                this.isRechargeModalActive = false;
+                this.reSetData();
             },
 
             openDetailModal() {
