@@ -377,13 +377,13 @@ class TransactionController extends Controller
      */
     public function esimStatus(Transaction $transaction)
     {
-        if (empty($transaction->iccid)) {
-            return response()->json(['message' => 'This transaction does not have an ICCID.'], 422);
+        if (empty($transaction->order_id)) {
+            return response()->json(['message' => 'This transaction does not have an order ID.'], 422);
         }
 
         try {
             $esimService = app(EsimFxService::class);
-            $data = $esimService->getEsimStatus($transaction->iccid);
+            $data = $esimService->getOrder($transaction->order_id);
             return response()->json(['data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);

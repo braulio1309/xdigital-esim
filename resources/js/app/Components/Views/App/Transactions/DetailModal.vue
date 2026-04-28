@@ -10,16 +10,12 @@
                 <table class="table table-bordered table-sm">
                     <tbody>
                         <tr>
+                            <th>ID</th>
+                            <td>{{ esimData.id || 'N/A' }}</td>
+                        </tr>
+                        <tr>
                             <th>{{ $t('iccid') }}</th>
                             <td>{{ esimData.iccid || 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>MSISDN</th>
-                            <td>{{ esimData.msisdn || 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>IMSI</th>
-                            <td>{{ esimData.imsi || 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>{{ $t('status') }}</th>
@@ -29,15 +25,11 @@
                                 </span>
                             </td>
                         </tr>
-                        <tr v-if="esimData.esim_qr">
-                            <th>{{ $t('esim_qr') }}</th>
+                        <tr>
+                            <th>Consumo</th>
                             <td>
-                                <small class="text-muted" style="word-break:break-all;">{{ esimData.esim_qr }}</small>
+                                {{ subscriptionUsage }}
                             </td>
-                        </tr>
-                        <tr v-if="esimData.customer_service_number">
-                            <th>{{ $t('customer_service_number') }}</th>
-                            <td>{{ esimData.customer_service_number }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -69,10 +61,78 @@
                 modalId: 'transaction-detail-modal',
             }
         },
+        computed: {
+            subscriptionUsage() {
+                const usedAmount = this.esimData?.subscription?.used_amount;
+                const upperLimitAmount = this.esimData?.subscription?.upper_limit_amount
+                    ?? this.esimData?.subscription?.uper_limit_amount;
+
+                if (usedAmount == null && upperLimitAmount == null) {
+                    return 'N/A';
+                }
+
+                const valuesLookLikeBytes = this.shouldFormatAsBytes(usedAmount, upperLimitAmount);
+                const formattedUsedAmount = this.formatUsageAmount(usedAmount, valuesLookLikeBytes);
+                const formattedUpperLimitAmount = this.formatUsageAmount(upperLimitAmount, valuesLookLikeBytes);
+
+                if (formattedUsedAmount === 'N/A') {
+                    return formattedUpperLimitAmount;
+                }
+
+                if (formattedUpperLimitAmount === 'N/A') {
+                    return formattedUsedAmount;
+                }
+
+                return `${formattedUsedAmount} de ${formattedUpperLimitAmount}`;
+            }
+        },
         mounted() {
             this.loadEsimStatus();
         },
         methods: {
+            shouldFormatAsBytes(usedAmount, upperLimitAmount) {
+                return [usedAmount, upperLimitAmount]
+                    .map(value => Number(value))
+                    .filter(value => Number.isFinite(value))
+                    .some(value => value >= 1024 * 1024);
+            },
+
+            formatUsageAmount(value, treatAsBytes = false) {
+                if (value == null || value === '') {
+                    return 'N/A';
+                }
+
+                if (typeof value === 'string' && /[a-zA-Z]/.test(value)) {
+                    return value.replace(/\s+/g, ' ').trim();
+                }
+
+                const numericValue = Number(value);
+
+                if (!Number.isFinite(numericValue)) {
+                    return value;
+                }
+
+                if (!treatAsBytes) {
+                    return `${this.formatUsageNumber(numericValue)} GB`;
+                }
+
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                let amount = numericValue;
+                let unitIndex = 0;
+
+                while (amount >= 1024 && unitIndex < units.length - 1) {
+                    amount /= 1024;
+                    unitIndex += 1;
+                }
+
+                return `${this.formatUsageNumber(amount)} ${units[unitIndex]}`;
+            },
+
+            formatUsageNumber(value) {
+                const roundedValue = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+                return roundedValue.replace(/\.0$/, '');
+            },
+
             loadEsimStatus() {
                 this.preloader = true;
                 this.errorMessage = null;

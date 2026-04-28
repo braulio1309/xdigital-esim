@@ -101,6 +101,28 @@ class EsimFxService
 
         return $response->json()['data'];
     }
+
+    /**
+     * Get order detail from external API.
+     * GET /order/api/v1/get_order
+     *
+     * @param string $orderId The order identifier
+     * @return array
+     */
+    public function getOrder($orderId)
+    {
+        $response = Http::withHeaders($this->getHeaders())
+                        ->get("{$this->baseUrl}/order/api/v1/get_order", [
+                            'order_id' => $orderId,
+                        ]);
+
+        if ($response->failed()) {
+            Log::error('Error getOrder eSIMfx: ' . $response->body());
+            throw new Exception("Error retrieving order detail");
+        }
+
+        return $response->json()['data'];
+    }
     
     /**
      * Get eSIM status from external API.
