@@ -563,5 +563,10 @@ return array_merge([
     'export_transactions' => 'Exportar Transacciones',
     'without_beneficiary' => 'Sin Partner',
     'transactions_cannot_be_deleted' => 'Las transacciones no pueden ser eliminadas.',
+    'recharge_esim' => 'Recargar eSIM',
+    'recharge_amount' => 'Cantidad a recargar',
+    'recharge_confirmation_message' => 'Se añadirán {gb} GB al ICCID {iccid}. Esta acción no tiene costo para el cliente.',
+    'please_select_recharge_amount' => 'Por favor seleccione la cantidad de GB a recargar.',
+    'error_recharging_esim' => 'Error al recargar la eSIM. Intente nuevamente.',
 
 ], include 'custom.php');

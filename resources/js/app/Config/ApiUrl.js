@@ -84,6 +84,7 @@ export const TRANSACTIONS_CALCULATE_AMOUNT = 'transactions/calculate-payment-amo
 export const TRANSACTIONS_MARK_AS_PAID = 'transactions/mark-as-paid';
 export const TRANSACTIONS_ESIM_STATUS = (id) => `transactions/${id}/esim-status`;
 export const TRANSACTIONS_TERMINATE = (id) => `transactions/${id}/terminate-subscription`;
+export const TRANSACTIONS_RECHARGE = (id) => `transactions/${id}/recharge`;
 export const TRANSACTIONS_EXPORT = 'transactions/export';
 
 //Payment Histories
