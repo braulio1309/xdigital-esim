@@ -2,11 +2,20 @@
 
 namespace App\Http\Controllers\App\Cliente;
 
+use App\Helpers\CountryTariffHelper;
 use App\Http\Controllers\Controller;
+use App\Services\StripeService;
 use Illuminate\Http\Request;
 
 class ClienteDashboardController extends Controller
 {
+    protected $stripeService;
+
+    public function __construct(StripeService $stripeService)
+    {
+        $this->stripeService = $stripeService;
+    }
+
     /**
      * Show the cliente dashboard
      *
@@ -34,11 +43,22 @@ class ClienteDashboardController extends Controller
         $transactions = $cliente->transactions()
             ->orderBy('creation_time', 'desc')
             ->get();
+
+        // Data for eSIM plans section
+        $initialCountry = strtoupper((string) $request->query('country', ''));
+        if (strlen($initialCountry) !== 2) {
+            $initialCountry = '';
+        }
+        $stripePublicKey = $this->stripeService->getPublishableKey();
+        $allCountries = CountryTariffHelper::getAllCountries();
         
         $data = [
             'cliente' => $cliente,
             'active_plan' => $activePlan,
             'transactions' => $transactions,
+            'stripePublicKey' => $stripePublicKey,
+            'allCountries' => $allCountries,
+            'initialCountry' => $initialCountry,
         ];
         
         return view('dashboard.cliente', $data);
