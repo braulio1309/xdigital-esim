@@ -11,7 +11,7 @@ class ClienteAccessMailService
 {
     public function buildPasswordFromIdentifier(string $identifier): string
     {
-        return trim($identifier) . '+';
+        return trim($identifier);
     }
 
     public function sendAccessCredentials(Cliente $cliente): void
