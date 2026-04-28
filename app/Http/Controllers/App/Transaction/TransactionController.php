@@ -472,17 +472,9 @@ class TransactionController extends Controller
         try {
             $esimService = app(EsimFxService::class);
 
-            // Try to determine the country from the plan_name for better product matching.
-            // Plan names typically include a 2-letter country code (e.g. "US 3GB 30 Days").
-            $countryCode = null;
-            if (!empty($transaction->plan_name)) {
-                if (preg_match('/\b([A-Z]{2})\b/', strtoupper($transaction->plan_name), $matches)) {
-                    $countryCode = $matches[1];
-                }
-            }
-
-            $productFilters = $countryCode ? ['countries' => $countryCode] : [];
-            $products = $esimService->getProducts($productFilters);
+            // Fetch all products without a country filter; the TOPUP is keyed by ICCID
+            // so any GB-matching product from the catalog is valid.
+            $products = $esimService->getProducts([]);
 
             // Find a product matching the requested GB amount
             $selectedProduct = collect($products)
@@ -497,24 +489,7 @@ class TransactionController extends Controller
                 ->first();
 
             if (!$selectedProduct) {
-                // Fallback: try without country filter
-                if ($countryCode) {
-                    $allProducts = $esimService->getProducts([]);
-                    $selectedProduct = collect($allProducts)
-                        ->filter(function ($product) use ($gbAmount) {
-                            return isset($product['amount'], $product['amount_unit'])
-                                && strtoupper((string) $product['amount_unit']) === 'GB'
-                                && (int) $product['amount'] === $gbAmount;
-                        })
-                        ->sortBy(function ($product) {
-                            return [(float) ($product['price'] ?? 0), (int) ($product['duration'] ?? PHP_INT_MAX)];
-                        })
-                        ->first();
-                }
-
-                if (!$selectedProduct) {
-                    return response()->json(['message' => "No product found for {$gbAmount} GB. Please try a different amount."], 422);
-                }
+                return response()->json(['message' => "No product found for {$gbAmount} GB. Please try a different amount."], 422);
             }
 
             $topupTransactionId = 'TOPUP-ADMIN-' . $transaction->id . '-' . time() . '-' . uniqid();
@@ -534,13 +509,14 @@ class TransactionController extends Controller
 
             $esimService->activateOrder($apiResponse['id']);
 
-            // Create a new transaction record for the recharge (purchase_amount = 0, admin-managed)
+            // Create a new transaction record for the recharge (purchase_amount = 0, admin-managed).
+            // esim_qr is null because a TOPUP does not issue a new QR code.
             Transaction::create([
                 'order_id' => $apiResponse['id'],
                 'transaction_id' => $topupTransactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
                 'iccid' => $transaction->iccid,
-                'esim_qr' => $transaction->esim_qr,
+                'esim_qr' => null,
                 'creation_time' => now(),
                 'cliente_id' => $transaction->cliente_id,
                 'beneficiario_id' => $transaction->beneficiario_id,
