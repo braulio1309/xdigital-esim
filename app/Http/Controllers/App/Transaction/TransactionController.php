@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\App\Transaction;
 
+use App\Helpers\CountryTariffHelper;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Filters\App\Transaction\TransactionFilter;
 use App\Http\Controllers\Controller;
@@ -471,10 +472,11 @@ class TransactionController extends Controller
 
         try {
             $esimService = app(EsimFxService::class);
+            $countryCode = $this->resolveTransactionCountryCode($transaction);
 
-            // Fetch all products without a country filter; the TOPUP is keyed by ICCID
-            // so any GB-matching product from the catalog is valid.
-            $products = $esimService->getProducts([]);
+            $products = $esimService->getProducts($countryCode ? [
+                'countries' => $countryCode,
+            ] : []);
 
             // Find a product matching the requested GB amount
             $selectedProduct = collect($products)
@@ -566,5 +568,36 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction)
     {
         return response()->json(['message' => __('default.transactions_cannot_be_deleted')], 403);
+    }
+
+    protected function resolveTransactionCountryCode(Transaction $transaction): ?string
+    {
+        $planName = strtoupper(trim((string) $transaction->plan_name));
+
+        if ($planName === '') {
+            return null;
+        }
+
+        $countries = collect(CountryTariffHelper::getAllCountries());
+
+        $countryByCode = $countries->first(function (array $country) use ($planName) {
+            return strtoupper((string) ($country['code'] ?? '')) === $planName;
+        });
+
+        if ($countryByCode) {
+            return strtoupper((string) $countryByCode['code']);
+        }
+
+        $countryByName = $countries
+            ->sortByDesc(function (array $country) {
+                return strlen((string) ($country['name'] ?? ''));
+            })
+            ->first(function (array $country) use ($planName) {
+                $countryName = strtoupper((string) ($country['name'] ?? ''));
+
+                return $countryName !== '' && str_contains($planName, $countryName);
+            });
+
+        return $countryByName ? strtoupper((string) $countryByName['code']) : null;
     }
 }
