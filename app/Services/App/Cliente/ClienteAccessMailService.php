@@ -24,7 +24,7 @@ class ClienteAccessMailService
             throw new InvalidArgumentException('El cliente no tiene cédula o identificador.');
         }
 
-        $loginUrl = url('/admin/users/login');
+        $loginUrl = 'https://esim.xcertus.com';
         $plainPassword = $this->buildPasswordFromIdentifier($cliente->identificador);
 
         Mail::to($cliente->email)->send(new ClienteAccessCredentialsMail($cliente, $plainPassword, $loginUrl));

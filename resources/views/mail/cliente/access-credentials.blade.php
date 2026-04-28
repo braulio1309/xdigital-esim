@@ -19,11 +19,11 @@
                         <td style="padding:32px;">
                             <p style="margin:0 0 16px;">Hola {{ trim(($cliente->nombre ?? '') . ' ' . ($cliente->apellido ?? '')) ?: 'cliente' }},</p>
                             <p style="margin:0 0 16px;">Se creó tu cuenta para ingresar a la plataforma.</p>
-                            <p style="margin:0 0 8px;"><strong>Usuario:</strong> {{ $cliente->email }}</p>
-                            <p style="margin:0 0 16px;"><strong>Clave:</strong> {{ $plainPassword }}</p>
-                            <p style="margin:0 0 20px;">La clave corresponde a tu cédula de identidad y al final lleva un signo más (+).</p>
+                            <p style="margin:0 0 8px;"><strong>Usuario:</strong> tu correo electrónico, {{ $cliente->email }}</p>
+                            <p style="margin:0 0 16px;"><strong>Clave:</strong> tu cédula de identidad con un signo más al final, {{ $plainPassword }}</p>
+                            <p style="margin:0 0 20px;">Ejemplo: si tu cédula termina en 12345, tu clave será 12345+.</p>
                             <p style="margin:0 0 24px;">
-                                <a href="{{ $loginUrl }}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Ingresar ahora</a>
+                                <a href="{{ $loginUrl }}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Ir a iniciar sesión</a>
                             </p>
                             <p style="margin:0;color:#6b7280;font-size:14px;">Si no solicitaste este acceso, por favor responde a este correo.</p>
                         </td>
