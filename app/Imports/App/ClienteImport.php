@@ -22,6 +22,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
     protected $skipped = 0;
     protected $errors = [];
     protected $skippedDetails = [];
+    protected $clienteAccessMailService;
 
     public function __construct($beneficiarioId = null, array $partnerIds = [], $freeEsimCapacity = null, $superPartnerId = null)
     {
@@ -29,6 +30,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
         $this->partnerIds = array_values(array_unique(array_map('intval', array_filter($partnerIds))));
         $this->freeEsimCapacity = $freeEsimCapacity;
         $this->superPartnerId = $superPartnerId ? (int) $superPartnerId : null;
+        $this->clienteAccessMailService = app('App\Services\App\Cliente\ClienteAccessMailService');
     }
 
     protected function resolveUserStatusId(): int
@@ -118,8 +120,8 @@ class ClienteImport implements ToCollection, WithHeadingRow
             }
 
             try {
-                DB::transaction(function () use ($nombre, $apellido, $identificador, $email) {
-                    $password = $nombre . '123*';
+                $cliente = DB::transaction(function () use ($nombre, $apellido, $identificador, $email) {
+                    $password = $this->clienteAccessMailService->buildPasswordFromIdentifier($identificador);
 
                     // Reuse the auth user if the email already exists there, but always create the cliente row.
                     $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
@@ -138,6 +140,13 @@ class ClienteImport implements ToCollection, WithHeadingRow
                     } elseif ($user->user_type !== 'cliente') {
                         // Skip rows where the email belongs to a non-cliente user
                         throw new \Exception("El email {$email} pertenece a un usuario de otro tipo ({$user->user_type}).");
+                    } else {
+                        $user->update([
+                            'first_name' => $nombre,
+                            'last_name' => $apellido,
+                            'password' => Hash::make($password),
+                            'super_partner_id' => $this->superPartnerId,
+                        ]);
                     }
 
                     $cliente = Cliente::create([
@@ -154,7 +163,11 @@ class ClienteImport implements ToCollection, WithHeadingRow
                     if (!empty($this->partnerIds)) {
                         $cliente->partners()->syncWithoutDetaching($this->partnerIds);
                     }
+
+                    return $cliente;
                 });
+
+                $this->clienteAccessMailService->sendAccessCredentials($cliente);
 
                 $this->imported++;
             } catch (\Exception $e) {

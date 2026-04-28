@@ -130,6 +130,13 @@
                             modalId: 'dummy-modal-id',
                         },
                         {
+                            title: 'Enviar correo',
+                            icon: 'mail',
+                            type: 'none',
+                            component: 'dummy-component',
+                            modalId: 'dummy-modal-id',
+                        },
+                        {
                             title: this.$t('delete'),
                             icon: 'trash',
                             type: 'none',
@@ -194,6 +201,8 @@
                     this.openAddEditModal();
                 } else if (actionObj.title == 'eSIM Gratis') {
                     this.toggleFreeEsim(rowData);
+                } else if (actionObj.title == 'Enviar correo') {
+                    this.sendAccessEmail(rowData);
                 }
             },
 
@@ -217,6 +226,21 @@
                             this.$toastr.e('Error en la petición');
                         });
                                 }
+            },
+
+            sendAccessEmail(rowData) {
+                const url = `/clientes/${rowData.id}/send-access-email`;
+
+                axios.post(url, {})
+                    .then(response => {
+                        this.$toastr.s(response.data.message || 'Correo enviado.');
+                    })
+                    .catch(error => {
+                        const message = error.response && error.response.data && error.response.data.message
+                            ? error.response.data.message
+                            : 'No fue posible enviar el correo.';
+                        this.$toastr.e(message);
+                    });
             },
 
             /**

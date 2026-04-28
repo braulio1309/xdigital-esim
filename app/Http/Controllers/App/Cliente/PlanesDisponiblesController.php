@@ -104,6 +104,7 @@ class PlanesDisponiblesController extends Controller
         $brandingContext = $this->resolveBrandingContext($referralCode);
         $partnerContext = $brandingContext['partnerContext'];
         $initialCountry = strtoupper((string) $request->query('country', ''));
+        $rechargeContext = $this->syncRechargeContext($request);
 
         if (strlen($initialCountry) !== 2) {
             $initialCountry = '';
@@ -126,6 +127,7 @@ class PlanesDisponiblesController extends Controller
             'stripePublicKey' => $stripePublicKey,
             'allCountries' => $allCountries,
             'initialCountry' => $initialCountry,
+            'rechargeContext' => $rechargeContext,
             'partnerContext' => $partnerContext,
             'beneficiario' => $brandingContext['beneficiario'],
             'superPartner' => $brandingContext['superPartner'],
@@ -253,6 +255,80 @@ class PlanesDisponiblesController extends Controller
         }
 
         return array_intersect_key($transactionData, $transactionColumns);
+    }
+
+    protected function emptyRechargeContext(): array
+    {
+        return [
+            'is_recharge' => false,
+            'iccid' => null,
+            'transaction_id' => null,
+        ];
+    }
+
+    protected function resolveRechargeContextForIccid(?string $iccid): array
+    {
+        $normalizedIccid = trim((string) $iccid);
+
+        if ($normalizedIccid === '' || !Auth::check()) {
+            return $this->emptyRechargeContext();
+        }
+
+        $cliente = Auth::user()->cliente;
+
+        if (!$cliente) {
+            return $this->emptyRechargeContext();
+        }
+
+        $transaction = Transaction::query()
+            ->where('cliente_id', $cliente->id)
+            ->where('iccid', $normalizedIccid)
+            ->whereNotNull('order_id')
+            ->latest('creation_time')
+            ->first();
+
+        if (!$transaction) {
+            return $this->emptyRechargeContext();
+        }
+
+        return [
+            'is_recharge' => true,
+            'iccid' => $transaction->iccid,
+            'transaction_id' => $transaction->transaction_id,
+        ];
+    }
+
+    protected function syncRechargeContext(Request $request): array
+    {
+        $requestedIccid = trim((string) $request->query('recharge_iccid', ''));
+
+        if ($requestedIccid === '') {
+            session()->forget('planes_recharge_context');
+
+            return $this->emptyRechargeContext();
+        }
+
+        $rechargeContext = $this->resolveRechargeContextForIccid($requestedIccid);
+
+        if ($rechargeContext['is_recharge']) {
+            session(['planes_recharge_context' => $rechargeContext]);
+            return $rechargeContext;
+        }
+
+        session()->forget('planes_recharge_context');
+
+        return $this->emptyRechargeContext();
+    }
+
+    protected function getRechargeContext(): array
+    {
+        $rechargeContext = session('planes_recharge_context');
+
+        if (!is_array($rechargeContext) || empty($rechargeContext['is_recharge']) || empty($rechargeContext['iccid'])) {
+            return $this->emptyRechargeContext();
+        }
+
+        return $this->resolveRechargeContextForIccid($rechargeContext['iccid']);
     }
 
     /**
@@ -401,6 +477,9 @@ class PlanesDisponiblesController extends Controller
                 ], 404);
             }
 
+            $rechargeContext = $this->getRechargeContext();
+            $isRecharge = $rechargeContext['is_recharge'] && !empty($rechargeContext['iccid']);
+
             // Verificar el estado del pago en Stripe
             $paymentStatus = $this->stripeService->getPaymentStatus($request->payment_intent_id);
 
@@ -415,47 +494,68 @@ class PlanesDisponiblesController extends Controller
             // Generar ID de transacción único
             $transactionId = 'STRIPE-' . $cliente->id . '-' . time() . '-' . uniqid();
 
+            $orderPayload = $isRecharge
+                ? [
+                    'operation_type' => 'TOPUP',
+                    'iccid' => $rechargeContext['iccid'],
+                ]
+                : [];
+
             // Crear orden en eSIM FX
             $apiResponse = $this->esimService->createOrder(
                 $request->product_id,
-                $transactionId
+                $transactionId,
+                $orderPayload
             );
+
+            if (empty($apiResponse['id'])) {
+                throw new Exception('No se recibió un ID de orden válido desde la API');
+            }
 
             $activateSuscription = $this->esimService->activateOrder(
                 $apiResponse['id']
             );
 
-            if (!isset($apiResponse['esim'])) {
-                throw new Exception('No se recibieron datos de eSIM desde la API');
+            if ($isRecharge) {
+                $esimData = [
+                    'is_topup' => true,
+                    'iccid' => $rechargeContext['iccid'],
+                    'data_amount' => $request->data_amount,
+                    'duration_days' => $request->duration,
+                ];
+            } else {
+                if (!isset($apiResponse['esim'])) {
+                    throw new Exception('No se recibieron datos de eSIM desde la API');
+                }
+
+                // Generar código QR
+                $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
+
+                // Separar datos para instalación manual
+                // Formato esperado: LPA:1$smdp.address$activationCode
+                $parts = explode('$', $apiResponse['esim']['esim_qr']);
+
+                $esimData = [
+                    'is_topup' => false,
+                    'qr_svg' => (string) $qrImage,
+                    'smdp' => $parts[1] ?? 'N/A',
+                    'code' => $parts[2] ?? 'N/A',
+                    'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A',
+                    'data_amount' => $request->data_amount,
+                    'duration_days' => $request->duration,
+                ];
             }
-
-            // Generar código QR
-            $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
-
-            // Separar datos para instalación manual
-            // Formato esperado: LPA:1$smdp.address$activationCode
-            $parts = explode('$', $apiResponse['esim']['esim_qr']);
-
-            $esimData = [
-                'qr_svg' => (string) $qrImage,
-                'smdp' => $parts[1] ?? 'N/A',
-                'code' => $parts[2] ?? 'N/A',
-                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A',
-                'data_amount' => $request->data_amount,
-                'duration_days' => $request->duration,
-            ];
 
             // Resolver beneficiario asociado para atribuir comisiones
             [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
-            $commissionAmount = $this->calculateFreeEsimCommissionAmount($beneficiarioId, $superPartnerId);
 
             // Guardar la transacción en la base de datos
             $transactionData = [
                 'order_id' => $apiResponse['id'],
                 'transaction_id' => $transactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
-                'iccid' => $apiResponse['esim']['iccid'] ?? null,
-                'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
+                'iccid' => $isRecharge ? $rechargeContext['iccid'] : ($apiResponse['esim']['iccid'] ?? null),
+                'esim_qr' => $isRecharge ? null : ($apiResponse['esim']['esim_qr'] ?? null),
                 'creation_time' => now(),
                 'cliente_id' => $cliente->id,
                 'plan_name' => $request->plan_name,
@@ -479,8 +579,11 @@ class PlanesDisponiblesController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => '¡Pago exitoso! Tu eSIM ha sido activada.',
+                'message' => $isRecharge
+                    ? '¡Pago exitoso! Los datos fueron recargados en tu eSIM actual.'
+                    : '¡Pago exitoso! Tu eSIM ha sido activada.',
                 'esim_data' => $esimData,
+                'is_recharge' => $isRecharge,
             ]);
         } catch (Exception $e) {
             Log::error('Error procesando pago: ' . $e->getMessage());
@@ -516,6 +619,7 @@ class PlanesDisponiblesController extends Controller
             }
 
             $user = Auth::user();
+            $rechargeContext = $this->getRechargeContext();
 
             // Crear el Payment Intent con metadata
             $paymentIntent = $this->stripeService->createPaymentIntent(
@@ -524,6 +628,7 @@ class PlanesDisponiblesController extends Controller
                 [
                     'product_id' => $request->product_id,
                     'user_id' => $user->id,
+                    'recharge_iccid' => $rechargeContext['iccid'] ?? '',
                 ]
             );
 
@@ -579,33 +684,62 @@ class PlanesDisponiblesController extends Controller
                 ], 404);
             }
 
+            $rechargeContext = $this->getRechargeContext();
+            $isRecharge = $rechargeContext['is_recharge'] && !empty($rechargeContext['iccid']);
+
             // Generar ID de transacción único
             $transactionId = 'FREE-' . $cliente->id . '-' . time() . '-' . uniqid();
+
+            $orderPayload = $isRecharge
+                ? [
+                    'operation_type' => 'TOPUP',
+                    'iccid' => $rechargeContext['iccid'],
+                ]
+                : [];
 
             // Crear orden en eSIM FX (para planes gratuitos)
             $apiResponse = $this->esimService->createOrder(
                 $request->product_id,
-                $transactionId
+                $transactionId,
+                $orderPayload
             );
 
-            if (!isset($apiResponse['esim'])) {
-                throw new Exception('No se recibieron datos de eSIM desde la API');
+            if (empty($apiResponse['id'])) {
+                throw new Exception('No se recibió un ID de orden válido desde la API');
             }
 
-            // Generar código QR
-            $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
+            $activateSuscription = $this->esimService->activateOrder(
+                $apiResponse['id']
+            );
 
-            // Separar datos para instalación manual
-            $parts = explode('$', $apiResponse['esim']['esim_qr']);
+            if ($isRecharge) {
+                $esimData = [
+                    'is_topup' => true,
+                    'iccid' => $rechargeContext['iccid'],
+                    'data_amount' => $request->data_amount,
+                    'duration_days' => $request->duration,
+                ];
+            } else {
+                if (!isset($apiResponse['esim'])) {
+                    throw new Exception('No se recibieron datos de eSIM desde la API');
+                }
 
-            $esimData = [
-                'qr_svg' => (string) $qrImage,
-                'smdp' => $parts[1] ?? 'N/A',
-                'code' => $parts[2] ?? 'N/A',
-                'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A',
-                'data_amount' => $request->data_amount,
-                'duration_days' => $request->duration,
-            ];
+                // Generar código QR
+                $qrImage = QrCode::size(300)->generate($apiResponse['esim']['esim_qr']);
+
+                // Separar datos para instalación manual
+                $parts = explode('$', $apiResponse['esim']['esim_qr']);
+
+                $esimData = [
+                    'is_topup' => false,
+                    'qr_svg' => (string) $qrImage,
+                    'smdp' => $parts[1] ?? 'N/A',
+                    'code' => $parts[2] ?? 'N/A',
+                    'iccid' => $apiResponse['esim']['iccid'] ?? 'N/A',
+                    'data_amount' => $request->data_amount,
+                    'duration_days' => $request->duration,
+                ];
+            }
 
             // Resolver beneficiario asociado para atribuir comisiones
             [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
@@ -621,8 +755,8 @@ class PlanesDisponiblesController extends Controller
                 'order_id' => $apiResponse['id'],
                 'transaction_id' => $transactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
-                'iccid' => $apiResponse['esim']['iccid'] ?? null,
-                'esim_qr' => $apiResponse['esim']['esim_qr'] ?? null,
+                'iccid' => $isRecharge ? $rechargeContext['iccid'] : ($apiResponse['esim']['iccid'] ?? null),
+                'esim_qr' => $isRecharge ? null : ($apiResponse['esim']['esim_qr'] ?? null),
                 'creation_time' => now(),
                 'cliente_id' => $cliente->id,
                 'plan_name' => $request->plan_name,
@@ -648,8 +782,11 @@ class PlanesDisponiblesController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => '¡Plan gratuito activado! Tu eSIM ha sido generada.',
+                'message' => $isRecharge
+                    ? '¡Recarga gratuita aplicada! Los datos fueron agregados a tu eSIM actual.'
+                    : '¡Plan gratuito activado! Tu eSIM ha sido generada.',
                 'esim_data' => $esimData,
+                'is_recharge' => $isRecharge,
             ]);
         } catch (Exception $e) {
             Log::error('Error activando plan gratuito: ' . $e->getMessage());

@@ -2,20 +2,13 @@
 
 namespace App\Http\Controllers\App\Cliente;
 
-use App\Helpers\CountryTariffHelper;
 use App\Http\Controllers\Controller;
-use App\Services\StripeService;
+use App\Models\App\Transaction\Transaction;
+use App\Services\EsimFxService;
 use Illuminate\Http\Request;
 
 class ClienteDashboardController extends Controller
 {
-    protected $stripeService;
-
-    public function __construct(StripeService $stripeService)
-    {
-        $this->stripeService = $stripeService;
-    }
-
     /**
      * Show the cliente dashboard
      *
@@ -43,25 +36,43 @@ class ClienteDashboardController extends Controller
         $transactions = $cliente->transactions()
             ->orderBy('creation_time', 'desc')
             ->get();
-
-        // Data for eSIM plans section
-        $initialCountry = strtoupper((string) $request->query('country', ''));
-        if (strlen($initialCountry) !== 2) {
-            $initialCountry = '';
-        }
-        $stripePublicKey = $this->stripeService->getPublishableKey();
-        $allCountries = CountryTariffHelper::getAllCountries();
         
         $data = [
             'cliente' => $cliente,
             'active_plan' => $activePlan,
             'transactions' => $transactions,
-            'stripePublicKey' => $stripePublicKey,
-            'allCountries' => $allCountries,
-            'initialCountry' => $initialCountry,
         ];
         
         return view('dashboard.cliente', $data);
+    }
+
+    /**
+     * Return detail for a transaction owned by the authenticated client.
+     *
+     * @param Request $request
+     * @param Transaction $transaction
+     * @param EsimFxService $esimFxService
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function transactionDetail(Request $request, Transaction $transaction, EsimFxService $esimFxService)
+    {
+        $user = $request->user();
+
+        if ($user->user_type !== 'cliente' || !$user->cliente || (int) $transaction->cliente_id !== (int) $user->cliente->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if (empty($transaction->order_id)) {
+            return response()->json(['message' => 'Esta transacción no tiene order ID.'], 422);
+        }
+
+        try {
+            $data = $esimFxService->getOrder($transaction->order_id);
+
+            return response()->json(['data' => $data]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
     }
 
     /**

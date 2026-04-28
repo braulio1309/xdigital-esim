@@ -15,6 +15,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ClienteController extends Controller
 {
+    protected $clienteAccessMailService;
+
     /**
      * ClienteController constructor.
      * @param ClienteService $service
@@ -24,6 +26,7 @@ class ClienteController extends Controller
     {
         $this->service = $service;
         $this->filter = $filter;
+        $this->clienteAccessMailService = app('App\Services\App\Cliente\ClienteAccessMailService');
     }
 
     /**
@@ -210,10 +213,20 @@ class ClienteController extends Controller
         ]);
     }
 
+    public function sendAccessEmail(Cliente $cliente)
+    {
+        $this->clienteAccessMailService->sendAccessCredentials($cliente);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Correo enviado.',
+        ]);
+    }
+
     /**
      * Import clients from an Excel file.
      * Accepts columns: nombre, apellido, email (any order, extra columns ignored).
-     * Password is set to nombre123*
+    * Password is set to identificador + '.'
      *
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse

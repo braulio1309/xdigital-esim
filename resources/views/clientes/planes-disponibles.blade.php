@@ -597,6 +597,10 @@
     $displayPartnerLogo = $displayPartner->logo_url ?? null;
     $permissionError = session('error');
     $hasPermissionError = is_string($permissionError) && str_contains($permissionError, 'No tienes permiso');
+    $rechargeContext = $rechargeContext ?? ['is_recharge' => false, 'iccid' => null, 'transaction_id' => null];
+    $maskedRechargeIccid = !empty($rechargeContext['iccid'])
+        ? str_repeat('*', max(strlen($rechargeContext['iccid']) - 4, 0)) . substr($rechargeContext['iccid'], -4)
+        : null;
     $initialCountryOption = collect($allCountries ?? [])->firstWhere('code', $initialCountry ?? '');
     $initialCountryLabel = $initialCountryOption['name'] ?? '';
     $countryAutocompleteOptions = collect($allCountries ?? [])->map(function ($country) {
@@ -612,7 +616,7 @@
     }
 @endphp
 
-<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}" data-initial-country-label="{{ $initialCountryLabel }}">
+<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}" data-initial-country-label="{{ $initialCountryLabel }}" data-is-recharge="{{ !empty($rechargeContext['is_recharge']) ? '1' : '0' }}" data-recharge-iccid="{{ $rechargeContext['iccid'] ?? '' }}">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-start auth px-0 py-5">
             <div class="row w-100 mx-0">
@@ -656,6 +660,19 @@
                         <div class="sales-message sales-success" role="alert">
                             <div class="sales-message-title">Tu acceso está listo para seguir comprando.</div>
                             <p class="sales-message-copy">{{ session('success') }}</p>
+                        </div>
+                    @endif
+
+                    @if(!empty($rechargeContext['is_recharge']))
+                        <div class="sales-message sales-success" role="alert">
+                            <div class="sales-message-title">Esta compra recargará la eSIM que ya tiene el cliente.</div>
+                            <p class="sales-message-copy">
+                                El nuevo plan se aplicará como recarga sobre la eSIM actual
+                                @if($maskedRechargeIccid)
+                                    con ICCID {{ $maskedRechargeIccid }}
+                                @endif
+                                . No se generará un QR nuevo ni se ejecutará una activación adicional.
+                            </p>
                         </div>
                     @endif
 
@@ -901,6 +918,9 @@
                             @{{ selectedPlan.duration }} @{{ formatDurationUnit(selectedPlan.duration_unit) }}
                         </p>
                         <h4 class="mb-4">Total: @{{ selectedPlan.price }} @{{ selectedPlan.price_unit }}</h4>
+                        <div v-if="isRechargeFlow" class="alert alert-info">
+                            Esta compra se aplicará como recarga a la eSIM actual con ICCID @{{ rechargeIccid || 'N/A' }}.
+                        </div>
 
                         {{-- Stripe Elements se cargará aquí --}}
                         <div id="card-element" class="form-control mb-3" style="padding: 12px;"></div>
@@ -924,10 +944,28 @@
                     <div class="success-icon">
                         <i class="mdi mdi-check-circle"></i>
                     </div>
-                    <h3>¡Pago Exitoso!</h3>
-                    <p class="mb-4">Tu eSIM ha sido activada correctamente</p>
+                    <h3>@{{ esimData && esimData.is_topup ? '¡Recarga exitosa!' : '¡Pago Exitoso!' }}</h3>
+                    <p class="mb-4">@{{ esimData && esimData.is_topup ? 'Los datos fueron aplicados a la eSIM existente.' : 'Tu eSIM ha sido activada correctamente' }}</p>
 
-                    <div v-if="esimData" class="text-center">
+                    <div v-if="esimData && esimData.is_topup" class="text-center">
+                        <div class="text-left mt-4 p-3 bg-light rounded">
+                            <h5 class="mb-3">Recarga aplicada</h5>
+                            <div class="form-group">
+                                <label class="font-weight-bold">ICCID:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" :value="esimData.iccid" readonly id="topup-iccid-input">
+                                    <div class="input-group-append">
+                                        <button class="btn btn-secondary" @click="copyToClipboard('topup-iccid-input')">Copiar</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="mb-0">Tu plan quedó asociado a la eSIM actual. No necesitas escanear un nuevo QR.</p>
+                        </div>
+
+                        <button class="btn btn-primary mt-4" data-dismiss="modal">Cerrar</button>
+                    </div>
+
+                    <div v-else-if="esimData" class="text-center">
                         {{-- QR Code --}}
                         <div class="qr-code-container" v-html="esimData.qr_svg"></div>
 
@@ -980,6 +1018,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const countryOptionsElement = document.getElementById('planes-country-options-json');
     const initialCountry = appElement ? appElement.dataset.initialCountry || '' : '';
     const initialCountryLabel = appElement ? appElement.dataset.initialCountryLabel || '' : '';
+    const isRechargeFlow = appElement ? appElement.dataset.isRecharge === '1' : false;
+    const rechargeIccid = appElement ? appElement.dataset.rechargeIccid || '' : '';
     const countryOptions = countryOptionsElement ? JSON.parse(countryOptionsElement.textContent || '[]') : [];
 
     new Vue({
@@ -1009,6 +1049,8 @@ document.addEventListener('DOMContentLoaded', function() {
             authError: '',
             paymentProcessing: false,
             esimData: null,
+            isRechargeFlow: isRechargeFlow,
+            rechargeIccid: rechargeIccid,
             stripe: null,
             cardElement: null,
             paymentIntentId: null,
@@ -1283,7 +1325,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const intentResponse = await axios.post('/planes/create-payment-intent', {
                         product_id: this.selectedPlan.id,
                         amount: this.selectedPlan.price,
-                        currency: this.selectedPlan.price_unit.toLowerCase()
+                        currency: this.selectedPlan.price_unit.toLowerCase(),
+                        recharge_iccid: this.rechargeIccid
                     });
 
                     if (!intentResponse.data.success) {
@@ -1312,7 +1355,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         data_amount: this.selectedPlan.amount,
                         duration: this.selectedPlan.duration,
                         purchase_amount: this.selectedPlan.price,
-                        currency: this.selectedPlan.price_unit
+                        currency: this.selectedPlan.price_unit,
+                        recharge_iccid: this.rechargeIccid
                     });
 
                     if (activationResponse.data.success) {
@@ -1343,6 +1387,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         data_amount: this.selectedPlan.amount,
                         duration: this.selectedPlan.duration,
                         original_price: this.selectedPlan.original_price,
+                        recharge_iccid: this.rechargeIccid,
                     });
 
                     if (response.data.success) {

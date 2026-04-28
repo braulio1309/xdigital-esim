@@ -56,32 +56,49 @@ class EsimFxService
     }
 
     /**
-     * Paso 2: Crear la Orden (Activar eSIM)
-     * * @param string $productId El ID del plan a comprar (e.g. "1GB USA")
+     * Paso 2: Crear la orden.
+     *
+     * Soporta:
+     * - NEW: crea una eSIM nueva.
+     * - TOPUP: recarga una eSIM existente y requiere ICCID.
+     *
+     * @param string $productId El ID del plan a comprar (e.g. "1GB USA")
      * @param string $transactionId Tu referencia única para este cliente/orden
-     * @param array $extraParams Parámetros adicionales (cantidad, etc.)
+     * @param array $extraParams Parámetros adicionales enviados a la API.
+     * @return array
+     * @throws Exception
      */
     public function createOrder($productId, $transactionId, $extraParams = [])
     {
         $endpoint = "{$this->baseUrl}/order/api/v1/create_order";
+        $operationType = strtoupper((string) ($extraParams['operation_type'] ?? 'NEW'));
 
-        // Estructura del body para "Cualquier Plan/Cliente"
-        // NOTA: Revisa la pag 17 de tu PDF para confirmar si requieren 'operation_type'
+        if ($operationType === 'TOPUP' && empty($extraParams['iccid'])) {
+            throw new Exception('ICCID is required for TOPUP orders');
+        }
+
         $payload = array_merge([
-            'product' =>[
+            'product' => [
                 'id' => $productId
-            ],       // ID del plan seleccionado
-            'transaction_id' => $transactionId, // ID único de tu base de datos
-            'count' => 1,                     // Por defecto 1 eSIM
-            'operation_type' => 'NEW'      // Posiblemente requerido según pag 17
+            ],
+            'transaction_id' => $transactionId,
+            'count' => 1,
+            'operation_type' => $operationType,
         ], $extraParams);
 
         $response = Http::withHeaders($this->getHeaders())
                         ->post($endpoint, $payload);
 
-       
+        if ($response->failed()) {
+            Log::error('Error createOrder eSIMfx: ' . $response->body(), [
+                'operation_type' => $operationType,
+                'product_id' => $productId,
+                'transaction_id' => $transactionId,
+                'iccid' => $payload['iccid'] ?? null,
+            ]);
 
-       
+            throw new Exception('Error creating order in eSIMfx');
+        }
 
         return $response->json()['data'];
     }
