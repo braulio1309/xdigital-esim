@@ -32,6 +32,11 @@
                             Precios por País
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{active: activeTab === 'free_esim_countries'}" href="#" @click.prevent="activeTab = 'free_esim_countries'">
+                            Países eSIM Gratuita
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- Tab: Margins -->
@@ -208,6 +213,95 @@
                     </button>
                 </div>
 
+                <!-- Tab: Free eSIM Countries -->
+                <div v-show="activeTab === 'free_esim_countries'">
+                    <div class="alert alert-success">
+                        <strong>Países habilitados para eSIM Gratuita</strong>
+                        <p class="mb-0 mt-2">
+                            Activa o desactiva los países en los que este beneficiario puede ofrecer eSIMs gratuitas.
+                            Los países marcados como "Activo" aparecerán con opción de activación gratuita en el formulario de registro.
+                            Los países globalmente baratos están habilitados por defecto aunque no aparezcan aquí.
+                        </p>
+                        <small class="text-muted">
+                            Si un país ya es "asequible" globalmente (tarifa ≤ $0.67/GB) y no aparece en esta lista, seguirá siendo gratuito.
+                            Agrega un país aquí para personalizar su precio o para habilitar países que normalmente no califican (ej. Colombia).
+                        </small>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="form-group mb-3">
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               v-model="countrySearch"
+                               placeholder="Buscar país..."/>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover">
+                            <thead style="position: sticky; top: 0; background: #fff; z-index: 1;">
+                                <tr>
+                                    <th style="min-width:150px">País</th>
+                                    <th style="min-width:60px">Código</th>
+                                    <th style="min-width:100px">Estado</th>
+                                    <th style="min-width:120px">Capacidad Plan</th>
+                                    <th style="min-width:140px">Precio eSIM Gratis (USD)</th>
+                                    <th style="min-width:60px">Default</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="country in filteredCountries" :key="country.code"
+                                    :class="{'table-success': getFreeEsimCountryEntry(country.code) && getFreeEsimCountryEntry(country.code).is_active}">
+                                    <td class="align-middle">{{ country.name }}</td>
+                                    <td class="align-middle"><strong>{{ country.code }}</strong></td>
+                                    <td class="align-middle">
+                                        <div class="custom-control custom-switch">
+                                            <input type="checkbox"
+                                                   class="custom-control-input"
+                                                   :id="'fec-' + country.code"
+                                                   :checked="isFreeEsimCountryActive(country.code)"
+                                                   @change="toggleFreeEsimCountry(country.code, $event.target.checked)"/>
+                                            <label class="custom-control-label" :for="'fec-' + country.code">
+                                                {{ isFreeEsimCountryActive(country.code) ? 'Activo' : 'Inactivo' }}
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td class="align-middle">
+                                        <select v-if="getFreeEsimCountryEntry(country.code)"
+                                                class="form-control form-control-sm"
+                                                v-model="getFreeEsimCountryEntry(country.code).plan_capacity"
+                                                style="max-width: 90px;">
+                                            <option v-for="cap in allCapacities" :key="cap" :value="cap">{{ cap }}GB</option>
+                                        </select>
+                                        <span v-else class="text-muted small">1GB</span>
+                                    </td>
+                                    <td class="align-middle">
+                                        <div v-if="getFreeEsimCountryEntry(country.code)" class="input-group" style="max-width: 130px;">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">$</span>
+                                            </div>
+                                            <input type="number"
+                                                   class="form-control form-control-sm"
+                                                   v-model="getFreeEsimCountryEntry(country.code).price"
+                                                   min="0"
+                                                   step="0.01"
+                                                   placeholder="Default"/>
+                                        </div>
+                                        <span v-else class="text-muted small">Default</span>
+                                    </td>
+                                    <td class="align-middle">
+                                        <span v-if="country.is_affordable" class="badge badge-info" title="Habilitado globalmente por tarifa baja">Global</span>
+                                        <span v-else class="text-muted small">—</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <strong>Nota:</strong> Solo se guardan los países que hayas activado o configurado explícitamente.
+                        Los países "Global" siguen siendo gratuitos automáticamente sin necesidad de activarlos aquí.
+                    </small>
+                </div>
+
                 <div class="mt-4 d-flex justify-content-between">
                     <button class="btn btn-secondary" @click.prevent="resetToDefaults">
                         {{ $t('reset_to_defaults') }}
@@ -263,8 +357,21 @@
                 },
                 countryPrices: [],
                 freeEsimRate: 0.85,
+                // Free eSIM countries: array of {country_code, is_active, price, plan_capacity}
+                freeEsimCountries: [],
+                allCountries: [],
+                countrySearch: '',
                 preloader: false,
             }
+        },
+        computed: {
+            filteredCountries() {
+                const q = (this.countrySearch || '').toLowerCase().trim();
+                if (!q) return this.allCountries;
+                return this.allCountries.filter(c =>
+                    c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+                );
+            },
         },
         mounted() {
             this.getMargins();
@@ -296,6 +403,12 @@
                     if (response.data && response.data.country_prices) {
                         this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
                     }
+                    if (response.data && response.data.free_esim_countries) {
+                        this.freeEsimCountries = response.data.free_esim_countries.map(item => ({ ...item }));
+                    }
+                    if (response.data && response.data.all_countries) {
+                        this.allCountries = response.data.all_countries;
+                    }
                 })
                 .catch(error => {
                     const message = error.response?.data?.message || this.$t('error_loading_margins');
@@ -314,6 +427,7 @@
                     free_esim_rate: this.freeEsimRate,
                     plan_prices: this.planPrices,
                     country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.price !== '' && e.price !== null),
+                    free_esim_countries: this.freeEsimCountries,
                 };
 
                 axios.post(actions.UPDATE_BENEFICIARY_PLAN_MARGINS, data)
@@ -338,6 +452,9 @@
                     }
                     if (response.data && response.data.country_prices) {
                         this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
+                    }
+                    if (response.data && response.data.free_esim_countries) {
+                        this.freeEsimCountries = response.data.free_esim_countries.map(item => ({ ...item }));
                     }
                     setTimeout(() => { this.closeModal(); }, 1000);
                 })
@@ -380,6 +497,34 @@
 
             removeCountryPrice(idx) {
                 this.countryPrices.splice(idx, 1);
+            },
+
+            // ---- Free eSIM Countries helpers ----
+
+            getFreeEsimCountryEntry(countryCode) {
+                return this.freeEsimCountries.find(e => e.country_code === countryCode) || null;
+            },
+
+            isFreeEsimCountryActive(countryCode) {
+                const entry = this.getFreeEsimCountryEntry(countryCode);
+                if (entry) return entry.is_active;
+                // If not explicitly set, reflect the global affordable status
+                const country = this.allCountries.find(c => c.code === countryCode);
+                return country ? country.is_affordable : false;
+            },
+
+            toggleFreeEsimCountry(countryCode, isActive) {
+                let entry = this.getFreeEsimCountryEntry(countryCode);
+                if (entry) {
+                    entry.is_active = isActive;
+                } else {
+                    this.freeEsimCountries.push({
+                        country_code: countryCode,
+                        is_active: isActive,
+                        price: null,
+                        plan_capacity: '1',
+                    });
+                }
             },
 
             closeModal() {

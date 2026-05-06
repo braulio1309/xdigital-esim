@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\Settings\BeneficiaryPlanMarginRequest;
+use App\Helpers\CountryTariffHelper;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use App\Services\App\Settings\BeneficiaryPriceService;
@@ -42,6 +43,15 @@ class BeneficiaryPlanMarginController extends Controller
             'free_esim_rate' => (float) $beneficiario->free_esim_rate,
             'plan_prices' => $this->priceService->getFormattedPlanPrices($beneficiarioId),
             'country_prices' => $this->priceService->getCountryPrices($beneficiarioId),
+            'free_esim_countries' => $this->priceService->getFreeEsimCountries($beneficiarioId),
+            'all_countries' => collect(CountryTariffHelper::getAllCountries())->map(function ($c) {
+                return [
+                    'code' => $c['code'],
+                    'name' => $c['name'],
+                    'region' => $c['region'] ?? '',
+                    'is_affordable' => CountryTariffHelper::isAffordableCountryCode($c['code']),
+                ];
+            })->sortBy('name')->values()->all(),
         ]);
     }
 
@@ -60,6 +70,7 @@ class BeneficiaryPlanMarginController extends Controller
         $freeEsimRate = $request->input('free_esim_rate');
         $planPrices = $request->input('plan_prices', []);
         $countryPrices = $request->input('country_prices', []);
+        $freeEsimCountries = $request->input('free_esim_countries', []);
 
         $success = $this->service->updateMargins(
             $beneficiarioId,
@@ -76,6 +87,9 @@ class BeneficiaryPlanMarginController extends Controller
             // Update country-specific prices
             $this->priceService->updateCountryPrices($beneficiarioId, $countryPrices);
 
+            // Update free eSIM countries
+            $this->priceService->updateFreeEsimCountries($beneficiarioId, $freeEsimCountries);
+
             $beneficiario = Beneficiario::findOrFail($beneficiarioId);
 
             return updated_responses('beneficiary_plan_margins', [
@@ -83,6 +97,7 @@ class BeneficiaryPlanMarginController extends Controller
                 'free_esim_rate' => (float) $beneficiario->free_esim_rate,
                 'plan_prices' => $this->priceService->getFormattedPlanPrices($beneficiarioId),
                 'country_prices' => $this->priceService->getCountryPrices($beneficiarioId),
+                'free_esim_countries' => $this->priceService->getFreeEsimCountries($beneficiarioId),
             ]);
         }
 

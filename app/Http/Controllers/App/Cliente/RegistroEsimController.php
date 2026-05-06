@@ -229,6 +229,52 @@ class RegistroEsimController extends Controller
         return round($fallback, 2);
     }
 
+    /**
+     * Determine whether a country qualifies for free eSIM activation.
+     * Per-beneficiary configuration takes precedence over the global affordable-country list.
+     *
+     * @param string $countryCode
+     * @param array  $brandingContext
+     * @return bool
+     */
+    private function isCountryEligibleForFreeEsim(string $countryCode, array $brandingContext): bool
+    {
+        $beneficiario = $brandingContext['beneficiario'] ?? null;
+
+        if ($beneficiario) {
+            return app(BeneficiaryPriceService::class)
+                ->isCountryEnabledForFreeEsim($beneficiario->id, $countryCode);
+        }
+
+        // No beneficiary context → use global affordable list
+        return CountryTariffHelper::isAffordableCountryCode($countryCode);
+    }
+
+    /**
+     * Resolve the preferred free eSIM plan capacity for a country, taking into account
+     * per-beneficiary country configuration (falls back to the client's capacity, then 1GB).
+     *
+     * @param Cliente  $cliente
+     * @param string   $countryCode
+     * @param array    $brandingContext
+     * @return int
+     */
+    private function resolveFreeEsimCapacityForCountry(Cliente $cliente, string $countryCode, array $brandingContext): int
+    {
+        $beneficiario = $brandingContext['beneficiario'] ?? null;
+
+        if ($beneficiario) {
+            $configuredCapacity = app(BeneficiaryPriceService::class)
+                ->getFreeEsimPlanCapacityForCountry($beneficiario->id, $countryCode);
+
+            if ($configuredCapacity !== null) {
+                return (int) $configuredCapacity;
+            }
+        }
+
+        return $this->resolveFreeEsimCapacityForCliente($cliente);
+    }
+
     private function selectFreeEsimProduct(array $products, int $preferredCapacity): ?array
     {
         $normalizedProducts = collect($products)
@@ -362,7 +408,13 @@ class RegistroEsimController extends Controller
             $beneficiario = $brandingContext['beneficiario'];
             $selectedCountryCode = strtoupper($validated['country_code']);
 
-            if (!CountryTariffHelper::isAffordableCountryCode($selectedCountryCode)) {
+            // Check per-beneficiary free eSIM countries first; fall back to global affordable list
+            $isEligibleForFreeEsim = $this->isCountryEligibleForFreeEsim(
+                $selectedCountryCode,
+                $brandingContext
+            );
+
+            if (!$isEligibleForFreeEsim) {
                 $routeParams = [];
 
                 if (!empty($validated['referralCode'])) {
@@ -430,7 +482,7 @@ class RegistroEsimController extends Controller
             if ($request->filled('country_code') && $existingCliente) {
                 try {
                     $countryCode = $selectedCountryCode;
-                    $preferredCapacity = $this->resolveFreeEsimCapacityForCliente($cliente);
+                    $preferredCapacity = $this->resolveFreeEsimCapacityForCountry($cliente, $countryCode, $brandingContext);
 
                     // Obtener productos del país desde la API
                     Log::info("Buscando productos para país: {$countryCode} con capacidad gratuita {$preferredCapacity}GB");

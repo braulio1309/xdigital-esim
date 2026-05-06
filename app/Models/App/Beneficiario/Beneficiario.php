@@ -5,6 +5,7 @@ namespace App\Models\App\Beneficiario;
 use App\Models\App\AppModel;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Settings\BeneficiaryCountryPrice;
+use App\Models\App\Settings\BeneficiaryFreeEsimCountry;
 use App\Models\App\Settings\BeneficiaryPlanMargin;
 use App\Models\App\Settings\BeneficiaryPlanPrice;
 use App\Models\App\SuperPartner\SuperPartner;
@@ -99,6 +100,16 @@ class Beneficiario extends AppModel
     public function countryPrices()
     {
         return $this->hasMany(BeneficiaryCountryPrice::class);
+    }
+
+    /**
+     * Relationship with BeneficiaryFreeEsimCountry model (countries enabled for free eSIM activation)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function freeEsimCountries()
+    {
+        return $this->hasMany(BeneficiaryFreeEsimCountry::class);
     }
 
     /**

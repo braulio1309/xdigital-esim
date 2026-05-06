@@ -26,6 +26,11 @@ class BeneficiaryPlanMarginRequest extends AppRequest
             'country_prices.*.country_code' => 'required_with:country_prices|string|size:2',
             'country_prices.*.plan_capacity' => 'required_with:country_prices|string',
             'country_prices.*.price' => 'required_with:country_prices|numeric|min:0',
+            'free_esim_countries' => 'sometimes|array',
+            'free_esim_countries.*.country_code' => 'required_with:free_esim_countries|string|size:2',
+            'free_esim_countries.*.is_active' => 'sometimes|boolean',
+            'free_esim_countries.*.price' => 'nullable|numeric|min:0',
+            'free_esim_countries.*.plan_capacity' => 'sometimes|string',
         ];
     }
 
