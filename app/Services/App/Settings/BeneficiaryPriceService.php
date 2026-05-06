@@ -325,12 +325,8 @@ class BeneficiaryPriceService
 
             // Remove entries that were not included in the payload
             BeneficiaryFreeEsimCountry::where('beneficiario_id', $beneficiarioId)
-                ->get()
-                ->each(function ($existing) use ($incomingCodes) {
-                    if (!in_array($existing->country_code, $incomingCodes, true)) {
-                        $existing->delete();
-                    }
-                });
+                ->whereNotIn('country_code', $incomingCodes)
+                ->delete();
 
             return true;
         } catch (\Exception $e) {
