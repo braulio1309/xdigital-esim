@@ -28,6 +28,7 @@ class ClienteRequest extends AppRequest
             'identificador' => 'required|string|max:255',
             'email'    => ['required', 'email', 'max:255'],
             'password' => $isCreate ? 'required|string|min:8' : 'nullable|string|min:8',
+            'free_esim_capacity' => 'nullable|integer|in:1,3,5,10',
         ];
     }
 }

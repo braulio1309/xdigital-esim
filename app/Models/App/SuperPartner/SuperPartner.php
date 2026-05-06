@@ -4,6 +4,8 @@ namespace App\Models\App\SuperPartner;
 
 use App\Models\App\AppModel;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\Settings\SuperPartnerCountryPrice;
+use App\Models\App\Settings\SuperPartnerPlanPrice;
 use App\Models\Core\Auth\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -51,6 +53,26 @@ class SuperPartner extends AppModel
     public function beneficiarios()
     {
         return $this->hasMany(Beneficiario::class);
+    }
+
+    /**
+     * Relationship with SuperPartnerPlanPrice model (manual fixed prices per plan capacity)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function planPrices()
+    {
+        return $this->hasMany(SuperPartnerPlanPrice::class);
+    }
+
+    /**
+     * Relationship with SuperPartnerCountryPrice model (country-specific price overrides)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function countryPrices()
+    {
+        return $this->hasMany(SuperPartnerCountryPrice::class);
     }
 
     /**
