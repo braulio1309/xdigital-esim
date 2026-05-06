@@ -4,7 +4,9 @@ namespace App\Models\App\Beneficiario;
 
 use App\Models\App\AppModel;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\Settings\BeneficiaryCountryPrice;
 use App\Models\App\Settings\BeneficiaryPlanMargin;
+use App\Models\App\Settings\BeneficiaryPlanPrice;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -77,6 +79,26 @@ class Beneficiario extends AppModel
     public function planMargins()
     {
         return $this->hasMany(BeneficiaryPlanMargin::class);
+    }
+
+    /**
+     * Relationship with BeneficiaryPlanPrice model (manual fixed prices per plan capacity)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function planPrices()
+    {
+        return $this->hasMany(BeneficiaryPlanPrice::class);
+    }
+
+    /**
+     * Relationship with BeneficiaryCountryPrice model (country-specific price overrides)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function countryPrices()
+    {
+        return $this->hasMany(BeneficiaryCountryPrice::class);
     }
 
     /**

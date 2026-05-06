@@ -82,6 +82,7 @@ export const TRANSACTIONS = 'transactions';
 export const TRANSACTIONS_PAYMENT_STATS = 'transactions/payment-stats';
 export const TRANSACTIONS_CALCULATE_AMOUNT = 'transactions/calculate-payment-amount';
 export const TRANSACTIONS_MARK_AS_PAID = 'transactions/mark-as-paid';
+export const TRANSACTIONS_NOMAD_DEBT_STATS = 'transactions/nomad-debt-stats';
 export const TRANSACTIONS_ESIM_STATUS = (id) => `transactions/${id}/esim-status`;
 export const TRANSACTIONS_TERMINATE = (id) => `transactions/${id}/terminate-subscription`;
 export const TRANSACTIONS_RECHARGE = (id) => `transactions/${id}/recharge`;

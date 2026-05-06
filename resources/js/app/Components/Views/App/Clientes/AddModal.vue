@@ -95,6 +95,22 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_free_esim_capacity" class="col-sm-3 mb-0">
+                        Capacidad eSIM Gratuita
+                    </label>
+                    <div class="col-sm-9">
+                        <select id="inputs_free_esim_capacity"
+                                class="form-control"
+                                v-model="inputs.free_esim_capacity">
+                            <option :value="1">1 GB</option>
+                            <option :value="3">3 GB</option>
+                            <option :value="5">5 GB</option>
+                            <option :value="10">10 GB</option>
+                        </select>
+                        <small class="text-muted">Capacidad de datos de la eSIM gratuita que se asignará al cliente.</small>
+                    </div>
+                </div>
             </form>
         </template>
     </modal>
@@ -121,6 +137,7 @@
                     password: '',
                     beneficiario_id: null,
                     can_activate_free_esim: false,
+                    free_esim_capacity: 1,
                 },
                 beneficiarios: [],
                 modalId: 'cliente-add-edit-modal',

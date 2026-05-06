@@ -19,6 +19,13 @@ class BeneficiaryPlanMarginRequest extends AppRequest
             'margins.*.margin_percentage' => 'required|numeric|min:0|max:100',
             'margins.*.is_active' => 'sometimes|boolean',
             'free_esim_rate' => 'nullable|numeric|min:0|max:999.99',
+            'plan_prices' => 'sometimes|array',
+            'plan_prices.*.price' => 'nullable|numeric|min:0',
+            'plan_prices.*.is_active' => 'sometimes|boolean',
+            'country_prices' => 'sometimes|array',
+            'country_prices.*.country_code' => 'required_with:country_prices|string|size:2',
+            'country_prices.*.plan_capacity' => 'required_with:country_prices|string',
+            'country_prices.*.price' => 'required_with:country_prices|numeric|min:0',
         ];
     }
 

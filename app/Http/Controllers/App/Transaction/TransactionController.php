@@ -527,6 +527,7 @@ class TransactionController extends Controller
                 'data_amount' => $gbAmount,
                 'duration_days' => $selectedProduct['duration'] ?? null,
                 'purchase_amount' => 0,
+                'api_price' => isset($selectedProduct['price']) ? (float) $selectedProduct['price'] : null,
                 'currency' => 'USD',
                 'is_paid' => true,
                 'paid_at' => now(),
@@ -568,6 +569,52 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction)
     {
         return response()->json(['message' => __('default.transactions_cannot_be_deleted')], 403);
+    }
+
+    /**
+     * Get Nomad/API debt stats (admin only).
+     * Returns the sum of api_price for all transactions in a given date range.
+     * Defaults to the last calendar month.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function nomadDebtStats(\Illuminate\Http\Request $request)
+    {
+        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+            return response()->json(['message' => 'Unauthorized. Only administrators can view Nomad debt stats.'], 403);
+        }
+
+        $startDateRaw = $request->get('start_date');
+        $endDateRaw = $request->get('end_date');
+
+        if ($startDateRaw) {
+            $cleanStart = preg_replace('/\s*\(.*?\)/', '', $startDateRaw);
+            $startDate = Carbon::parse($cleanStart)->startOfDay();
+        } else {
+            $startDate = Carbon::now()->startOfMonth()->subMonth();
+        }
+
+        if ($endDateRaw) {
+            $cleanEnd = preg_replace('/\s*\(.*?\)/', '', $endDateRaw);
+            $endDate = Carbon::parse($cleanEnd)->endOfDay();
+        } else {
+            $endDate = Carbon::now()->startOfMonth()->subSecond();
+        }
+
+        $total = Transaction::whereBetween('creation_time', [$startDate, $endDate])
+            ->whereNotNull('api_price')
+            ->sum('api_price');
+
+        $count = Transaction::whereBetween('creation_time', [$startDate, $endDate])
+            ->whereNotNull('api_price')
+            ->count();
+
+        return response()->json([
+            'total_api_price' => round((float) $total, 2),
+            'count' => $count,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+        ]);
     }
 
     protected function resolveTransactionCountryCode(Transaction $transaction): ?string

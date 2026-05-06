@@ -562,6 +562,7 @@ class PlanesDisponiblesController extends Controller
                 'data_amount' => $request->data_amount,
                 'duration_days' => $request->duration,
                 'purchase_amount' => $request->purchase_amount,
+                'api_price' => $request->filled('original_price') ? (float) $request->original_price : null,
                 'currency' => $request->currency ?? 'USD',
             ];
 
@@ -763,6 +764,7 @@ class PlanesDisponiblesController extends Controller
                 'data_amount' => $request->data_amount,
                 'duration_days' => $request->duration,
                 'purchase_amount' => 0,
+                'api_price' => $request->filled('original_price') ? (float) $request->input('original_price') : null,
                 'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
                 'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
                 'currency' => 'USD',

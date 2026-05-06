@@ -10,8 +10,10 @@ use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
+use App\Services\App\Settings\BeneficiaryPriceService;
 use App\Services\App\Settings\PlanMarginService;
 use App\Services\App\Settings\SuperPartnerPlanMarginService;
+use App\Services\App\Settings\SuperPartnerPriceService;
 use Illuminate\Http\Request as HttpRequest;
 // Importaciones necesarias
 use App\Services\EsimFxService;
@@ -126,11 +128,30 @@ class RegistroEsimController extends Controller
         ];
     }
 
-    private function calculateFreeEsimPricingSnapshot(array $product, ?int $beneficiarioId, ?int $superPartnerId, array $brandingContext = [], ?Cliente $cliente = null): array
+    private function calculateFreeEsimPricingSnapshot(array $product, ?int $beneficiarioId, ?int $superPartnerId, array $brandingContext = [], ?Cliente $cliente = null, ?string $countryCode = null): array
     {
         $originalPrice = (float) ($product['price'] ?? 0);
         $planCapacity = (string) ($product['amount'] ?? $product['data_amount'] ?? '0');
         $capacityAsInt = (int) $planCapacity;
+
+        // --- Check manual fixed prices first (highest priority) ---
+        if ($beneficiarioId) {
+            $manualPrice = app(BeneficiaryPriceService::class)->resolvePrice($beneficiarioId, $planCapacity, $countryCode);
+            if ($manualPrice !== null) {
+                return [
+                    'charge_amount' => round($manualPrice, 2),
+                    'commission_amount' => round($manualPrice, 2),
+                ];
+            }
+        } elseif ($superPartnerId) {
+            $manualPrice = app(SuperPartnerPriceService::class)->resolvePrice($superPartnerId, $planCapacity, $countryCode);
+            if ($manualPrice !== null) {
+                return [
+                    'charge_amount' => round($manualPrice, 2),
+                    'commission_amount' => round($manualPrice, 2),
+                ];
+            }
+        }
 
         if ($capacityAsInt <= self::LEGACY_FREE_ESIM_AMOUNT) {
             $flatRate = $this->calculateFreeEsimCommissionAmount($brandingContext, $cliente);
@@ -436,7 +457,8 @@ class RegistroEsimController extends Controller
                             $transactionContext['beneficiario_id'],
                             $transactionContext['super_partner_id'],
                             $brandingContext,
-                            $cliente
+                            $cliente,
+                            $countryCode
                         );
                         $productId = $selectedProduct['id'];
                         Log::info("Producto seleccionado: {$productId}");
@@ -476,6 +498,7 @@ class RegistroEsimController extends Controller
                                 'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
                                 'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
                                 'purchase_amount' => 0,
+                                'api_price' => isset($selectedProduct['price']) ? (float) $selectedProduct['price'] : null,
                                 'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
                                 'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
                                 'currency' => 'USD',

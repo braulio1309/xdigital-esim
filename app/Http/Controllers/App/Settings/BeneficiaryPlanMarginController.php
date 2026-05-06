@@ -6,27 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\Settings\BeneficiaryPlanMarginRequest;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
+use App\Services\App\Settings\BeneficiaryPriceService;
 use Illuminate\Http\Request;
 
 class BeneficiaryPlanMarginController extends Controller
 {
     protected $service;
+    protected $priceService;
 
-    /**
-     * BeneficiaryPlanMarginController constructor.
-     * 
-     * @param BeneficiaryPlanMarginService $service
-     */
-    public function __construct(BeneficiaryPlanMarginService $service)
+    public function __construct(BeneficiaryPlanMarginService $service, BeneficiaryPriceService $priceService)
     {
         $this->service = $service;
+        $this->priceService = $priceService;
     }
 
     /**
-     * Get all plan margins configuration for a beneficiary
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Get all plan margins + plan prices + country prices configuration for a beneficiary
      */
     public function index(Request $request)
     {
@@ -40,20 +35,18 @@ class BeneficiaryPlanMarginController extends Controller
         ]);
 
         $beneficiarioId = $request->input('beneficiario_id');
-
         $beneficiario = Beneficiario::findOrFail($beneficiarioId);
 
         return response()->json([
             'margins' => $this->service->getFormattedMargins($beneficiarioId),
             'free_esim_rate' => (float) $beneficiario->free_esim_rate,
+            'plan_prices' => $this->priceService->getFormattedPlanPrices($beneficiarioId),
+            'country_prices' => $this->priceService->getCountryPrices($beneficiarioId),
         ]);
     }
 
     /**
-     * Update plan margins configuration for a beneficiary
-     * 
-     * @param BeneficiaryPlanMarginRequest $request
-     * @return array
+     * Update plan margins, plan prices, and country prices for a beneficiary
      */
     public function update(BeneficiaryPlanMarginRequest $request)
     {
@@ -65,18 +58,35 @@ class BeneficiaryPlanMarginController extends Controller
         $beneficiarioId = $request->input('beneficiario_id');
         $margins = $request->input('margins', []);
         $freeEsimRate = $request->input('free_esim_rate');
-        
-        $success = $this->service->updateMargins($beneficiarioId, $margins, $freeEsimRate !== null ? (float) $freeEsimRate : null);
+        $planPrices = $request->input('plan_prices', []);
+        $countryPrices = $request->input('country_prices', []);
+
+        $success = $this->service->updateMargins(
+            $beneficiarioId,
+            $margins,
+            $freeEsimRate !== null ? (float) $freeEsimRate : null
+        );
 
         if ($success) {
+            // Update manual plan prices
+            if (!empty($planPrices)) {
+                $this->priceService->updatePlanPrices($beneficiarioId, $planPrices);
+            }
+
+            // Update country-specific prices
+            $this->priceService->updateCountryPrices($beneficiarioId, $countryPrices);
+
             $beneficiario = Beneficiario::findOrFail($beneficiarioId);
 
             return updated_responses('beneficiary_plan_margins', [
                 'margins' => $this->service->getFormattedMargins($beneficiarioId),
                 'free_esim_rate' => (float) $beneficiario->free_esim_rate,
+                'plan_prices' => $this->priceService->getFormattedPlanPrices($beneficiarioId),
+                'country_prices' => $this->priceService->getCountryPrices($beneficiarioId),
             ]);
         }
 
         return failed_responses();
     }
 }
+

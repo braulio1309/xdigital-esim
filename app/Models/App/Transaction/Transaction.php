@@ -26,6 +26,7 @@ class Transaction extends AppModel
         'data_amount',
         'duration_days',
         'purchase_amount',
+        'api_price',
         'reference_purchase_amount',
         'currency',
         'beneficiary_commission_amount',
@@ -42,6 +43,7 @@ class Transaction extends AppModel
         'terminated_at' => 'datetime',
         'beneficiary_commission_amount' => 'decimal:2',
         'reference_purchase_amount' => 'decimal:2',
+        'api_price' => 'decimal:2',
     ];
 
     protected static function boot()

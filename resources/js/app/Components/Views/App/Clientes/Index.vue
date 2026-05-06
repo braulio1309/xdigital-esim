@@ -104,7 +104,8 @@
                             modifier: (value, row) => {
                                 const status = value ? 'Permitido' : 'No permitido';
                                 const badgeClass = value ? 'badge-success' : 'badge-secondary';
-                                return `<span class="badge ${badgeClass}">${status}</span>`;
+                                const capacity = row.free_esim_capacity ? `${row.free_esim_capacity}GB` : '1GB';
+                                return `<span class="badge ${badgeClass}">${status}</span> <span class="badge badge-info">${capacity}</span>`;
                             }
                         },
                         {

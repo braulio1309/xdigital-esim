@@ -59,25 +59,17 @@ class SidebarComposer
                     'permission' => true,
                 ],
                 [
+                    'icon' => 'dollar-sign',
+                    'name' => 'Deuda Nomad',
+                    'url' => request()->root() . '/admin/nomad-transactions',
+                    'permission' => true,
+                ],
+                [
                     'icon' => 'credit-card',
                     'name' => 'Historial de Pagos',
                     'url' => request()->root() . '/admin/payment-histories',
                     'permission' => true,
                 ],
-                [
-                    'icon' => 'file-text',
-                    'name' => 'Reportes',
-                    'url' => request()->root() . '/report-view',
-                    'permission' => true,
-                ],
-                [
-                    'icon' => 'settings',
-                    'name' => 'Ajustes',
-                    'url' => request()->root() . '/app-setting',
-                    'permission' => true,
-                ],
-            ];
-        } elseif ($isSuperPartner) {
             $menu = [
                 [
                     'icon' => 'bar-chart-2',

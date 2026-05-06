@@ -8,16 +8,11 @@ use App\Http\Requests\App\SuperPartnerRequest as Request;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Settings\SuperPartnerPlanMarginService;
+use App\Services\App\Settings\SuperPartnerPriceService;
 use App\Services\App\SuperPartner\SuperPartnerService;
 
 class SuperPartnerController extends Controller
 {
-    /**
-     * SuperPartnerController constructor.
-     *
-     * @param SuperPartnerService $service
-     * @param SuperPartnerFilter $filter
-     */
     public function __construct(SuperPartnerService $service, SuperPartnerFilter $filter)
     {
         $this->service = $service;
@@ -95,12 +90,14 @@ class SuperPartnerController extends Controller
      * @param  SuperPartner $super_partner
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getCommissions(SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService)
+    public function getCommissions(SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService, SuperPartnerPriceService $priceService)
     {
         return response()->json([
             'commission_percentage' => (float) ($super_partner->commission_percentage ?? 0),
             'free_esim_rate' => (float) $super_partner->free_esim_rate,
             'margins' => $marginService->getFormattedMargins($super_partner->id),
+            'plan_prices' => $priceService->getFormattedPlanPrices($super_partner->id),
+            'country_prices' => $priceService->getCountryPrices($super_partner->id),
         ]);
     }
 
@@ -111,7 +108,7 @@ class SuperPartnerController extends Controller
      * @param  SuperPartner $super_partner
      * @return \Illuminate\Http\JsonResponse
      */
-    public function updateCommissions(\Illuminate\Http\Request $request, SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService)
+    public function updateCommissions(\Illuminate\Http\Request $request, SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService, SuperPartnerPriceService $priceService)
     {
         $validated = $request->validate([
             'commission_percentage' => 'nullable|numeric|min:0|max:100',
@@ -119,6 +116,13 @@ class SuperPartnerController extends Controller
             'margins' => 'sometimes|array',
             'margins.*.margin_percentage' => 'required_with:margins|numeric|min:0|max:100',
             'margins.*.is_active' => 'sometimes|boolean',
+            'plan_prices' => 'sometimes|array',
+            'plan_prices.*.price' => 'nullable|numeric|min:0',
+            'plan_prices.*.is_active' => 'sometimes|boolean',
+            'country_prices' => 'sometimes|array',
+            'country_prices.*.country_code' => 'required_with:country_prices|string|size:2',
+            'country_prices.*.plan_capacity' => 'required_with:country_prices|string',
+            'country_prices.*.price' => 'required_with:country_prices|numeric|min:0',
         ]);
 
         if (array_key_exists('commission_percentage', $validated)) {
@@ -131,16 +135,23 @@ class SuperPartnerController extends Controller
 
         $super_partner->save();
 
-        // Update per-plan margins if provided
         if (array_key_exists('margins', $validated)) {
             $marginService->updateMargins($super_partner->id, $validated['margins']);
         }
+
+        if (array_key_exists('plan_prices', $validated)) {
+            $priceService->updatePlanPrices($super_partner->id, $validated['plan_prices']);
+        }
+
+        $priceService->updateCountryPrices($super_partner->id, $validated['country_prices'] ?? []);
 
         return response()->json([
             'message' => __('default.updated_response', ['name' => 'Comisiones de Super Partner']),
             'commission_percentage' => (float) ($super_partner->commission_percentage ?? 0),
             'free_esim_rate' => (float) $super_partner->free_esim_rate,
             'margins' => $marginService->getFormattedMargins($super_partner->id),
+            'plan_prices' => $priceService->getFormattedPlanPrices($super_partner->id),
+            'country_prices' => $priceService->getCountryPrices($super_partner->id),
         ]);
     }
 
