@@ -463,7 +463,7 @@ class RegistroEsimController extends Controller
                     $routeParams['country'] = $selectedCountryCode;
 
                     return redirect()->route('planes.index', $routeParams)
-                        ->with('success', 'Este pais no aplica para eSIM gratis. Te mostramos los planes disponibles para ese destino.')
+                        ->with('success', 'Este país no aplica para eSIM gratis. Te mostramos los planes disponibles para ese destino.')
                         ->withInput();
                 }
             }
