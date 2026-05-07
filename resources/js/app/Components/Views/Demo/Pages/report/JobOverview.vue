@@ -5,7 +5,7 @@
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
-                    <label>Filtrar por Beneficiario</label>
+                        <label>Filtrar por Beneficiario</label>
                         <app-input 
                             type="select"
                             v-model="selectedBeneficiario"
