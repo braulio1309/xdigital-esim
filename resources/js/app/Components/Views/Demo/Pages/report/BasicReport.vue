@@ -4,7 +4,7 @@
         <div class="row mb-4">
             <div class="col-12 col-md-4">
                 <div class="form-group">
-                    <label>{{ $t('Filtrar por Beneficiario') }}</label>
+                    <label>Filtrar por Beneficiario</label>
                     <app-input 
                         type="select"
                         v-model="selectedBeneficiario"
@@ -18,7 +18,7 @@
 
         <div class="card card-with-shadow border-0 h-100">
             <div class="card-header bg-transparent d-flex justify-content-end align-items-center p-primary">
-                <p class="my-0 mr-2 p-0">{{ $t('Ordenar por') }}</p>
+                <p class="my-0 mr-2 p-0">Ordenar por</p>
                 <app-input type="radio-buttons" v-model="reportUnit" :list="unitList"/>
             </div>
             <div class="card-body pt-primary">
@@ -59,11 +59,11 @@ export default {
             unitList: [
                 {
                     id: 'count',
-                    value: this.$t('Cantidad')
+                    value: 'Cantidad'
                 },
                 {
                     id: 'value',
-                    value: this.$t('Monto')
+                    value: 'Monto'
                 }
             ],
             // Chart Static Value
@@ -96,17 +96,17 @@ export default {
                 },
                 columns: [
                     {
-                        title: this.$t('Plan'),
+                        title: 'Plan',
                         type: 'text',
                         key: 'name',
                     },
                     {
-                        title: this.$t('Cantidad'),
+                        title: 'Cantidad',
                         type: 'text',
                         key: 'count'
                     },
                     {
-                        title: this.$t('Monto Total'),
+                        title: 'Monto Total',
                         type: 'text',
                         key: 'value',
                         modifier: (value) => `$${value}`
@@ -153,7 +153,7 @@ export default {
             let midIndex = Math.ceil(this.reportChartData.length / 2);
             this.reportChartData.forEach((item, index) => {
                 if (index === midIndex) {
-                    this.reportChart.labels.push(this.$t('Promedio'));
+                    this.reportChart.labels.push('Promedio');
                     this.reportChart.dataSets[0].backgroundColor.push('#4FE892');
                     this.reportChart.dataSets[0].data.push(this.getAverageValue());
                 }

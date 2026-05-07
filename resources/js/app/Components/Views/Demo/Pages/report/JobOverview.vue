@@ -5,7 +5,7 @@
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
-                        <label>{{ $t('Filtrar por Beneficiario') }}</label>
+                    <label>Filtrar por Beneficiario</label>
                         <app-input 
                             type="select"
                             v-model="selectedBeneficiario"
@@ -22,7 +22,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Total Beneficiarios') }}({{ $t('all_time') }})</div>
+                                <div class="text-muted">Total Beneficiarios (Todo el tiempo)</div>
                                 <div class="h1">{{ total_beneficiarios }}</div>
                             </div>
                         </div>
@@ -32,7 +32,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Beneficiarios Activos') }}</div>
+                                <div class="text-muted">Beneficiarios Activos</div>
                                 <div class="h1">{{ active_beneficiarios }}</div>
                             </div>
                         </div>
@@ -42,7 +42,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Promedio Ventas por Beneficiario') }}</div>
+                                <div class="text-muted">Promedio de Ventas por Beneficiario</div>
                                 <div class="h1">{{ avg_transactions_per_beneficiario }}</div>
                             </div>
                         </div>
@@ -64,7 +64,7 @@
                 <div class="col">
                     <div class="card card-with-shadow border-0">
                         <div class="card-body">
-                            <h4>{{ $t('Ventas por Plan') }}</h4>
+                            <h4>Ventas por Plan</h4>
                             <app-chart class="mb-primary" type="bar-chart" :height="230" :labels="salesByPlan.labels"
                                 :data-sets="salesByPlan.dataSet" />
                         </div>
