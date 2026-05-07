@@ -76,6 +76,24 @@ class BeneficiaryPriceService
     }
 
     /**
+     * Get all country codes that have an active percentage > 0 configured for a beneficiary.
+     * Used to determine which countries should be treated as "affordable" for free eSIM activation.
+     *
+     * @param int $beneficiarioId
+     * @return string[] Array of uppercase country codes (e.g. ['US', 'CO'])
+     */
+    public function getCountryCodesWithPercentages(int $beneficiarioId): array
+    {
+        return BeneficiaryCountryPrice::where('beneficiario_id', $beneficiarioId)
+            ->where('is_active', true)
+            ->where('percentage', '>', 0)
+            ->pluck('country_code')
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    /**
      * Get formatted plan prices for API response.
      *
      * @param int $beneficiarioId
