@@ -60,16 +60,34 @@ export default {
         }
     },
     mounted() {
-        $('.modal').on('shown.bs.modal', (e) => {
+        this.$modalElement = $('#' + this.modalId);
+
+        this.handleShown = () => {
             $('html').css('overflow-y', 'hidden');
-        })
+        };
 
-        $('#' + this.modalId).on('hidden.bs.modal', (e) => {
+        this.handleHidden = () => {
             $('html').css('overflow-y', 'auto');
+            this.cleanupModalArtifacts();
             this.$emit('close-modal', false);
-        });
+        };
 
-        $('#' + this.modalId).modal('show');
+        this.$modalElement.on('shown.bs.modal', this.handleShown);
+        this.$modalElement.on('hidden.bs.modal', this.handleHidden);
+
+        this.$modalElement.modal('show');
+    },
+    beforeDestroy() {
+        if (this.$modalElement) {
+            this.$modalElement.off('shown.bs.modal', this.handleShown);
+            this.$modalElement.off('hidden.bs.modal', this.handleHidden);
+
+            if (this.$modalElement.hasClass('show')) {
+                this.$modalElement.modal('hide');
+            }
+        }
+
+        this.cleanupModalArtifacts();
     },
     computed: {
         checkModalSize() {
@@ -83,6 +101,14 @@ export default {
         }
     },
     methods: {
+        cleanupModalArtifacts() {
+            if (!$('.modal.show').length) {
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+                $('body').css('padding-right', '');
+                $('html').css('overflow-y', 'auto');
+            }
+        },
         cursorImage(){
             if (this.$store.state.theme.darkMode) {
                 return AppFunction.getAppUrl('images/close-cursor-dark.png');

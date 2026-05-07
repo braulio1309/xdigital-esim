@@ -228,14 +228,14 @@ class PlanesDisponiblesController extends Controller
 
         $adminPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $normalizedCapacity);
 
-        // Check for country-specific percentage (overrides general partner margins)
+        // Check for country-specific percentage (overrides admin and partner margins)
         $countryPercentageApplied = false;
         $finalPrice = $adminPrice;
 
         if ($beneficiarioId && $countryCode) {
             $countryPct = $this->beneficiaryPriceService->getCountryPercentage($beneficiarioId, $normalizedCapacity, $countryCode);
             if ($countryPct !== null) {
-                $finalPrice = $adminPrice / (1 - $countryPct / 100);
+                $finalPrice = $originalPrice / (1 - $countryPct / 100);
                 $countryPercentageApplied = true;
             }
         }
@@ -243,7 +243,7 @@ class PlanesDisponiblesController extends Controller
         if (!$countryPercentageApplied && $superPartnerId && $countryCode) {
             $countryPct = $this->superPartnerPriceService->getCountryPercentage($superPartnerId, $normalizedCapacity, $countryCode);
             if ($countryPct !== null) {
-                $finalPrice = $adminPrice / (1 - $countryPct / 100);
+                $finalPrice = $originalPrice / (1 - $countryPct / 100);
                 $countryPercentageApplied = true;
             }
         }
@@ -278,7 +278,7 @@ class PlanesDisponiblesController extends Controller
 
         return [
             'charge_amount' => round((float) $finalPrice, 2),
-            'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice), 2),
+            'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
         ];
     }
 
@@ -407,7 +407,7 @@ class PlanesDisponiblesController extends Controller
                 if ($beneficiarioId) {
                     $countryPct = $this->beneficiaryPriceService->getCountryPercentage($beneficiarioId, (string) $planCapacity, $country);
                     if ($countryPct !== null) {
-                        $finalPrice = $priceWithAdminMargin / (1 - $countryPct / 100);
+                        $finalPrice = $originalPrice / (1 - $countryPct / 100);
                         $countryPercentageApplied = true;
                     }
                 }
@@ -415,7 +415,7 @@ class PlanesDisponiblesController extends Controller
                 if (!$countryPercentageApplied && $superPartnerId) {
                     $countryPct = $this->superPartnerPriceService->getCountryPercentage($superPartnerId, (string) $planCapacity, $country);
                     if ($countryPct !== null) {
-                        $finalPrice = $priceWithAdminMargin / (1 - $countryPct / 100);
+                        $finalPrice = $originalPrice / (1 - $countryPct / 100);
                         $countryPercentageApplied = true;
                     }
                 }
@@ -455,8 +455,8 @@ class PlanesDisponiblesController extends Controller
                     'duration_unit' => $product['duration_unit'],
                     'amount' => $product['amount'],
                     'amount_unit' => $product['amount_unit'],
-                    'original_price' => $originalPrice,
-                    'price' => $finalPrice,
+                    'original_price' => round((float) $originalPrice, 2),
+                    'price' => round((float) $finalPrice, 2),
                     'price_unit' => $product['price_unit'],
                     'coverage' => $product['coverage'] ?? [],
                     'is_free' => $originalPrice == 0,
@@ -514,6 +514,8 @@ class PlanesDisponiblesController extends Controller
                 'duration' => 'nullable|integer',
                 'purchase_amount' => 'nullable|numeric',
                 'currency' => 'nullable|string|max:3',
+                'country' => 'nullable|string|max:2',
+                'original_price' => 'nullable|numeric|min:0',
             ]);
 
             // Verificar que el usuario esté autenticado
@@ -606,6 +608,17 @@ class PlanesDisponiblesController extends Controller
 
             // Resolver beneficiario asociado para atribuir comisiones
             [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+            $countryCode = $request->filled('country') ? strtoupper((string) $request->input('country')) : null;
+            $originalPrice = $request->filled('original_price')
+                ? (float) $request->input('original_price')
+                : (float) $request->input('purchase_amount', 0);
+            $pricingSnapshot = $this->calculatePricingSnapshot(
+                $originalPrice,
+                (string) $request->input('data_amount', '0'),
+                $beneficiarioId,
+                $superPartnerId,
+                $countryCode
+            );
 
             // Guardar la transacción en la base de datos
             $transactionData = [
@@ -619,8 +632,10 @@ class PlanesDisponiblesController extends Controller
                 'plan_name' => $request->plan_name,
                 'data_amount' => $request->data_amount,
                 'duration_days' => $request->duration,
-                'purchase_amount' => $request->purchase_amount,
+                'purchase_amount' => round((float) $pricingSnapshot['charge_amount'], 2),
                 'api_price' => $request->filled('original_price') ? (float) $request->original_price : null,
+                'reference_purchase_amount' => round((float) $pricingSnapshot['charge_amount'], 2),
+                'beneficiary_commission_amount' => round((float) $pricingSnapshot['commission_amount'], 2),
                 'currency' => $request->currency ?? 'USD',
             ];
 

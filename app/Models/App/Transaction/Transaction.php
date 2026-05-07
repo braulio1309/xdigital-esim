@@ -141,6 +141,10 @@ class Transaction extends AppModel
      */
     protected function calculateCommissionAmountFromConfig(): float
     {
+        if ($this->beneficiary_commission_amount !== null) {
+            return (float) $this->beneficiary_commission_amount;
+        }
+
         $beneficiario = $this->resolveBeneficiario();
         $capacity = (int) ($this->data_amount ?? 0);
 
@@ -199,6 +203,10 @@ class Transaction extends AppModel
      */
     public function getCommissionPercentage()
     {
+        if ($this->beneficiary_commission_amount !== null && (float) $this->reference_purchase_amount > 0) {
+            return round(((float) $this->beneficiary_commission_amount / (float) $this->reference_purchase_amount) * 100, 2);
+        }
+
         if ($this->isFreeEsim()) {
             return 0.0;
         }

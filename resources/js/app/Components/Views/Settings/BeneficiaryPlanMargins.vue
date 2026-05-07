@@ -2,7 +2,7 @@
     <app-modal 
         modal-id="beneficiary-plan-margins-modal"
         modal-size="large"
-        @close-modal="closeModal">
+        @close-modal="handleModalClosed">
         
         <template slot="header">
             <h5 class="modal-title">{{ $t('beneficiary_plan_margins') }} - {{ beneficiarioName }}</h5>
@@ -150,8 +150,8 @@
                         <strong>Porcentaje por País</strong>
                         <p class="mb-0 mt-2">
                             Si existe un porcentaje para un país y plan específico, se usará directamente ese porcentaje
-                            sobre el precio admin (sin aplicar los márgenes generales del partner para ese país).
-                            Fórmula: <strong>Precio Final = Precio Admin / (1 - Porcentaje / 100)</strong>
+                            sobre el precio original del plan, sin aplicar margen admin ni márgenes generales del partner para ese país.
+                            Fórmula: <strong>Precio Final = Precio Original / (1 - Porcentaje / 100)</strong>
                         </p>
                     </div>
 
@@ -272,6 +272,30 @@
             this.getMargins();
         },
         methods: {
+            getNormalizedCountryPrices() {
+                const entriesByKey = {};
+
+                this.countryPrices.forEach((entry) => {
+                    const countryCode = String(entry.country_code || '').trim().toUpperCase();
+                    const planCapacity = String(entry.plan_capacity || '').trim();
+                    const percentage = entry.percentage === '' || entry.percentage === null
+                        ? null
+                        : Number(entry.percentage);
+
+                    if (!countryCode || countryCode.length !== 2 || !planCapacity || Number.isNaN(percentage)) {
+                        return;
+                    }
+
+                    entriesByKey[`${countryCode}|${planCapacity}`] = {
+                        ...entry,
+                        country_code: countryCode,
+                        plan_capacity: planCapacity,
+                        percentage,
+                    };
+                });
+
+                return Object.values(entriesByKey);
+            },
             getMargins() {
                 this.preloader = true;
                 axios.get(actions.GET_BENEFICIARY_PLAN_MARGINS, {
@@ -310,12 +334,14 @@
 
             submit() {
                 this.preloader = true;
+                const normalizedCountryPrices = this.getNormalizedCountryPrices();
+
                 const data = {
                     beneficiario_id: this.beneficiarioId,
                     margins: this.margins,
                     free_esim_rate: this.freeEsimRate,
                     plan_prices: this.planPrices,
-                    country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.percentage !== '' && e.percentage !== null),
+                    country_prices: normalizedCountryPrices,
                 };
 
                 axios.post(actions.UPDATE_BENEFICIARY_PLAN_MARGINS, data)
@@ -341,6 +367,7 @@
                     if (response.data && response.data.country_prices) {
                         this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
                     }
+                    this.countryPrices = normalizedCountryPrices;
                     setTimeout(() => { this.closeModal(); }, 1000);
                 })
                 .catch(error => {
@@ -385,6 +412,17 @@
             },
 
             closeModal() {
+                const modal = $('#beneficiary-plan-margins-modal');
+
+                if (modal.length && modal.hasClass('show')) {
+                    modal.modal('hide');
+                    return;
+                }
+
+                this.handleModalClosed();
+            },
+
+            handleModalClosed() {
                 this.$emit('close');
             }
         }

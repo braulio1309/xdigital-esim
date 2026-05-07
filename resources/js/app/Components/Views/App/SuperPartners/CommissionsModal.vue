@@ -2,7 +2,7 @@
     <app-modal
         modal-id="super-partner-commissions-modal"
         modal-size="medium"
-        @close-modal="closeModal">
+        @close-modal="handleModalClosed">
 
         <template slot="header">
             <h5 class="modal-title">Comisiones - {{ superPartnerName }}</h5>
@@ -148,8 +148,8 @@
                         <strong>Porcentaje por País</strong>
                         <p class="mb-0 mt-2">
                             Si existe un porcentaje para un país y plan específico, se usará directamente ese porcentaje
-                            sobre el precio admin (sin aplicar los márgenes generales del super partner para ese país).
-                            Fórmula: <strong>Precio Final = Precio Admin / (1 - Porcentaje / 100)</strong>
+                            sobre el precio original del plan, sin aplicar margen admin ni márgenes generales del super partner para ese país.
+                            Fórmula: <strong>Precio Final = Precio Original / (1 - Porcentaje / 100)</strong>
                         </p>
                     </div>
 
@@ -265,6 +265,30 @@
             this.fetchData();
         },
         methods: {
+            getNormalizedCountryPrices() {
+                const entriesByKey = {};
+
+                this.countryPrices.forEach((entry) => {
+                    const countryCode = String(entry.country_code || '').trim().toUpperCase();
+                    const planCapacity = String(entry.plan_capacity || '').trim();
+                    const percentage = entry.percentage === '' || entry.percentage === null
+                        ? null
+                        : Number(entry.percentage);
+
+                    if (!countryCode || countryCode.length !== 2 || !planCapacity || Number.isNaN(percentage)) {
+                        return;
+                    }
+
+                    entriesByKey[`${countryCode}|${planCapacity}`] = {
+                        ...entry,
+                        country_code: countryCode,
+                        plan_capacity: planCapacity,
+                        percentage,
+                    };
+                });
+
+                return Object.values(entriesByKey);
+            },
             fetchData() {
                 this.preloader = true;
                 axios.get(`/super-partners/${this.superPartnerId}/commissions`)
@@ -305,12 +329,14 @@
             },
             submit() {
                 this.preloader = true;
+                const normalizedCountryPrices = this.getNormalizedCountryPrices();
+
                 const payload = {
                     commission_percentage: this.commissionPercentage,
                     free_esim_rate: this.freeEsimRate,
                     margins: this.margins,
                     plan_prices: this.planPrices,
-                    country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.percentage !== '' && e.percentage !== null),
+                    country_prices: normalizedCountryPrices,
                 };
 
                 axios.post(`/super-partners/${this.superPartnerId}/commissions`, payload)
@@ -342,6 +368,7 @@
                                 this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
                             }
                         }
+                        this.countryPrices = normalizedCountryPrices;
                         setTimeout(() => { this.closeModal(); }, 800);
                     })
                     .catch(error => {
@@ -362,6 +389,16 @@
                 this.countryPrices.splice(idx, 1);
             },
             closeModal() {
+                const modal = $('#super-partner-commissions-modal');
+
+                if (modal.length && modal.hasClass('show')) {
+                    modal.modal('hide');
+                    return;
+                }
+
+                this.handleModalClosed();
+            },
+            handleModalClosed() {
                 this.$emit('close');
             },
         },

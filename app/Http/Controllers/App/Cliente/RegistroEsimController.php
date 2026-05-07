@@ -163,15 +163,13 @@ class RegistroEsimController extends Controller
             // For 1GB plans, check if a country-specific percentage is configured.
             // If so, use the usual percentage-based calculation instead of the flat rate.
             if ($countryCode) {
-                $adminPrice1GB = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
-
                 if ($beneficiarioId) {
                     $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
                     if ($countryPct !== null) {
-                        $finalPrice = $adminPrice1GB / (1 - $countryPct / 100);
+                        $finalPrice = $originalPrice / (1 - $countryPct / 100);
                         return [
                             'charge_amount' => round((float) $finalPrice, 2),
-                            'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice1GB), 2),
+                            'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
                         ];
                     }
                 }
@@ -179,10 +177,10 @@ class RegistroEsimController extends Controller
                 if ($superPartnerId) {
                     $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $planCapacity, $countryCode);
                     if ($countryPct !== null) {
-                        $finalPrice = $adminPrice1GB / (1 - $countryPct / 100);
+                        $finalPrice = $originalPrice / (1 - $countryPct / 100);
                         return [
                             'charge_amount' => round((float) $finalPrice, 2),
-                            'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice1GB), 2),
+                            'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
                         ];
                     }
                 }
@@ -198,14 +196,14 @@ class RegistroEsimController extends Controller
 
         $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
 
-        // Check for country-specific percentage (highest priority for capacity > 1GB)
+        // Check for country-specific percentage (highest priority and no admin margin)
         $countryPercentageApplied = false;
         $finalPrice = $adminPrice;
 
         if ($beneficiarioId && $countryCode) {
             $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
             if ($countryPct !== null) {
-                $finalPrice = $adminPrice / (1 - $countryPct / 100);
+                $finalPrice = $originalPrice / (1 - $countryPct / 100);
                 $countryPercentageApplied = true;
             }
         }
@@ -213,7 +211,7 @@ class RegistroEsimController extends Controller
         if (!$countryPercentageApplied && $superPartnerId && $countryCode) {
             $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $planCapacity, $countryCode);
             if ($countryPct !== null) {
-                $finalPrice = $adminPrice / (1 - $countryPct / 100);
+                $finalPrice = $originalPrice / (1 - $countryPct / 100);
                 $countryPercentageApplied = true;
             }
         }
@@ -221,7 +219,7 @@ class RegistroEsimController extends Controller
         if ($countryPercentageApplied) {
             return [
                 'charge_amount' => round((float) $finalPrice, 2),
-                'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice), 2),
+                'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
             ];
         }
 

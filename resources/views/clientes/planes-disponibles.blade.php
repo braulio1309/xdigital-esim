@@ -760,7 +760,7 @@
                             
                             <div class="plan-price" :class="plan.is_free ? 'free' : 'paid'">
                                 <span v-if="plan.is_free">GRATIS</span>
-                                <span v-else>@{{ plan.price }} @{{ plan.price_unit }}</span>
+                                <span v-else>@{{ formatPrice(plan.price, plan.price_unit) }}</span>
                             </div>
                             
                             <button @click="selectPlan(plan)" class="btn btn-buy">
@@ -917,7 +917,7 @@
                             <strong>@{{ selectedPlan.amount }}@{{ selectedPlan.amount_unit }}</strong> - 
                             @{{ selectedPlan.duration }} @{{ formatDurationUnit(selectedPlan.duration_unit) }}
                         </p>
-                        <h4 class="mb-4">Total: @{{ selectedPlan.price }} @{{ selectedPlan.price_unit }}</h4>
+                        <h4 class="mb-4">Total: @{{ formatPrice(selectedPlan.price, selectedPlan.price_unit) }}</h4>
                         <div v-if="isRechargeFlow" class="alert alert-info">
                             Esta compra se aplicará como recarga a la eSIM actual con ICCID @{{ rechargeIccid || 'N/A' }}.
                         </div>
@@ -928,7 +928,7 @@
 
                         <button @click="processPayment" class="btn btn-buy" :disabled="paymentProcessing">
                             <span v-if="paymentProcessing">Procesando...</span>
-                            <span v-else>Pagar @{{ selectedPlan.price }} @{{ selectedPlan.price_unit }}</span>
+                            <span v-else>Pagar @{{ formatPrice(selectedPlan.price, selectedPlan.price_unit) }}</span>
                         </button>
                     </div>
                 </div>
@@ -1250,6 +1250,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 return units[unit] || unit;
             },
+            formatPrice(price, unit) {
+                const numericPrice = Number(price);
+
+                if (!Number.isFinite(numericPrice)) {
+                    return [price, unit].filter(Boolean).join(' ');
+                }
+
+                return numericPrice.toFixed(2) + ' ' + (unit || 'USD');
+            },
             selectPlan(plan) {
                 this.selectedPlan = plan;
                 
@@ -1326,7 +1335,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         product_id: this.selectedPlan.id,
                         amount: this.selectedPlan.price,
                         currency: this.selectedPlan.price_unit.toLowerCase(),
-                        recharge_iccid: this.rechargeIccid
+                        recharge_iccid: this.rechargeIccid,
+                        country: this.selectedCountry,
+                        original_price: this.selectedPlan.original_price
                     });
 
                     if (!intentResponse.data.success) {
@@ -1356,7 +1367,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         duration: this.selectedPlan.duration,
                         purchase_amount: this.selectedPlan.price,
                         currency: this.selectedPlan.price_unit,
-                        recharge_iccid: this.rechargeIccid
+                        recharge_iccid: this.rechargeIccid,
+                        country: this.selectedCountry,
+                        original_price: this.selectedPlan.original_price
                     });
 
                     if (activationResponse.data.success) {
@@ -1387,6 +1400,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         data_amount: this.selectedPlan.amount,
                         duration: this.selectedPlan.duration,
                         original_price: this.selectedPlan.original_price,
+                        country: this.selectedCountry,
                         recharge_iccid: this.rechargeIccid,
                     });
 
