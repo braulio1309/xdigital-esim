@@ -233,7 +233,7 @@ class PlanesDisponiblesController extends Controller
         if ($superPartnerId) {
             $spCountryPct = $this->superPartnerPriceService->resolveCountryPercentage($superPartnerId, $normalizedCapacity, $countryCode);
 
-            if ($spCountryPct !== null) {
+            if ($spCountryPct !== null && $spCountryPct < 100) {
                 $priceAfterSuperPartner = $adminPrice / (1 - $spCountryPct / 100);
             } else {
                 $priceAfterSuperPartner = $this->superPartnerPlanMarginService->calculateFinalPrice($adminPrice, $normalizedCapacity, $superPartnerId);
@@ -245,7 +245,7 @@ class PlanesDisponiblesController extends Controller
         if ($beneficiarioId) {
             $bCountryPct = $this->beneficiaryPriceService->resolveCountryPercentage($beneficiarioId, $normalizedCapacity, $countryCode);
 
-            if ($bCountryPct !== null) {
+            if ($bCountryPct !== null && $bCountryPct < 100) {
                 $finalPrice = $priceAfterSuperPartner / (1 - $bCountryPct / 100);
             } else {
                 $finalPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice($priceAfterSuperPartner, $normalizedCapacity, $beneficiarioId);
@@ -402,7 +402,7 @@ class PlanesDisponiblesController extends Controller
                         $country
                     );
 
-                    if ($spCountryPct !== null) {
+                    if ($spCountryPct !== null && $spCountryPct < 100) {
                         $priceAfterSuperPartner = $priceWithAdminMargin / (1 - $spCountryPct / 100);
                         $superPartnerMarginApplied = true;
                     } else {
@@ -427,7 +427,7 @@ class PlanesDisponiblesController extends Controller
                         $country
                     );
 
-                    if ($bCountryPct !== null) {
+                    if ($bCountryPct !== null && $bCountryPct < 100) {
                         $finalPrice = $priceAfterSuperPartner / (1 - $bCountryPct / 100);
                         $beneficiaryMarginApplied = true;
                     } else {

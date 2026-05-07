@@ -137,7 +137,7 @@ class RegistroEsimController extends Controller
         // --- Check country-specific percentage (highest priority for country+capacity) ---
         if ($beneficiarioId) {
             $countryPct = app(BeneficiaryPriceService::class)->resolveCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
-            if ($countryPct !== null) {
+            if ($countryPct !== null && $countryPct < 100) {
                 $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
                 $finalPrice = $adminPrice / (1 - $countryPct / 100);
                 return [
@@ -147,7 +147,7 @@ class RegistroEsimController extends Controller
             }
         } elseif ($superPartnerId) {
             $countryPct = app(SuperPartnerPriceService::class)->resolveCountryPercentage($superPartnerId, $planCapacity, $countryCode);
-            if ($countryPct !== null) {
+            if ($countryPct !== null && $countryPct < 100) {
                 $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
                 $finalPrice = $adminPrice / (1 - $countryPct / 100);
                 return [
