@@ -2,7 +2,7 @@
     <div class="content-wrapper">
         <div class="row">
             <div class="col-sm-12 col-md-6">
-                <app-breadcrumb :page-title="'Deuda Nomad (API)'" :directory="'Transacciones'" :icon="'dollar-sign'"/>
+                <app-breadcrumb :page-title="'Facturación Nomad (API)'" :directory="'Transacciones'" :icon="'dollar-sign'"/>
             </div>
         </div>
 
@@ -15,7 +15,7 @@
                             <div class="col-md-8">
                                 <h5 class="card-title text-warning mb-1">
                                     <app-icon name="alert-circle" style="width:20px;height:20px;" class="mr-1"/>
-                                    Total adeudado a Nomad (Proveedor API)
+                                    Facturación Nomad (Proveedor API)
                                 </h5>
                                 <p class="text-muted mb-0" style="font-size: 13px;">
                                     Suma del precio de la API (<code>api_price</code>) para el rango de fechas seleccionado.

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Deuda Nomad (API)')
+@section('title', 'Facturación Nomad (API)')
 
 @section('contents')
     <app-nomad-transactions></app-nomad-transactions>

@@ -12,7 +12,7 @@ class BeneficiaryPriceService
     /**
      * Resolve the price to charge for a free eSIM activation.
      * Priority:
-     *  1. Country-specific price (beneficiary_country_prices)
+     *  1. Country-specific price (beneficiary_country_prices) - legacy fixed price
      *  2. General plan price (beneficiary_plan_prices)
      *  3. null (caller falls back to existing percentage/rate system)
      *
@@ -30,7 +30,7 @@ class BeneficiaryPriceService
                 ->where('is_active', true)
                 ->first();
 
-            if ($countryPrice) {
+            if ($countryPrice && $countryPrice->price !== null) {
                 return (float) $countryPrice->price;
             }
         }
@@ -42,6 +42,34 @@ class BeneficiaryPriceService
 
         if ($planPrice) {
             return (float) $planPrice->price;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get country-specific percentage margin for a beneficiary.
+     * Returns the percentage (0-100) if a matching active entry exists, or null.
+     *
+     * @param int    $beneficiarioId
+     * @param string $planCapacity   e.g. '1', '3', '5', '10'
+     * @param string|null $countryCode e.g. 'US', 'CO'
+     * @return float|null
+     */
+    public function getCountryPercentage(int $beneficiarioId, string $planCapacity, ?string $countryCode): ?float
+    {
+        if (!$countryCode) {
+            return null;
+        }
+
+        $countryPrice = BeneficiaryCountryPrice::where('beneficiario_id', $beneficiarioId)
+            ->where('plan_capacity', $planCapacity)
+            ->where('country_code', strtoupper($countryCode))
+            ->where('is_active', true)
+            ->first();
+
+        if ($countryPrice && $countryPrice->percentage > 0) {
+            return (float) $countryPrice->percentage;
         }
 
         return null;
@@ -87,7 +115,7 @@ class BeneficiaryPriceService
                     'id' => $item->id,
                     'country_code' => $item->country_code,
                     'plan_capacity' => $item->plan_capacity,
-                    'price' => (float) $item->price,
+                    'percentage' => (float) $item->percentage,
                     'is_active' => $item->is_active,
                 ];
             })
@@ -136,8 +164,8 @@ class BeneficiaryPriceService
     }
 
     /**
-     * Save country prices for a beneficiary.
-     * $countryPrices is an array of objects: [['country_code'=>'US','plan_capacity'=>'1','price'=>1.00], ...]
+     * Save country prices (percentage-based) for a beneficiary.
+     * $countryPrices is an array of objects: [['country_code'=>'US','plan_capacity'=>'1','percentage'=>30], ...]
      *
      * @param int   $beneficiarioId
      * @param array $countryPrices
@@ -152,9 +180,9 @@ class BeneficiaryPriceService
             foreach ($countryPrices as $data) {
                 $countryCode = strtoupper((string) ($data['country_code'] ?? ''));
                 $planCapacity = (string) ($data['plan_capacity'] ?? '');
-                $price = $data['price'] ?? null;
+                $percentage = $data['percentage'] ?? null;
 
-                if (!$countryCode || !$planCapacity || $price === null) {
+                if (!$countryCode || !$planCapacity || $percentage === null || $percentage === '') {
                     continue;
                 }
 
@@ -165,7 +193,8 @@ class BeneficiaryPriceService
                         'plan_capacity' => $planCapacity,
                     ],
                     [
-                        'price' => (float) $price,
+                        'percentage' => (float) $percentage,
+                        'price' => null,
                         'is_active' => $data['is_active'] ?? true,
                     ]
                 );
