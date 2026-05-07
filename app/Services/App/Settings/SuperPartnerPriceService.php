@@ -47,6 +47,29 @@ class SuperPartnerPriceService
     }
 
     /**
+     * Get a country-specific fixed price for a super partner.
+     * Returns null when no fixed price is configured for the requested country/plan.
+     */
+    public function getCountryFixedPrice(int $superPartnerId, string $planCapacity, ?string $countryCode): ?float
+    {
+        if (!$countryCode) {
+            return null;
+        }
+
+        $countryPrice = SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)
+            ->where('plan_capacity', $planCapacity)
+            ->where('country_code', strtoupper($countryCode))
+            ->where('is_active', true)
+            ->first();
+
+        if ($countryPrice && $countryPrice->price !== null) {
+            return (float) $countryPrice->price;
+        }
+
+        return null;
+    }
+
+    /**
      * Get country-specific percentage margin for a super partner.
      * Returns the percentage (0-100) if a matching active entry exists, or null.
      *
@@ -86,6 +109,30 @@ class SuperPartnerPriceService
         return SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)
             ->where('is_active', true)
             ->where('percentage', '>', 0)
+            ->pluck('country_code')
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Get country codes that have any free eSIM country configuration for a super partner.
+     * Includes percentage-based entries and fixed 1GB prices.
+     *
+     * @param int $superPartnerId
+     * @return string[]
+     */
+    public function getCountryCodesWithFreeEsimPricing(int $superPartnerId): array
+    {
+        return SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->where('percentage', '>', 0)
+                    ->orWhere(function ($subQuery) {
+                        $subQuery->where('plan_capacity', '1')
+                            ->whereNotNull('price');
+                    });
+            })
             ->pluck('country_code')
             ->unique()
             ->values()
@@ -133,6 +180,7 @@ class SuperPartnerPriceService
                     'country_code' => $item->country_code,
                     'plan_capacity' => $item->plan_capacity,
                     'percentage' => (float) $item->percentage,
+                    'price' => $item->price !== null ? (float) $item->price : null,
                     'is_active' => $item->is_active,
                 ];
             })
@@ -195,9 +243,30 @@ class SuperPartnerPriceService
                 $countryCode = strtoupper((string) ($data['country_code'] ?? ''));
                 $planCapacity = (string) ($data['plan_capacity'] ?? '');
                 $percentage = $data['percentage'] ?? null;
+                $price = $data['price'] ?? null;
 
-                if (!$countryCode || !$planCapacity || $percentage === null || $percentage === '') {
+                if (!$countryCode || !$planCapacity) {
                     continue;
+                }
+
+                $payload = [
+                    'is_active' => $data['is_active'] ?? true,
+                ];
+
+                if ($planCapacity === '1') {
+                    if ($price === null || $price === '') {
+                        continue;
+                    }
+
+                    $payload['price'] = (float) $price;
+                    $payload['percentage'] = 0;
+                } else {
+                    if ($percentage === null || $percentage === '') {
+                        continue;
+                    }
+
+                    $payload['percentage'] = (float) $percentage;
+                    $payload['price'] = null;
                 }
 
                 SuperPartnerCountryPrice::updateOrCreate(
@@ -206,11 +275,7 @@ class SuperPartnerPriceService
                         'country_code' => $countryCode,
                         'plan_capacity' => $planCapacity,
                     ],
-                    [
-                        'percentage' => (float) $percentage,
-                        'price' => null,
-                        'is_active' => $data['is_active'] ?? true,
-                    ]
+                    $payload
                 );
 
                 $incomingKeys[] = $countryCode . '|' . $planCapacity;

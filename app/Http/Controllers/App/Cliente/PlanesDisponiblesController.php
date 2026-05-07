@@ -218,6 +218,46 @@ class PlanesDisponiblesController extends Controller
         $normalizedCapacity = (string) $planCapacity;
 
         if ($capacityAsInt <= 1) {
+            if ($beneficiarioId && $countryCode) {
+                $countryFixedPrice = app(BeneficiaryPriceService::class)->getCountryFixedPrice($beneficiarioId, $normalizedCapacity, $countryCode);
+                if ($countryFixedPrice !== null) {
+                    return [
+                        'charge_amount' => round($countryFixedPrice, 2),
+                        'commission_amount' => round($countryFixedPrice, 2),
+                    ];
+                }
+
+                $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $normalizedCapacity, $countryCode);
+                if ($countryPct !== null) {
+                    $finalPrice = $originalPrice / (1 - $countryPct / 100);
+
+                    return [
+                        'charge_amount' => round((float) $finalPrice, 2),
+                        'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
+                    ];
+                }
+            }
+
+            if ($superPartnerId && $countryCode) {
+                $countryFixedPrice = app(SuperPartnerPriceService::class)->getCountryFixedPrice($superPartnerId, $normalizedCapacity, $countryCode);
+                if ($countryFixedPrice !== null) {
+                    return [
+                        'charge_amount' => round($countryFixedPrice, 2),
+                        'commission_amount' => round($countryFixedPrice, 2),
+                    ];
+                }
+
+                $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $normalizedCapacity, $countryCode);
+                if ($countryPct !== null) {
+                    $finalPrice = $originalPrice / (1 - $countryPct / 100);
+
+                    return [
+                        'charge_amount' => round((float) $finalPrice, 2),
+                        'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
+                    ];
+                }
+            }
+
             $flatRate = $this->calculateFreeEsimCommissionAmount($beneficiarioId, $superPartnerId);
 
             return [

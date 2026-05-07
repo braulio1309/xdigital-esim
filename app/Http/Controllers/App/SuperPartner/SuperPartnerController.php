@@ -122,7 +122,8 @@ class SuperPartnerController extends Controller
             'country_prices' => 'sometimes|array',
             'country_prices.*.country_code' => 'required_with:country_prices|string|size:2',
             'country_prices.*.plan_capacity' => 'required_with:country_prices|string',
-            'country_prices.*.percentage' => 'required_with:country_prices|numeric|min:0|max:100',
+            'country_prices.*.percentage' => 'nullable|numeric|min:0|max:100',
+            'country_prices.*.price' => 'nullable|numeric|min:0',
         ]);
 
         if (array_key_exists('commission_percentage', $validated)) {

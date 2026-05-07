@@ -98,8 +98,8 @@ class RegistroEsimController extends Controller
     }
 
     /**
-     * Get country codes that have a configured percentage (> 0) for the partner in the branding context.
-     * A beneficiary percentage takes priority; falls back to super partner if no beneficiary.
+    * Get country codes that have a country-specific free eSIM configuration for the partner.
+    * A beneficiary configuration takes priority; falls back to super partner if no beneficiary.
      *
      * @param array $brandingContext
      * @return string[] Uppercase country codes
@@ -111,12 +111,12 @@ class RegistroEsimController extends Controller
 
         if ($beneficiario) {
             return app(BeneficiaryPriceService::class)
-                ->getCountryCodesWithPercentages($beneficiario->id);
+                ->getCountryCodesWithFreeEsimPricing($beneficiario->id);
         }
 
         if ($superPartner) {
             return app(SuperPartnerPriceService::class)
-                ->getCountryCodesWithPercentages($superPartner->id);
+                ->getCountryCodesWithFreeEsimPricing($superPartner->id);
         }
 
         return [];
@@ -160,10 +160,18 @@ class RegistroEsimController extends Controller
         $capacityAsInt = (int) $planCapacity;
 
         if ($capacityAsInt <= self::LEGACY_FREE_ESIM_AMOUNT) {
-            // For 1GB plans, check if a country-specific percentage is configured.
-            // If so, use the usual percentage-based calculation instead of the flat rate.
+            // For 1GB plans, a country-specific fixed price takes priority.
+            // If none exists, fall back to a country percentage, then to the legacy flat rate.
             if ($countryCode) {
                 if ($beneficiarioId) {
+                    $countryFixedPrice = app(BeneficiaryPriceService::class)->getCountryFixedPrice($beneficiarioId, $planCapacity, $countryCode);
+                    if ($countryFixedPrice !== null) {
+                        return [
+                            'charge_amount' => round($countryFixedPrice, 2),
+                            'commission_amount' => round($countryFixedPrice, 2),
+                        ];
+                    }
+
                     $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
                     if ($countryPct !== null) {
                         $finalPrice = $originalPrice / (1 - $countryPct / 100);
@@ -175,6 +183,14 @@ class RegistroEsimController extends Controller
                 }
 
                 if ($superPartnerId) {
+                    $countryFixedPrice = app(SuperPartnerPriceService::class)->getCountryFixedPrice($superPartnerId, $planCapacity, $countryCode);
+                    if ($countryFixedPrice !== null) {
+                        return [
+                            'charge_amount' => round($countryFixedPrice, 2),
+                            'commission_amount' => round($countryFixedPrice, 2),
+                        ];
+                    }
+
                     $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $planCapacity, $countryCode);
                     if ($countryPct !== null) {
                         $finalPrice = $originalPrice / (1 - $countryPct / 100);

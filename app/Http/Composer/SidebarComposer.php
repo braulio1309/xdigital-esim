@@ -70,6 +70,25 @@ class SidebarComposer
                     'url' => request()->root() . '/admin/payment-histories',
                     'permission' => true,
                 ],
+                [
+                    'icon' => 'settings',
+                    'name' => 'Ajustes',
+                    'url' => request()->root() . '/app-setting',
+                    'permission' => authorize_any([
+                        'view_settings',
+                        'update_settings',
+                        'view_delivery_settings',
+                        'update_delivery_settings',
+                        'view_sms_settings',
+                        'update_sms_settings',
+                        'view_recaptcha_settings',
+                        'update_recaptcha_settings',
+                        'view_notification_settings',
+                        'update_notification_settings',
+                        'view_notification_templates',
+                        'update_notification_templates',
+                    ]),
+                ],
             ];
         } elseif ($isSuperPartner) {
             $menu = [
