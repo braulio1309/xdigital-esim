@@ -134,25 +134,6 @@ class RegistroEsimController extends Controller
         $planCapacity = (string) ($product['amount'] ?? $product['data_amount'] ?? '0');
         $capacityAsInt = (int) $planCapacity;
 
-        // --- Check manual fixed prices first (highest priority) ---
-        if ($beneficiarioId) {
-            $manualPrice = app(BeneficiaryPriceService::class)->resolvePrice($beneficiarioId, $planCapacity, $countryCode);
-            if ($manualPrice !== null) {
-                return [
-                    'charge_amount' => round($manualPrice, 2),
-                    'commission_amount' => round($manualPrice, 2),
-                ];
-            }
-        } elseif ($superPartnerId) {
-            $manualPrice = app(SuperPartnerPriceService::class)->resolvePrice($superPartnerId, $planCapacity, $countryCode);
-            if ($manualPrice !== null) {
-                return [
-                    'charge_amount' => round($manualPrice, 2),
-                    'commission_amount' => round($manualPrice, 2),
-                ];
-            }
-        }
-
         if ($capacityAsInt <= self::LEGACY_FREE_ESIM_AMOUNT) {
             $flatRate = $this->calculateFreeEsimCommissionAmount($brandingContext, $cliente);
 
@@ -163,6 +144,53 @@ class RegistroEsimController extends Controller
         }
 
         $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
+
+        // Check for country-specific percentage (highest priority for capacity > 1GB)
+        $countryPercentageApplied = false;
+        $finalPrice = $adminPrice;
+
+        if ($beneficiarioId && $countryCode) {
+            $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
+            if ($countryPct !== null) {
+                $finalPrice = $adminPrice / (1 - $countryPct / 100);
+                $countryPercentageApplied = true;
+            }
+        }
+
+        if (!$countryPercentageApplied && $superPartnerId && $countryCode) {
+            $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $planCapacity, $countryCode);
+            if ($countryPct !== null) {
+                $finalPrice = $adminPrice / (1 - $countryPct / 100);
+                $countryPercentageApplied = true;
+            }
+        }
+
+        if ($countryPercentageApplied) {
+            return [
+                'charge_amount' => round((float) $finalPrice, 2),
+                'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice), 2),
+            ];
+        }
+
+        // --- Check manual fixed prices (plan-level, no country) ---
+        if ($beneficiarioId) {
+            $manualPrice = app(BeneficiaryPriceService::class)->resolvePrice($beneficiarioId, $planCapacity, null);
+            if ($manualPrice !== null) {
+                return [
+                    'charge_amount' => round($manualPrice, 2),
+                    'commission_amount' => round($manualPrice, 2),
+                ];
+            }
+        } elseif ($superPartnerId) {
+            $manualPrice = app(SuperPartnerPriceService::class)->resolvePrice($superPartnerId, $planCapacity, null);
+            if ($manualPrice !== null) {
+                return [
+                    'charge_amount' => round($manualPrice, 2),
+                    'commission_amount' => round($manualPrice, 2),
+                ];
+            }
+        }
+
         $priceAfterSuperPartner = $superPartnerId
             ? app(SuperPartnerPlanMarginService::class)->calculateFinalPrice($adminPrice, $planCapacity, $superPartnerId)
             : $adminPrice;
