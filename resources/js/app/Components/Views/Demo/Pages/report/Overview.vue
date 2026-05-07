@@ -5,7 +5,7 @@
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
-                        <label>{{ $t('Filtrar por Beneficiario') }}</label>
+                        <label>Filtrar por Beneficiario</label>
                         <app-input 
                             type="select"
                             v-model="selectedBeneficiario"
@@ -52,7 +52,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Planes Activos') }}</div>
+                                <div class="text-muted">Planes Activos</div>
                                 <div class="h1">{{ overview.active_plans }}</div>
                             </div>
                         </div>
