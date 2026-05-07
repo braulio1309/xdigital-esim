@@ -13,12 +13,12 @@ class BeneficiaryCountryPrice extends Model
         'beneficiario_id',
         'country_code',
         'plan_capacity',
-        'price',
+        'percentage',
         'is_active',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
+        'percentage' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

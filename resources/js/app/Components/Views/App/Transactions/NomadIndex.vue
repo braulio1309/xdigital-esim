@@ -2,7 +2,7 @@
     <div class="content-wrapper">
         <div class="row">
             <div class="col-sm-12 col-md-6">
-                <app-breadcrumb :page-title="'Deuda Nomad (API)'" :directory="'Transacciones'" :icon="'dollar-sign'"/>
+                <app-breadcrumb :page-title="'Facturación Nomad (API)'" :directory="'Transacciones'" :icon="'dollar-sign'"/>
             </div>
         </div>
 

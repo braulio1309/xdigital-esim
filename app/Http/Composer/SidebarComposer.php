@@ -60,7 +60,7 @@ class SidebarComposer
                 ],
                 [
                     'icon' => 'dollar-sign',
-                    'name' => 'Deuda Nomad',
+                    'name' => 'Facturación Nomad',
                     'url' => request()->root() . '/admin/nomad-transactions',
                     'permission' => true,
                 ],
@@ -70,6 +70,8 @@ class SidebarComposer
                     'url' => request()->root() . '/admin/payment-histories',
                     'permission' => true,
                 ],
+            ];
+        } elseif ($isSuperPartner) {
             $menu = [
                 [
                     'icon' => 'bar-chart-2',

@@ -9,8 +9,10 @@ use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
+use App\Services\App\Settings\BeneficiaryPriceService;
 use App\Services\App\Settings\PlanMarginService;
 use App\Services\App\Settings\SuperPartnerPlanMarginService;
+use App\Services\App\Settings\SuperPartnerPriceService;
 use App\Services\EsimFxService;
 use App\Services\StripeService;
 use Exception;
@@ -32,6 +34,8 @@ class PlanesDisponiblesController extends Controller
     protected $planMarginService;
     protected $beneficiaryPlanMarginService;
     protected $superPartnerPlanMarginService;
+    protected $beneficiaryPriceService;
+    protected $superPartnerPriceService;
 
     public function __construct(
         EsimFxService $esimService,
@@ -39,7 +43,9 @@ class PlanesDisponiblesController extends Controller
         ClienteService $clienteService,
         PlanMarginService $planMarginService,
         BeneficiaryPlanMarginService $beneficiaryPlanMarginService,
-        SuperPartnerPlanMarginService $superPartnerPlanMarginService
+        SuperPartnerPlanMarginService $superPartnerPlanMarginService,
+        BeneficiaryPriceService $beneficiaryPriceService,
+        SuperPartnerPriceService $superPartnerPriceService
     ) {
         $this->esimService = $esimService;
         $this->stripeService = $stripeService;
@@ -47,6 +53,8 @@ class PlanesDisponiblesController extends Controller
         $this->planMarginService = $planMarginService;
         $this->beneficiaryPlanMarginService = $beneficiaryPlanMarginService;
         $this->superPartnerPlanMarginService = $superPartnerPlanMarginService;
+        $this->beneficiaryPriceService = $beneficiaryPriceService;
+        $this->superPartnerPriceService = $superPartnerPriceService;
     }
 
     /**
@@ -204,7 +212,7 @@ class PlanesDisponiblesController extends Controller
         return round($fallback, 2);
     }
 
-    protected function calculateFreeEsimPricingSnapshot(float $originalPrice, $planCapacity, ?int $beneficiarioId, ?int $superPartnerId): array
+    protected function calculateFreeEsimPricingSnapshot(float $originalPrice, $planCapacity, ?int $beneficiarioId, ?int $superPartnerId, ?string $countryCode = null): array
     {
         $capacityAsInt = (int) $planCapacity;
 
@@ -219,12 +227,30 @@ class PlanesDisponiblesController extends Controller
 
         $normalizedCapacity = (string) $planCapacity;
         $adminPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $normalizedCapacity);
-        $priceAfterSuperPartner = $superPartnerId
-            ? $this->superPartnerPlanMarginService->calculateFinalPrice($adminPrice, $normalizedCapacity, $superPartnerId)
-            : $adminPrice;
-        $finalPrice = $beneficiarioId
-            ? $this->beneficiaryPlanMarginService->calculateFinalPrice($priceAfterSuperPartner, $normalizedCapacity, $beneficiarioId)
-            : $priceAfterSuperPartner;
+
+        // Super partner: use country percentage if configured, otherwise use general margin
+        $priceAfterSuperPartner = $adminPrice;
+        if ($superPartnerId) {
+            $spCountryPct = $this->superPartnerPriceService->resolveCountryPercentage($superPartnerId, $normalizedCapacity, $countryCode);
+
+            if ($spCountryPct !== null) {
+                $priceAfterSuperPartner = $adminPrice / (1 - $spCountryPct / 100);
+            } else {
+                $priceAfterSuperPartner = $this->superPartnerPlanMarginService->calculateFinalPrice($adminPrice, $normalizedCapacity, $superPartnerId);
+            }
+        }
+
+        // Beneficiary: use country percentage if configured, otherwise use general margin
+        $finalPrice = $priceAfterSuperPartner;
+        if ($beneficiarioId) {
+            $bCountryPct = $this->beneficiaryPriceService->resolveCountryPercentage($beneficiarioId, $normalizedCapacity, $countryCode);
+
+            if ($bCountryPct !== null) {
+                $finalPrice = $priceAfterSuperPartner / (1 - $bCountryPct / 100);
+            } else {
+                $finalPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice($priceAfterSuperPartner, $normalizedCapacity, $beneficiarioId);
+            }
+        }
 
         if ($beneficiarioId) {
             return [
@@ -356,7 +382,7 @@ class PlanesDisponiblesController extends Controller
             [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
 
             // Formatear los productos para el frontend
-            $formattedProducts = collect($products)->map(function ($product) use ($beneficiarioId, $superPartnerId) {
+            $formattedProducts = collect($products)->map(function ($product) use ($beneficiarioId, $superPartnerId, $country) {
                 // Apply admin profit margin to price
                 $originalPrice = $product['price'];
                 $planCapacity = $product['amount']; // Amount is in GB (e.g., 1, 3, 5, 10, 20, 50)
@@ -365,29 +391,53 @@ class PlanesDisponiblesController extends Controller
                 $priceWithAdminMargin = $this->planMarginService->calculateFinalPrice($originalPrice, $planCapacity);
                 
                 // Then, if there is a super partner, apply its margin on top
+                // If a country-specific percentage is configured for this super partner, use it exclusively
                 $priceAfterSuperPartner = $priceWithAdminMargin;
                 $superPartnerMarginApplied = false;
 
                 if ($superPartnerId) {
-                    $priceAfterSuperPartner = $this->superPartnerPlanMarginService->calculateFinalPrice(
-                        $priceWithAdminMargin,
-                        $planCapacity,
-                        $superPartnerId
+                    $spCountryPct = $this->superPartnerPriceService->resolveCountryPercentage(
+                        $superPartnerId,
+                        (string) $planCapacity,
+                        $country
                     );
-                    $superPartnerMarginApplied = ($priceAfterSuperPartner != $priceWithAdminMargin);
+
+                    if ($spCountryPct !== null) {
+                        $priceAfterSuperPartner = $priceWithAdminMargin / (1 - $spCountryPct / 100);
+                        $superPartnerMarginApplied = true;
+                    } else {
+                        $priceAfterSuperPartner = $this->superPartnerPlanMarginService->calculateFinalPrice(
+                            $priceWithAdminMargin,
+                            $planCapacity,
+                            $superPartnerId
+                        );
+                        $superPartnerMarginApplied = ($priceAfterSuperPartner != $priceWithAdminMargin);
+                    }
                 }
 
                 // Finally, if there is a beneficiario, apply beneficiary margin on top
+                // If a country-specific percentage is configured for this beneficiary, use it exclusively
                 $finalPrice = $priceAfterSuperPartner;
                 $beneficiaryMarginApplied = false;
 
                 if ($beneficiarioId) {
-                    $finalPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice(
-                        $priceAfterSuperPartner,
-                        $planCapacity,
-                        $beneficiarioId
+                    $bCountryPct = $this->beneficiaryPriceService->resolveCountryPercentage(
+                        $beneficiarioId,
+                        (string) $planCapacity,
+                        $country
                     );
-                    $beneficiaryMarginApplied = ($finalPrice != $priceAfterSuperPartner);
+
+                    if ($bCountryPct !== null) {
+                        $finalPrice = $priceAfterSuperPartner / (1 - $bCountryPct / 100);
+                        $beneficiaryMarginApplied = true;
+                    } else {
+                        $finalPrice = $this->beneficiaryPlanMarginService->calculateFinalPrice(
+                            $priceAfterSuperPartner,
+                            $planCapacity,
+                            $beneficiarioId
+                        );
+                        $beneficiaryMarginApplied = ($finalPrice != $priceAfterSuperPartner);
+                    }
                 }
                 
                 return [
@@ -664,6 +714,7 @@ class PlanesDisponiblesController extends Controller
                 'duration' => 'nullable|integer',
                 'original_price' => 'nullable|numeric|min:0',
                 'reference_purchase_amount' => 'nullable|numeric|min:0',
+                'country_code' => 'nullable|string|max:2',
             ]);
 
             // Verificar que el usuario esté autenticado
@@ -744,11 +795,13 @@ class PlanesDisponiblesController extends Controller
 
             // Resolver beneficiario asociado para atribuir comisiones
             [$beneficiarioId, $superPartnerId] = $this->resolveBeneficiarioAndSuperPartnerIds();
+            $countryCode = $request->filled('country_code') ? strtoupper($request->input('country_code')) : null;
             $pricingSnapshot = $this->calculateFreeEsimPricingSnapshot(
                 (float) $request->input('original_price', 0),
                 $request->data_amount,
                 $beneficiarioId,
-                $superPartnerId
+                $superPartnerId,
+                $countryCode
             );
 
             // Guardar la transacción en la base de datos

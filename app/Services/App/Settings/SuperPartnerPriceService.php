@@ -9,38 +9,28 @@ use Illuminate\Support\Facades\Log;
 class SuperPartnerPriceService
 {
     /**
-     * Resolve the price to charge for a free eSIM activation.
-     * Priority:
-     *  1. Country-specific price (super_partner_country_prices)
-     *  2. General plan price (super_partner_plan_prices)
-     *  3. null (caller falls back to existing percentage/rate system)
+     * Resolve the country-specific margin percentage for a super partner.
+     * Returns the configured percentage (e.g. 30.00 for 30%) or null if not configured.
      *
-     * @param int    $superPartnerId
-     * @param string $planCapacity   e.g. '1', '3', '5', '10'
-     * @param string|null $countryCode e.g. 'US', 'CO'
+     * @param int         $superPartnerId
+     * @param string      $planCapacity   e.g. '1', '3', '5', '10'
+     * @param string|null $countryCode    e.g. 'US', 'CO'
      * @return float|null
      */
-    public function resolvePrice(int $superPartnerId, string $planCapacity, ?string $countryCode): ?float
+    public function resolveCountryPercentage(int $superPartnerId, string $planCapacity, ?string $countryCode): ?float
     {
-        if ($countryCode) {
-            $countryPrice = SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)
-                ->where('plan_capacity', $planCapacity)
-                ->where('country_code', strtoupper($countryCode))
-                ->where('is_active', true)
-                ->first();
-
-            if ($countryPrice) {
-                return (float) $countryPrice->price;
-            }
+        if (!$countryCode) {
+            return null;
         }
 
-        $planPrice = SuperPartnerPlanPrice::where('super_partner_id', $superPartnerId)
+        $countryPrice = SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)
             ->where('plan_capacity', $planCapacity)
+            ->where('country_code', strtoupper($countryCode))
             ->where('is_active', true)
             ->first();
 
-        if ($planPrice) {
-            return (float) $planPrice->price;
+        if ($countryPrice) {
+            return (float) $countryPrice->percentage;
         }
 
         return null;
@@ -86,7 +76,7 @@ class SuperPartnerPriceService
                     'id' => $item->id,
                     'country_code' => $item->country_code,
                     'plan_capacity' => $item->plan_capacity,
-                    'price' => (float) $item->price,
+                    'percentage' => (float) $item->percentage,
                     'is_active' => $item->is_active,
                 ];
             })
@@ -133,7 +123,8 @@ class SuperPartnerPriceService
     }
 
     /**
-     * Save country prices for a super partner.
+     * Save country prices (percentages) for a super partner.
+     * $countryPrices is an array of objects: [['country_code'=>'US','plan_capacity'=>'1','percentage'=>30.00], ...]
      *
      * @param int   $superPartnerId
      * @param array $countryPrices
@@ -147,9 +138,9 @@ class SuperPartnerPriceService
             foreach ($countryPrices as $data) {
                 $countryCode = strtoupper((string) ($data['country_code'] ?? ''));
                 $planCapacity = (string) ($data['plan_capacity'] ?? '');
-                $price = $data['price'] ?? null;
+                $percentage = $data['percentage'] ?? null;
 
-                if (!$countryCode || !$planCapacity || $price === null) {
+                if (!$countryCode || !$planCapacity || $percentage === null) {
                     continue;
                 }
 
@@ -160,7 +151,7 @@ class SuperPartnerPriceService
                         'plan_capacity' => $planCapacity,
                     ],
                     [
-                        'price' => (float) $price,
+                        'percentage' => (float) $percentage,
                         'is_active' => $data['is_active'] ?? true,
                     ]
                 );
@@ -185,3 +176,4 @@ class SuperPartnerPriceService
         }
     }
 }
+

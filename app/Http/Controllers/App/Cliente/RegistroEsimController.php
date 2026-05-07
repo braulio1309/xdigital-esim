@@ -134,21 +134,25 @@ class RegistroEsimController extends Controller
         $planCapacity = (string) ($product['amount'] ?? $product['data_amount'] ?? '0');
         $capacityAsInt = (int) $planCapacity;
 
-        // --- Check manual fixed prices first (highest priority) ---
+        // --- Check country-specific percentage (highest priority for country+capacity) ---
         if ($beneficiarioId) {
-            $manualPrice = app(BeneficiaryPriceService::class)->resolvePrice($beneficiarioId, $planCapacity, $countryCode);
-            if ($manualPrice !== null) {
+            $countryPct = app(BeneficiaryPriceService::class)->resolveCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
+            if ($countryPct !== null) {
+                $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
+                $finalPrice = $adminPrice / (1 - $countryPct / 100);
                 return [
-                    'charge_amount' => round($manualPrice, 2),
-                    'commission_amount' => round($manualPrice, 2),
+                    'charge_amount' => round($finalPrice, 2),
+                    'commission_amount' => round(max(0, $finalPrice - $adminPrice), 2),
                 ];
             }
         } elseif ($superPartnerId) {
-            $manualPrice = app(SuperPartnerPriceService::class)->resolvePrice($superPartnerId, $planCapacity, $countryCode);
-            if ($manualPrice !== null) {
+            $countryPct = app(SuperPartnerPriceService::class)->resolveCountryPercentage($superPartnerId, $planCapacity, $countryCode);
+            if ($countryPct !== null) {
+                $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
+                $finalPrice = $adminPrice / (1 - $countryPct / 100);
                 return [
-                    'charge_amount' => round($manualPrice, 2),
-                    'commission_amount' => round($manualPrice, 2),
+                    'charge_amount' => round($finalPrice, 2),
+                    'commission_amount' => round(max(0, $finalPrice - $adminPrice), 2),
                 ];
             }
         }

@@ -29,7 +29,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" :class="{active: activeTab === 'country'}" href="#" @click.prevent="activeTab = 'country'">
-                            Precios por País
+                            Porcentaje por País
                         </a>
                     </li>
                 </ul>
@@ -145,10 +145,11 @@
                 <!-- Tab: Country-Specific Prices -->
                 <div v-show="activeTab === 'country'">
                     <div class="alert alert-info">
-                        <strong>Precios por País</strong>
+                        <strong>Porcentaje por País</strong>
                         <p class="mb-0 mt-2">
-                            Estos precios tienen la mayor prioridad. Si existe un precio para un país y plan específico, 
-                            se usará ese monto en lugar del precio fijo general o el cálculo de porcentaje.
+                            Estos porcentajes tienen la mayor prioridad. Si existe un porcentaje configurado para un país y plan específico,
+                            se usará ese porcentaje para calcular el precio final del super partner sobre el precio con margen del admin,
+                            ignorando el margen general del super partner para ese caso.
                         </p>
                     </div>
 
@@ -158,7 +159,7 @@
                                 <tr>
                                     <th>País (Código)</th>
                                     <th>Plan</th>
-                                    <th>Precio (USD)</th>
+                                    <th>Porcentaje (%)</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -178,13 +179,14 @@
                                     </td>
                                     <td class="align-middle">
                                         <div class="input-group" style="max-width: 150px;">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text">$</span>
-                                            </div>
                                             <app-input type="number"
-                                                       v-model="entry.price"
+                                                       v-model="entry.percentage"
                                                        :min="0"
+                                                       :max="100"
                                                        step="0.01"/>
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">%</span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="align-middle">
@@ -195,14 +197,14 @@
                                 </tr>
                                 <tr v-if="countryPrices.length === 0">
                                     <td colspan="4" class="text-center text-muted py-3">
-                                        No hay precios por país configurados.
+                                        No hay porcentajes por país configurados.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-primary" @click="addCountryPrice">
-                        <app-icon name="plus" style="width:14px;height:14px;" class="mr-1"/> Agregar precio por país
+                        <app-icon name="plus" style="width:14px;height:14px;" class="mr-1"/> Agregar porcentaje por país
                     </button>
                 </div>
 
@@ -308,7 +310,7 @@
                     free_esim_rate: this.freeEsimRate,
                     margins: this.margins,
                     plan_prices: this.planPrices,
-                    country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.price !== '' && e.price !== null),
+                    country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.percentage !== '' && e.percentage !== null),
                 };
 
                 axios.post(`/super-partners/${this.superPartnerId}/commissions`, payload)
@@ -354,7 +356,7 @@
                 this.planPrices[plan].price = '';
             },
             addCountryPrice() {
-                this.countryPrices.push({ country_code: '', plan_capacity: '1', price: '' });
+                this.countryPrices.push({ country_code: '', plan_capacity: '1', percentage: '' });
             },
             removeCountryPrice(idx) {
                 this.countryPrices.splice(idx, 1);
