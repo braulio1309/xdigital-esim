@@ -75,6 +75,24 @@ class SuperPartnerPriceService
     }
 
     /**
+     * Get all country codes that have an active percentage > 0 configured for a super partner.
+     * Used to determine which countries should be treated as "affordable" for free eSIM activation.
+     *
+     * @param int $superPartnerId
+     * @return string[] Array of uppercase country codes (e.g. ['US', 'CO'])
+     */
+    public function getCountryCodesWithPercentages(int $superPartnerId): array
+    {
+        return SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)
+            ->where('is_active', true)
+            ->where('percentage', '>', 0)
+            ->pluck('country_code')
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    /**
      * Get formatted plan prices for API response.
      *
      * @param int $superPartnerId

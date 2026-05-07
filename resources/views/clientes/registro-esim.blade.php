@@ -447,12 +447,15 @@
     $selectedCountryForForm = old('country_code');
     $selectedCountryOption = collect($affordableCountries ?? [])->firstWhere('code', $selectedCountryForForm);
     $selectedCountryAutocompleteValue = $selectedCountryOption['name'] ?? '';
-    $registrationCountryOptions = collect($affordableCountries ?? [])->map(function ($country) {
+    $partnerAffordableCountryCodes = $partnerAffordableCountryCodes ?? [];
+    $registrationCountryOptions = collect($affordableCountries ?? [])->map(function ($country) use ($partnerAffordableCountryCodes) {
+        $isAffordableByTariff = isset($country['price']) && (float) $country['price'] <= \App\Helpers\CountryTariffHelper::AFFORDABLE_TARIFF_THRESHOLD;
+        $isAffordableForPartner = in_array($country['code'], $partnerAffordableCountryCodes, true);
         return [
             'code' => $country['code'],
             'name' => $country['name'],
             'emoji' => \App\Helpers\CountryTariffHelper::getCountryEmoji($country['code']),
-            'is_affordable' => isset($country['price']) && (float) $country['price'] <= \App\Helpers\CountryTariffHelper::AFFORDABLE_TARIFF_THRESHOLD,
+            'is_affordable' => $isAffordableByTariff || $isAffordableForPartner,
             'price' => $country['price'] ?? null,
         ];
     })->values()->all();

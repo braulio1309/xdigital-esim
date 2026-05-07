@@ -97,6 +97,31 @@ class RegistroEsimController extends Controller
         session()->forget('planes_partner_context');
     }
 
+    /**
+     * Get country codes that have a configured percentage (> 0) for the partner in the branding context.
+     * A beneficiary percentage takes priority; falls back to super partner if no beneficiary.
+     *
+     * @param array $brandingContext
+     * @return string[] Uppercase country codes
+     */
+    private function resolvePartnerAffordableCountryCodes(array $brandingContext): array
+    {
+        $beneficiario = $brandingContext['beneficiario'] ?? null;
+        $superPartner = $brandingContext['superPartner'] ?? null;
+
+        if ($beneficiario) {
+            return app(BeneficiaryPriceService::class)
+                ->getCountryCodesWithPercentages($beneficiario->id);
+        }
+
+        if ($superPartner) {
+            return app(SuperPartnerPriceService::class)
+                ->getCountryCodesWithPercentages($superPartner->id);
+        }
+
+        return [];
+    }
+
     private function resolveFreeEsimCapacityForCliente(Cliente $cliente): int
     {
         $capacity = (int) ($cliente->free_esim_capacity ?? 0);
@@ -135,6 +160,34 @@ class RegistroEsimController extends Controller
         $capacityAsInt = (int) $planCapacity;
 
         if ($capacityAsInt <= self::LEGACY_FREE_ESIM_AMOUNT) {
+            // For 1GB plans, check if a country-specific percentage is configured.
+            // If so, use the usual percentage-based calculation instead of the flat rate.
+            if ($countryCode) {
+                $adminPrice1GB = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
+
+                if ($beneficiarioId) {
+                    $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
+                    if ($countryPct !== null) {
+                        $finalPrice = $adminPrice1GB / (1 - $countryPct / 100);
+                        return [
+                            'charge_amount' => round((float) $finalPrice, 2),
+                            'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice1GB), 2),
+                        ];
+                    }
+                }
+
+                if ($superPartnerId) {
+                    $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $planCapacity, $countryCode);
+                    if ($countryPct !== null) {
+                        $finalPrice = $adminPrice1GB / (1 - $countryPct / 100);
+                        return [
+                            'charge_amount' => round((float) $finalPrice, 2),
+                            'commission_amount' => round(max(0, (float) $finalPrice - (float) $adminPrice1GB), 2),
+                        ];
+                    }
+                }
+            }
+
             $flatRate = $this->calculateFreeEsimCommissionAmount($brandingContext, $cliente);
 
             return [
@@ -343,6 +396,10 @@ class RegistroEsimController extends Controller
         // Get all countries so non-free destinations can redirect to the plans catalog.
         $affordableCountries = CountryTariffHelper::getAllCountries();
         $stripePublicKey = app(StripeService::class)->getPublishableKey();
+
+        // Resolve country codes that have a configured percentage for the partner (beneficiary or super partner).
+        // These countries should be treated as "affordable" even if they exceed the tariff threshold.
+        $partnerAffordableCountryCodes = $this->resolvePartnerAffordableCountryCodes($brandingContext);
         
         return view('clientes.registro-esim', [
             'beneficiario' => $brandingContext['beneficiario'],
@@ -351,6 +408,7 @@ class RegistroEsimController extends Controller
             'referralCode' => $referralCode,
             'parametro' => $request->query('parametro', ''),
             'affordableCountries' => $affordableCountries,
+            'partnerAffordableCountryCodes' => $partnerAffordableCountryCodes,
             'stripePublicKey' => $stripePublicKey,
         ]);
     }
@@ -391,17 +449,23 @@ class RegistroEsimController extends Controller
             $selectedCountryCode = strtoupper($validated['country_code']);
 
             if (!CountryTariffHelper::isAffordableCountryCode($selectedCountryCode)) {
-                $routeParams = [];
+                // Check if this country has a configured percentage for the partner (beneficiary or super partner).
+                // If so, it is treated as affordable for free eSIM activation on this referral link.
+                $partnerAffordableCountryCodes = $this->resolvePartnerAffordableCountryCodes($brandingContext);
 
-                if (!empty($validated['referralCode'])) {
-                    $routeParams['referralCode'] = $validated['referralCode'];
+                if (!in_array($selectedCountryCode, $partnerAffordableCountryCodes, true)) {
+                    $routeParams = [];
+
+                    if (!empty($validated['referralCode'])) {
+                        $routeParams['referralCode'] = $validated['referralCode'];
+                    }
+
+                    $routeParams['country'] = $selectedCountryCode;
+
+                    return redirect()->route('planes.index', $routeParams)
+                        ->with('success', 'Este país no aplica para eSIM gratis. Te mostramos los planes disponibles para ese destino.')
+                        ->withInput();
                 }
-
-                $routeParams['country'] = $selectedCountryCode;
-
-                return redirect()->route('planes.index', $routeParams)
-                    ->with('success', 'Este pais no aplica para eSIM gratis. Te mostramos los planes disponibles para ese destino.')
-                    ->withInput();
             }
 
             // 2. Verificar si el email ya existe
