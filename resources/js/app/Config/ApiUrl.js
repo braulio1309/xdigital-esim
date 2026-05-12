@@ -86,7 +86,7 @@ export const TRANSACTIONS_NOMAD_DEBT_STATS = 'transactions/nomad-debt-stats';
 export const TRANSACTIONS_ESIM_STATUS = (id) => `transactions/${id}/esim-status`;
 export const TRANSACTIONS_TERMINATE = (id) => `transactions/${id}/terminate-subscription`;
 export const TRANSACTIONS_RECHARGE = (id) => `transactions/${id}/recharge`;
-export const TRANSACTIONS_EXPORT = 'transactions/export';
+export const TRANSACTIONS_SALE_COMMISSION_TOTAL = 'transactions/sale-commission-total';
 
 //Payment Histories
 export const PAYMENT_HISTORIES = 'payment-histories';

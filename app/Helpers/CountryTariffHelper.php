@@ -321,4 +321,55 @@ class CountryTariffHelper
 
         return $emojis[strtoupper($code)] ?? '🌍';
     }
+
+    /**
+     * Get the region for a given country code.
+     *
+     * @param string $code ISO 3166-1 alpha-2 country code
+     * @return string|null Region name or null if not found
+     */
+    public static function getRegionForCountryCode(string $code): ?string
+    {
+        $code = strtoupper(trim($code));
+
+        foreach (static::getAllCountries() as $country) {
+            if (strtoupper($country['code']) === $code) {
+                return $country['region'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if a country belongs to the LATAM (Latin America) region.
+     *
+     * @param string $code ISO 3166-1 alpha-2 country code
+     * @return bool
+     */
+    public static function isLatamCountry(string $code): bool
+    {
+        return static::getRegionForCountryCode($code) === 'Latin America';
+    }
+
+    /**
+     * Check if a country belongs to the USA/Canada/Europe group.
+     * This includes: United States (US), Canada (CA), EU28 countries, and other European countries.
+     *
+     * @param string $code ISO 3166-1 alpha-2 country code
+     * @return bool
+     */
+    public static function isUsaCaEuCountry(string $code): bool
+    {
+        $code = strtoupper(trim($code));
+
+        // Explicit USA and Canada
+        if (in_array($code, ['US', 'CA'], true)) {
+            return true;
+        }
+
+        $region = static::getRegionForCountryCode($code);
+
+        return in_array($region, ['EU28', 'Europe'], true);
+    }
 }

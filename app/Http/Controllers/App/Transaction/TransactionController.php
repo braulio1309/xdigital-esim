@@ -72,6 +72,12 @@ class TransactionController extends Controller
             $transaction->partner_name = $transaction->beneficiario
                 ? $transaction->beneficiario->nombre
                 : ($transaction->superPartner ? 'SP: ' . $transaction->superPartner->nombre : 'N/A');
+            $transaction->partner_sale_commission_amount = $transaction->partner_sale_commission_amount !== null
+                ? (float) $transaction->partner_sale_commission_amount
+                : null;
+            $transaction->super_partner_sale_commission_amount = $transaction->super_partner_sale_commission_amount !== null
+                ? (float) $transaction->super_partner_sale_commission_amount
+                : null;
             return $transaction;
         });
         
@@ -245,6 +251,86 @@ class TransactionController extends Controller
             'count' => $count,
             'amount' => $amount
         ]);
+    }
+
+    /**
+     * Calculate the total sale commission earned by the current partner (beneficiario or super_partner)
+     * or filtered by partner/date range for admins.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function saleCommissionTotal(\Illuminate\Http\Request $request)
+    {
+        $query = Transaction::where('purchase_amount', '>', 0);
+
+        $beneficiarioIdFilter = $request->get('beneficiario_id');
+        $superPartnerIdFilter = $request->get('super_partner_id');
+        $startDateRaw = $request->get('start_date');
+        $endDateRaw = $request->get('end_date');
+
+        $startDate = null;
+        $endDate = null;
+
+        if ($startDateRaw) {
+            try {
+                $startDate = Carbon::parse(preg_replace('/\s\([^)]+\)/', '', $startDateRaw));
+            } catch (\Exception $e) {}
+        }
+
+        if ($endDateRaw) {
+            try {
+                $endDate = Carbon::parse(preg_replace('/\s\([^)]+\)/', '', $endDateRaw));
+            } catch (\Exception $e) {}
+        }
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('creation_time', [$startDate->startOfDay(), $endDate->copy()->endOfDay()]);
+        } elseif ($startDate) {
+            $query->where('creation_time', '>=', $startDate->startOfDay());
+        } elseif ($endDate) {
+            $query->where('creation_time', '<=', $endDate->endOfDay());
+        }
+
+        $userType = auth()->check() ? auth()->user()->user_type : null;
+        $column = 'partner_sale_commission_amount';
+
+        if ($userType === 'beneficiario') {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+            if (!$beneficiario) {
+                return response()->json(['total' => 0]);
+            }
+            $query->where('beneficiario_id', $beneficiario->id);
+            $column = 'partner_sale_commission_amount';
+        } elseif ($userType === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+            if (!$superPartner) {
+                return response()->json(['total' => 0]);
+            }
+            $partnerIds = $superPartner->beneficiarios()->pluck('id');
+            $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+            });
+            $column = 'super_partner_sale_commission_amount';
+        } else {
+            // Admin or unscoped: apply explicit filters from the request
+            if ($beneficiarioIdFilter) {
+                if ($beneficiarioIdFilter === 'none') {
+                    $query->whereNull('beneficiario_id');
+                } else {
+                    $query->where('beneficiario_id', $beneficiarioIdFilter);
+                    $column = 'partner_sale_commission_amount';
+                }
+            } elseif ($superPartnerIdFilter) {
+                $query->where('super_partner_id', $superPartnerIdFilter);
+                $column = 'super_partner_sale_commission_amount';
+            }
+        }
+
+        $total = round((float) $query->sum($column), 2);
+
+        return response()->json(['total' => $total]);
     }
 
     /**

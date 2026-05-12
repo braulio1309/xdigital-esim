@@ -32,6 +32,11 @@
                             Porcentaje por País (%)
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{active: activeTab === 'sale_commissions'}" href="#" @click.prevent="activeTab = 'sale_commissions'">
+                            Comisiones de Venta
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- Tab: Margins -->
@@ -242,6 +247,71 @@
                     </div>
                 </div>
 
+                <!-- Tab: Sale Commissions -->
+                <div v-show="activeTab === 'sale_commissions'">
+                    <div class="alert alert-info">
+                        <strong>Comisiones de Venta por Región</strong>
+                        <p class="mb-0 mt-2">
+                            Define el porcentaje de comisión que gana este super partner por cada eSIM vendida,
+                            según el país de destino. Estas comisiones no afectan el precio de la eSIM.
+                        </p>
+                        <small class="text-muted">Fórmula: Precio Final × Porcentaje / 100 = Comisión ganada.</small>
+                    </div>
+
+                    <div v-if="!isAdmin" class="alert alert-warning">
+                        <app-icon name="lock" style="width:14px;height:14px;" class="mr-1"/>
+                        Solo los administradores pueden modificar las comisiones de venta.
+                    </div>
+
+                    <div class="form-group row align-items-center mb-3">
+                        <label class="col-sm-5 mb-0 font-weight-bold">
+                            Comisión USA, Canadá y Europa (%)
+                        </label>
+                        <div class="col-sm-4">
+                            <div class="input-group" style="max-width: 200px;">
+                                <app-input
+                                    type="number"
+                                    v-model="saleCommissionUsaCaEuPct"
+                                    :min="0"
+                                    :max="100"
+                                    step="0.01"
+                                    :placeholder="'0.00'"
+                                    :disabled="!isAdmin"/>
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                Aplica para: Estados Unidos (US), Canadá (CA) y países europeos (EU28 + Europa).
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row align-items-center mb-3">
+                        <label class="col-sm-5 mb-0 font-weight-bold">
+                            Comisión LATAM (%)
+                        </label>
+                        <div class="col-sm-4">
+                            <div class="input-group" style="max-width: 200px;">
+                                <app-input
+                                    type="number"
+                                    v-model="saleCommissionLatamPct"
+                                    :min="0"
+                                    :max="100"
+                                    step="0.01"
+                                    :placeholder="'0.00'"
+                                    :disabled="!isAdmin"/>
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                Aplica para países de América Latina.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-4 d-flex justify-content-end">
                     <button class="btn btn-light mr-2" @click.prevent="closeModal">
                         {{ $t('cancel') }}
@@ -279,6 +349,8 @@
                 activeTab: 'margins',
                 commissionPercentage: 0.00,
                 freeEsimRate: 0.85,
+                saleCommissionLatamPct: null,
+                saleCommissionUsaCaEuPct: null,
                 allCapacities: ['1', '3', '5', '10'],
                 marginCapacities: ['3', '5', '10'],
                 margins: {
@@ -300,6 +372,12 @@
             this.fetchData();
         },
         computed: {
+            isAdmin() {
+                return this.$store.state.user &&
+                    this.$store.state.user.loggedInUser &&
+                    (this.$store.state.user.loggedInUser.role === 'Admin' ||
+                     this.$store.state.user.loggedInUser.user_type === 'admin');
+            },
             groupedCountryPrices() {
                 const groupedEntries = {};
 
@@ -435,6 +513,12 @@
                             if (response.data.country_prices) {
                                 this.countryPrices = this.hydrateCountryPrices(response.data.country_prices);
                             }
+                            this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null && typeof response.data.sale_commission_latam_pct !== 'undefined'
+                                ? parseFloat(response.data.sale_commission_latam_pct)
+                                : null;
+                            this.saleCommissionUsaCaEuPct = response.data.sale_commission_usa_ca_eu_pct !== null && typeof response.data.sale_commission_usa_ca_eu_pct !== 'undefined'
+                                ? parseFloat(response.data.sale_commission_usa_ca_eu_pct)
+                                : null;
                         }
                     })
                     .catch(error => {
@@ -456,6 +540,15 @@
                     plan_prices: this.planPrices,
                     country_prices: normalizedCountryPrices,
                 };
+
+                if (this.isAdmin) {
+                    payload.sale_commission_latam_pct = this.saleCommissionLatamPct !== '' && this.saleCommissionLatamPct !== null
+                        ? parseFloat(this.saleCommissionLatamPct)
+                        : null;
+                    payload.sale_commission_usa_ca_eu_pct = this.saleCommissionUsaCaEuPct !== '' && this.saleCommissionUsaCaEuPct !== null
+                        ? parseFloat(this.saleCommissionUsaCaEuPct)
+                        : null;
+                }
 
                 axios.post(`/super-partners/${this.superPartnerId}/commissions`, payload)
                     .then(response => {
@@ -486,6 +579,16 @@
                                 this.countryPrices = this.hydrateCountryPrices(response.data.country_prices);
                             } else {
                                 this.countryPrices = this.hydrateCountryPrices(normalizedCountryPrices);
+                            }
+                            if (typeof response.data.sale_commission_latam_pct !== 'undefined') {
+                                this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null
+                                    ? parseFloat(response.data.sale_commission_latam_pct)
+                                    : null;
+                            }
+                            if (typeof response.data.sale_commission_usa_ca_eu_pct !== 'undefined') {
+                                this.saleCommissionUsaCaEuPct = response.data.sale_commission_usa_ca_eu_pct !== null
+                                    ? parseFloat(response.data.sale_commission_usa_ca_eu_pct)
+                                    : null;
                             }
                         }
                         setTimeout(() => { this.closeModal(); }, 800);
