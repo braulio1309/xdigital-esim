@@ -274,11 +274,8 @@
                                 <app-input
                                     type="number"
                                     v-model="saleCommissionUsaCaEuPct"
-                                    :min="0"
-                                    :max="100"
                                     step="0.01"
-                                    :placeholder="'0.00'"
-                                    :disabled="!isAdmin"/>
+                                    :placeholder="'0.00'"/>
                                 <div class="input-group-append">
                                     <span class="input-group-text">%</span>
                                 </div>
@@ -298,11 +295,8 @@
                                 <app-input
                                     type="number"
                                     v-model="saleCommissionLatamPct"
-                                    :min="0"
-                                    :max="100"
                                     step="0.01"
-                                    :placeholder="'0.00'"
-                                    :disabled="!isAdmin"/>
+                                    :placeholder="'0.00'"/>
                                 <div class="input-group-append">
                                     <span class="input-group-text">%</span>
                                 </div>

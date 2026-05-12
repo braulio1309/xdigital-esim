@@ -91,8 +91,18 @@ class TransactionController extends Controller
      */
     public function paymentStats()
     {
+        $isBeneficiarioUser = auth()->check() && auth()->user()->user_type === 'beneficiario';
+        $isSuperPartnerUser = auth()->check() && auth()->user()->user_type === 'super_partner';
+
         $query = Transaction::with(['beneficiario', 'cliente.beneficiario'])
-            ->where('is_paid', false);
+            ->where(function ($builder) {
+                $builder->where('is_paid', false)
+                    ->orWhereNull('is_paid');
+            });
+
+        if ($isBeneficiarioUser || $isSuperPartnerUser) {
+            $query->where('purchase_amount', 0);
+        }
 
         if ($requestBeneficiarioId = request()->get('beneficiario_id')) {
             if ($requestBeneficiarioId === 'none') {
@@ -125,13 +135,13 @@ class TransactionController extends Controller
         }
         
         // Filter by beneficiario if not admin
-        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
+        if ($isBeneficiarioUser) {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             
             if ($beneficiario) {
                 $query = $query->where('beneficiario_id', $beneficiario->id);
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
+        } elseif ($isSuperPartnerUser) {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
@@ -152,7 +162,7 @@ class TransactionController extends Controller
         
         return response()->json([
             'unpaid_count' => $unpaidCount,
-            'total_owed' => $totalOwed
+            'total_owed' => round($totalOwed, 2)
         ]);
     }
 
@@ -186,7 +196,10 @@ class TransactionController extends Controller
             return response()->json(['error' => 'Formato de fecha inválido'], 422);
         }
 
-        $query = Transaction::where('is_paid', false);
+        $query = Transaction::where(function ($builder) {
+            $builder->where('is_paid', false)
+                ->orWhereNull('is_paid');
+        });
 
         // Filtro explícito de beneficiario desde el front
         if ($beneficiarioId) {

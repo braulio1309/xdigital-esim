@@ -289,11 +289,7 @@
                             key: 'commission_amount',
                             modifier: (value, row) => {
                                 const commission = parseFloat(value || 0).toFixed(2);
-                                const percentage = row.commission_percentage || 0;
-                                if (row.purchase_amount === 0 || row.purchase_amount === '0' || row.purchase_amount === 0.0) {
-                                    return `$${commission}`;
-                                }
-                                return `$${commission} (${percentage}%)`;
+                                return `$${commission}`;
                             }
                         },
                         {
@@ -453,7 +449,7 @@
                 if (this.activeFilters.start_date) params.append('start_date', this.formatDateParam(this.activeFilters.start_date));
                 if (this.activeFilters.end_date) params.append('end_date', this.formatDateParam(this.activeFilters.end_date));
                 const qs = params.toString();
-                return `/${actions.TRANSACTIONS_EXPORT}${qs ? '?' + qs : ''}`;
+                return `/transactions/export${qs ? '?' + qs : ''}`;
             },
             // Only pass a plain beneficiario ID to the mark-as-paid modal
             prefillBeneficiarioId() {

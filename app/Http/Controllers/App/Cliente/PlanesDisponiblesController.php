@@ -322,6 +322,92 @@ class PlanesDisponiblesController extends Controller
         ];
     }
 
+    protected function calculatePricingSnapshot(float $originalPrice, $planCapacity, ?int $beneficiarioId, ?int $superPartnerId, ?string $countryCode = null): array
+    {
+        $normalizedCapacity = (string) $planCapacity;
+
+        if ((int) $normalizedCapacity <= 1) {
+            return $this->calculateFreeEsimPricingSnapshot(
+                $originalPrice,
+                $normalizedCapacity,
+                $beneficiarioId,
+                $superPartnerId,
+                $countryCode
+            );
+        }
+
+        $adminPrice = $this->planMarginService->calculateFinalPrice($originalPrice, $normalizedCapacity);
+
+        if ($beneficiarioId && $countryCode) {
+            $countryPct = $this->beneficiaryPriceService->getCountryPercentage($beneficiarioId, $normalizedCapacity, $countryCode);
+            if ($countryPct !== null) {
+                $finalPrice = $originalPrice / (1 - $countryPct / 100);
+
+                return [
+                    'charge_amount' => round((float) $finalPrice, 2),
+                    'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
+                ];
+            }
+        }
+
+        if ($superPartnerId && $countryCode) {
+            $countryPct = $this->superPartnerPriceService->getCountryPercentage($superPartnerId, $normalizedCapacity, $countryCode);
+            if ($countryPct !== null) {
+                $finalPrice = $originalPrice / (1 - $countryPct / 100);
+
+                return [
+                    'charge_amount' => round((float) $finalPrice, 2),
+                    'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
+                ];
+            }
+        }
+
+        if ($beneficiarioId) {
+            $manualPrice = $this->beneficiaryPriceService->resolvePrice($beneficiarioId, $normalizedCapacity, null);
+            if ($manualPrice !== null) {
+                return [
+                    'charge_amount' => round((float) $manualPrice, 2),
+                    'commission_amount' => round((float) $manualPrice, 2),
+                ];
+            }
+        } elseif ($superPartnerId) {
+            $manualPrice = $this->superPartnerPriceService->resolvePrice($superPartnerId, $normalizedCapacity, null);
+            if ($manualPrice !== null) {
+                return [
+                    'charge_amount' => round((float) $manualPrice, 2),
+                    'commission_amount' => round((float) $manualPrice, 2),
+                ];
+            }
+        }
+
+        $priceAfterSuperPartner = $superPartnerId
+            ? $this->superPartnerPlanMarginService->calculateFinalPrice($adminPrice, $normalizedCapacity, $superPartnerId)
+            : $adminPrice;
+
+        $finalPrice = $beneficiarioId
+            ? $this->beneficiaryPlanMarginService->calculateFinalPrice($priceAfterSuperPartner, $normalizedCapacity, $beneficiarioId)
+            : $priceAfterSuperPartner;
+
+        if ($beneficiarioId) {
+            return [
+                'charge_amount' => round((float) $finalPrice, 2),
+                'commission_amount' => round(max(0, (float) $finalPrice - (float) $priceAfterSuperPartner), 2),
+            ];
+        }
+
+        if ($superPartnerId) {
+            return [
+                'charge_amount' => round((float) $priceAfterSuperPartner, 2),
+                'commission_amount' => round(max(0, (float) $priceAfterSuperPartner - (float) $adminPrice), 2),
+            ];
+        }
+
+        return [
+            'charge_amount' => round((float) $finalPrice, 2),
+            'commission_amount' => 0.0,
+        ];
+    }
+
     protected function sanitizeTransactionData(array $transactionData): array
     {
         static $transactionColumns;

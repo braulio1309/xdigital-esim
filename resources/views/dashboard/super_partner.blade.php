@@ -29,6 +29,49 @@
         </div>
 
         <div class="row">
+            <div class="col-12 grid-margin">
+                <div class="card">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="card-title mb-0">Filtro de Fecha</h4>
+                                <p class="card-description mb-0">Aplica a todas las métricas de la página basadas en transacciones</p>
+                            </div>
+                            @if(($filter_start_date ?? null) || ($filter_end_date ?? null))
+                                <span class="badge badge-info">Filtrado por fecha</span>
+                            @endif
+                        </div>
+
+                        <form method="GET" action="{{ route('super-partner.dashboard') }}">
+                            <div class="row align-items-end">
+                                <div class="col-md-4">
+                                    <label class="text-muted small mb-1">Desde</label>
+                                    <input type="date" name="start_date" class="form-control form-control-sm"
+                                           value="{{ $filter_start_date ?? '' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="text-muted small mb-1">Hasta</label>
+                                    <input type="date" name="end_date" class="form-control form-control-sm"
+                                           value="{{ $filter_end_date ?? '' }}">
+                                </div>
+                                <div class="col-md-4 d-flex">
+                                    <button type="submit" class="btn btn-primary btn-sm mr-2">
+                                        <i class="mdi mdi-magnify mr-1"></i> Filtrar
+                                    </button>
+                                    @if(($filter_start_date ?? null) || ($filter_end_date ?? null))
+                                        <a href="{{ route('super-partner.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="mdi mdi-close mr-1"></i> Limpiar
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
             <div class="col-md-3 grid-margin stretch-card">
                 <div class="card">
                     <div class="card-body">
@@ -59,11 +102,24 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="card-title mb-0">Transacciones</h4>
+                            <h4 class="card-title mb-0">Ganancias Totales</h4>
+                            <i class="mdi mdi-currency-usd text-success icon-lg"></i>
+                        </div>
+                        <h2 class="font-weight-bold mb-2">${{ number_format($total_earnings, 2) }}</h2>
+                        <p class="text-muted mb-0">Suma de ganancia venta</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 grid-margin stretch-card">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="card-title mb-0">Ventas Totales</h4>
                             <i class="mdi mdi-swap-horizontal text-info icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">{{ $total_transactions }}</h2>
-                        <p class="text-muted mb-0">Transacciones totales</p>
+                        <p class="text-muted mb-0">Todas las transacciones</p>
                     </div>
                 </div>
             </div>
@@ -102,7 +158,49 @@
                             <i class="mdi mdi-currency-usd text-danger icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">${{ number_format($total_debt, 2) }}</h2>
-                        <p class="text-muted mb-0">Incluye cualquier cantidad de GB</p>
+                        <p class="text-muted mb-0">Suma real de eSIMs gratuitas pendientes</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 grid-margin stretch-card">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="card-title mb-0">Comisiones por Región</h4>
+                                <p class="card-description mb-0">Porcentaje de comisión de venta configurado para Europa y LATAM</p>
+                            </div>
+                            <i class="mdi mdi-currency-usd text-success icon-lg"></i>
+                        </div>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Región</th>
+                                        <th>Comisión</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach(['usa_ca_eu' => 'USA, Canadá y Europa', 'latam' => 'LATAM'] as $regionKey => $label)
+                                        <tr>
+                                            <td><span class="font-weight-bold">{{ $label }}</span></td>
+                                            <td><span class="font-weight-bold text-success">{{ number_format($sale_commissions[$regionKey] ?? 0, 2) }}%</span></td>
+                                            <td>
+                                                @if(($sale_commissions[$regionKey] ?? 0) > 0)
+                                                    <span class="badge badge-success">Configurado</span>
+                                                @else
+                                                    <span class="badge badge-secondary">Sin comisión</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>

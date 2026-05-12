@@ -67,6 +67,9 @@ class SuperPartnerDashboardController extends Controller
      */
     private function getDashboardData($superPartner, Request $request): array
     {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
         $partners = $superPartner->beneficiarios()
             ->orderBy('nombre')
             ->get();
@@ -75,32 +78,48 @@ class SuperPartnerDashboardController extends Controller
 
         $totalPartners = $partners->count();
 
-        $transactionsQuery = $this->scopeTransactionsForSuperPartner(
-            Transaction::query(),
-            $partnerIds->all(),
-            $superPartner->id
+        $transactionsQuery = $this->applyDateFilters(
+            $this->scopeTransactionsForSuperPartner(
+                Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner']),
+                $partnerIds->all(),
+                $superPartner->id
+            ),
+            $startDate,
+            $endDate
         );
 
         $totalTransactions = (clone $transactionsQuery)->count();
+        $transactions = (clone $transactionsQuery)->get();
 
         $totalClientes = (clone $transactionsQuery)
             ->whereNotNull('cliente_id')
             ->distinct()
             ->count('cliente_id');
 
-        $unpaidTransactions = $this->scopeTransactionsForSuperPartner(
-            Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])->where('is_paid', false),
-            $partnerIds->all(),
-            $superPartner->id
-        )
-            ->get();
+        $unpaidTransactions = $this->applyDateFilters(
+            $this->scopeTransactionsForSuperPartner(
+                Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])
+                    ->where('purchase_amount', 0)
+                    ->where(function ($builder) {
+                        $builder->where('is_paid', false)
+                            ->orWhereNull('is_paid');
+                    }),
+                $partnerIds->all(),
+                $superPartner->id
+            ),
+            $startDate,
+            $endDate
+        )->get();
 
-        $totalFreeEsims = $this->scopeTransactionsForSuperPartner(
-            Transaction::where('purchase_amount', 0),
-            $partnerIds->all(),
-            $superPartner->id
-        )
-            ->count();
+        $totalFreeEsims = $this->applyDateFilters(
+            $this->scopeTransactionsForSuperPartner(
+                Transaction::where('purchase_amount', 0),
+                $partnerIds->all(),
+                $superPartner->id
+            ),
+            $startDate,
+            $endDate
+        )->count();
 
         $totalDebt = round($unpaidTransactions->sum(function (Transaction $transaction) {
             return $transaction->getCommissionAmount();
@@ -111,7 +130,9 @@ class SuperPartnerDashboardController extends Controller
         $partnerTransactionSummary = Transaction::query()
             ->selectRaw('beneficiario_id, COUNT(*) as total_transactions, COUNT(DISTINCT cliente_id) as total_clientes')
             ->whereIn('beneficiario_id', $partnerIds)
-            ->groupBy('beneficiario_id')
+            ->groupBy('beneficiario_id');
+
+        $partnerTransactionSummary = $this->applyDateFilters($partnerTransactionSummary, $startDate, $endDate)
             ->get()
             ->keyBy('beneficiario_id');
 
@@ -129,6 +150,15 @@ class SuperPartnerDashboardController extends Controller
 
         return [
             'nombre'             => $superPartner->nombre,
+            'sale_commissions'   => [
+                'usa_ca_eu' => $superPartner->sale_commission_usa_ca_eu_pct !== null
+                    ? (float) $superPartner->sale_commission_usa_ca_eu_pct
+                    : 0.0,
+                'latam' => $superPartner->sale_commission_latam_pct !== null
+                    ? (float) $superPartner->sale_commission_latam_pct
+                    : 0.0,
+            ],
+            'total_earnings'     => $this->calculateTotalEarnings($transactions, $superPartner->id),
             'total_partners'     => $totalPartners,
             'total_clients_with_transactions' => $totalClientes,
             'total_transactions' => $totalTransactions,
@@ -136,6 +166,8 @@ class SuperPartnerDashboardController extends Controller
             'total_unpaid_transactions' => $totalUnpaidTransactions,
             'total_debt'         => $totalDebt,
             'related_partners'   => $partnerRows,
+            'filter_start_date'  => $startDate,
+            'filter_end_date'    => $endDate,
         ];
     }
 
@@ -158,5 +190,33 @@ class SuperPartnerDashboardController extends Controller
                 $builder->whereRaw('1 = 0');
             }
         });
+    }
+
+    private function calculateTotalEarnings($transactions, int $superPartnerId): float
+    {
+        return round($transactions->sum(function (Transaction $transaction) use ($superPartnerId) {
+            return (float) ($transaction->super_partner_sale_commission_amount ?? 0);
+        }), 2);
+    }
+
+    private function applyDateFilters(Builder $query, ?string $startDate, ?string $endDate): Builder
+    {
+        if ($startDate) {
+            try {
+                $query->where('creation_time', '>=', \Carbon\Carbon::parse($startDate)->startOfDay());
+            } catch (\Exception $e) {
+                // Ignore invalid date; no filter applied
+            }
+        }
+
+        if ($endDate) {
+            try {
+                $query->where('creation_time', '<=', \Carbon\Carbon::parse($endDate)->endOfDay());
+            } catch (\Exception $e) {
+                // Ignore invalid date; no filter applied
+            }
+        }
+
+        return $query;
     }
 }

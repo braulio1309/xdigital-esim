@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Panel de Beneficiario')
+@section('title', 'Panel de Partner')
 
 @section('contents')
     <div class="content-wrapper">
         <div class="row">
             <div class="col-12">
                 <div class="page-header">
-                    <h3 class="page-title">Panel de Beneficiario</h3>
+                    <h3 class="page-title">Panel de Partner</h3>
                     <div>
                         <p class="text-muted mb-2">Bienvenido, {{ $beneficiario->nombre }}</p>
                         
@@ -23,6 +23,49 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 grid-margin">
+                <div class="card">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="card-title mb-0">Filtro de Fecha</h4>
+                                <p class="card-description mb-0">Aplica a todas las métricas de la página basadas en transacciones</p>
+                            </div>
+                            @if($filter_start_date || $filter_end_date)
+                                <span class="badge badge-info">Filtrado por fecha</span>
+                            @endif
+                        </div>
+
+                        <form method="GET" action="{{ route('beneficiario.dashboard') }}">
+                            <div class="row align-items-end">
+                                <div class="col-md-4">
+                                    <label class="text-muted small mb-1">Desde</label>
+                                    <input type="date" name="start_date" class="form-control form-control-sm"
+                                           value="{{ $filter_start_date ?? '' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="text-muted small mb-1">Hasta</label>
+                                    <input type="date" name="end_date" class="form-control form-control-sm"
+                                           value="{{ $filter_end_date ?? '' }}">
+                                </div>
+                                <div class="col-md-4 d-flex">
+                                    <button type="submit" class="btn btn-primary btn-sm mr-2">
+                                        <i class="mdi mdi-magnify mr-1"></i> Filtrar
+                                    </button>
+                                    @if($filter_start_date || $filter_end_date)
+                                        <a href="{{ route('beneficiario.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="mdi mdi-close mr-1"></i> Limpiar
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -50,7 +93,7 @@
                             <i class="mdi mdi-currency-usd text-success icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">${{ number_format($total_earnings, 2) }}</h2>
-                        <p class="text-muted mb-0">Comisiones acumuladas</p>
+                        <p class="text-muted mb-0">Suma de ganancia venta</p>
                     </div>
                 </div>
             </div>
@@ -63,7 +106,7 @@
                             <i class="mdi mdi-chart-line text-info icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">{{ $total_sales }}</h2>
-                        <p class="text-muted mb-0">Transacciones realizadas</p>
+                        <p class="text-muted mb-0">Todas las transacciones</p>
                     </div>
                 </div>
             </div>
@@ -81,7 +124,7 @@
                                 <div class="alert alert-info" role="alert">
                                     <h5 class="alert-heading">Estado Actual</h5>
                                     <p>Actualmente, tu comisión está en <strong>{{ number_format($commission_percentage, 2) }}%</strong> 
-                                        y has acumulado <strong>${{ number_format($total_earnings, 2) }}</strong> en ganancias.</p>
+                                        y has acumulado <strong>${{ number_format($total_earnings, 2) }}</strong> en ganancia de venta.</p>
                                     <hr>
                                     <p class="mb-0">Continúa promoviendo para aumentar tus comisiones y ganancias.</p>
                                 </div>
@@ -107,15 +150,15 @@
             </div>
         </div>
 
-        <!-- Plan Commissions Section -->
+        <!-- Sale Commissions Section -->
         <div class="row">
             <div class="col-12 grid-margin">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
-                                <h4 class="card-title mb-0">Comisiones por Plan</h4>
-                                <p class="card-description mb-0">Porcentaje de comisión configurado para cada plan</p>
+                                <h4 class="card-title mb-0">Comisiones por Región</h4>
+                                <p class="card-description mb-0">Porcentaje de comisión de venta configurado para Europa y LATAM</p>
                             </div>
                             <i class="mdi mdi-currency-usd text-success icon-lg"></i>
                         </div>
@@ -123,24 +166,24 @@
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>Plan</th>
+                                        <th>Región</th>
                                         <th>Comisión</th>
                                         <th>Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach(['3' => '3 GB', '5' => '5 GB', '10' => '10 GB'] as $capacity => $label)
+                                    @foreach(['usa_ca_eu' => 'USA, Canadá y Europa', 'latam' => 'LATAM'] as $regionKey => $label)
                                         <tr>
                                             <td>
                                                 <span class="font-weight-bold">{{ $label }}</span>
                                             </td>
                                             <td>
                                                 <span class="font-weight-bold text-success">
-                                                    {{ number_format($plan_commissions[$capacity] ?? 0, 2) }}%
+                                                    {{ number_format($sale_commissions[$regionKey] ?? 0, 2) }}%
                                                 </span>
                                             </td>
                                             <td>
-                                                @if(($plan_commissions[$capacity] ?? 0) > 0)
+                                                @if(($sale_commissions[$regionKey] ?? 0) > 0)
                                                     <span class="badge badge-success">Configurado</span>
                                                 @else
                                                     <span class="badge badge-secondary">Sin comisión</span>
@@ -178,32 +221,6 @@
                             <i class="mdi mdi-credit-card-off text-danger icon-lg"></i>
                         </div>
 
-                        <!-- Date Filter Form -->
-                        <form method="GET" action="{{ route('beneficiario.dashboard') }}" class="mb-4">
-                            <div class="row align-items-end">
-                                <div class="col-md-4">
-                                    <label class="text-muted small mb-1">Desde</label>
-                                    <input type="date" name="start_date" class="form-control form-control-sm"
-                                           value="{{ $filter_start_date ?? '' }}">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="text-muted small mb-1">Hasta</label>
-                                    <input type="date" name="end_date" class="form-control form-control-sm"
-                                           value="{{ $filter_end_date ?? '' }}">
-                                </div>
-                                <div class="col-md-4 d-flex">
-                                    <button type="submit" class="btn btn-primary btn-sm mr-2">
-                                        <i class="mdi mdi-magnify mr-1"></i> Filtrar
-                                    </button>
-                                    @if($filter_start_date || $filter_end_date)
-                                        <a href="{{ route('beneficiario.dashboard') }}" class="btn btn-outline-secondary btn-sm">
-                                            <i class="mdi mdi-close mr-1"></i> Limpiar
-                                        </a>
-                                    @endif
-                                </div>
-                            </div>
-                        </form>
-
                         <!-- Debt Summary Cards -->
                         <div class="row">
                             <div class="col-md-4 mb-3">
@@ -224,7 +241,7 @@
                                 <div class="border rounded p-3 text-center border-danger bg-danger-light">
                                     <p class="text-muted small mb-1">Deuda Total</p>
                                     <h3 class="font-weight-bold mb-0 text-danger">${{ number_format($debt_data['total_debt'], 2) }}</h3>
-                                    <p class="text-muted small mb-0">USD ({{ $debt_data['total_unpaid'] }} × ${{ number_format($debt_data['rate_per_esim'], 2) }})</p>
+                                    <p class="text-muted small mb-0">Suma real de {{ $debt_data['total_unpaid'] }} transacciones gratis pendientes</p>
                                 </div>
                             </div>
                         </div>

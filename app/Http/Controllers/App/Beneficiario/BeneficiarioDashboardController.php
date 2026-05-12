@@ -3,18 +3,13 @@
 namespace App\Http\Controllers\App\Beneficiario;
 
 use App\Http\Controllers\Controller;
-use App\Models\App\Settings\BeneficiaryPlanMargin;
 use App\Models\App\Transaction\Transaction;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class BeneficiarioDashboardController extends Controller
 {
-    /**
-     * Plan capacities to display commissions for
-     */
-    const COMMISSION_PLANS = ['3', '5', '10'];
-
     /**
      * Show the beneficiario dashboard
      *
@@ -40,9 +35,13 @@ class BeneficiarioDashboardController extends Controller
 
         // Get clients with pending free eSIM activation
         $free_esim_clients = $this->getFreeEsimClients($beneficiario);
+        $transactions = $this->applyDateFilters(
+            $this->beneficiarioTransactionsQuery($beneficiario->id),
+            $startDate,
+            $endDate
+        )->get();
 
-        // Get plan commissions for 3, 5, and 10 GB plans
-        $plan_commissions = $this->getPlanCommissions($beneficiario->id);
+        $sale_commissions = $this->getSaleCommissions($beneficiario);
 
         // Get activated free eSIM debt data (with optional date filter)
         $debt_data = $this->getDebtData($beneficiario->id, $startDate, $endDate);
@@ -51,10 +50,10 @@ class BeneficiarioDashboardController extends Controller
         $data = [
             'beneficiario' => $beneficiario,
             'commission_percentage' => $beneficiario->commission_percentage ?? 0,
-            'total_earnings' => $beneficiario->total_earnings ?? 0,
-            'total_sales' => $beneficiario->total_sales ?? 0,
+            'total_earnings' => $this->calculateTotalEarnings($transactions),
+            'total_sales' => $transactions->count(),
             'free_esim_clients' => $free_esim_clients,
-            'plan_commissions' => $plan_commissions,
+            'sale_commissions' => $sale_commissions,
             'debt_data' => $debt_data,
             'filter_start_date' => $startDate,
             'filter_end_date' => $endDate,
@@ -87,15 +86,20 @@ class BeneficiarioDashboardController extends Controller
 
         $free_esim_clients = $this->getFreeEsimClients($beneficiario);
         $debt_data = $this->getDebtData($beneficiario->id, $startDate, $endDate);
+        $transactions = $this->applyDateFilters(
+            $this->beneficiarioTransactionsQuery($beneficiario->id),
+            $startDate,
+            $endDate
+        )->get();
 
         return response()->json([
             'commission_percentage' => $beneficiario->commission_percentage ?? 0,
-            'total_earnings' => number_format($beneficiario->total_earnings ?? 0, 2),
-            'total_sales' => $beneficiario->total_sales ?? 0,
+            'total_earnings' => number_format($this->calculateTotalEarnings($transactions), 2),
+            'total_sales' => $transactions->count(),
             'nombre' => $beneficiario->nombre,
             'descripcion' => $beneficiario->descripcion,
             'free_esim_clients' => $free_esim_clients,
-            'plan_commissions' => $this->getPlanCommissions($beneficiario->id),
+            'sale_commissions' => $this->getSaleCommissions($beneficiario),
             'debt_data' => $debt_data,
         ]);
     }
@@ -110,60 +114,35 @@ class BeneficiarioDashboardController extends Controller
      */
     private function getDebtData(int $beneficiarioId, ?string $startDate, ?string $endDate): array
     {
-        $beneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
+        $query = $this->applyDateFilters(
+            Transaction::where('purchase_amount', 0)
+                ->where('beneficiario_id', $beneficiarioId),
+            $startDate,
+            $endDate
+        );
 
-        $query = Transaction::where('purchase_amount', 0)
-            ->where('beneficiario_id', $beneficiarioId);
-
-        if ($startDate) {
-            try {
-                $query->where('creation_time', '>=', Carbon::parse($startDate)->startOfDay());
-            } catch (\Exception $e) {
-                // Ignore invalid date; no filter applied
-            }
-        }
-        if ($endDate) {
-            try {
-                $query->where('creation_time', '<=', Carbon::parse($endDate)->endOfDay());
-            } catch (\Exception $e) {
-                // Ignore invalid date; no filter applied
-            }
-        }
-
-        $result = $query->selectRaw(
-            'COUNT(*) as total_activated, ' .
-            'SUM(CASE WHEN is_paid = 0 THEN 1 ELSE 0 END) as total_unpaid, ' .
-            'SUM(CASE WHEN is_paid = 1 THEN 1 ELSE 0 END) as total_paid'
-        )->first();
-
-        $total_activated = (int) ($result->total_activated ?? 0);
-        $total_unpaid    = (int) ($result->total_unpaid    ?? 0);
-        $total_paid      = (int) ($result->total_paid      ?? 0);
-
-        // Sum debt using stored commission per transaction when available
         $unpaidTransactions = (clone $query)
-            ->where('is_paid', 0)
+            ->where(function ($builder) {
+                $builder->where('is_paid', 0)
+                    ->orWhereNull('is_paid');
+            })
             ->get();
+
+        $total_activated = (clone $query)->count();
+        $total_unpaid = $unpaidTransactions->count();
+        $total_paid = (clone $query)
+            ->where('is_paid', 1)
+            ->count();
 
         $totalDebt = $unpaidTransactions->sum(function (Transaction $transaction) {
             return $transaction->getCommissionAmount();
         });
-
-        // Derive an effective rate per eSIM for display purposes
-        if ($total_unpaid > 0) {
-            $ratePerEsim = $totalDebt / $total_unpaid;
-        } else {
-            $ratePerEsim = $beneficiario
-                ? (float) $beneficiario->free_esim_rate
-                : \App\Models\App\Beneficiario\Beneficiario::DEFAULT_FREE_ESIM_RATE;
-        }
 
         return [
             'total_activated'  => $total_activated,
             'total_unpaid'     => $total_unpaid,
             'total_paid'       => $total_paid,
             'total_debt'       => round($totalDebt, 2),
-            'rate_per_esim'    => round($ratePerEsim, 2),
         ];
     }
 
@@ -180,27 +159,57 @@ class BeneficiarioDashboardController extends Controller
             ->get(['id', 'nombre', 'apellido', 'email']);
     }
 
-    /**
-     * Get commission data for the specified plans
-     *
-     * @param int $beneficiarioId
-     * @return array
-     */
-    private function getPlanCommissions(int $beneficiarioId): array
+    private function beneficiarioTransactionsQuery(int $beneficiarioId): Builder
     {
-        $margins = BeneficiaryPlanMargin::where('beneficiario_id', $beneficiarioId)
-            ->whereIn('plan_capacity', self::COMMISSION_PLANS)
-            ->where('is_active', true)
-            ->get()
-            ->keyBy('plan_capacity');
+        return Transaction::with(['beneficiario', 'cliente.beneficiario', 'superPartner'])
+            ->where(function (Builder $builder) use ($beneficiarioId) {
+                $builder->where('beneficiario_id', $beneficiarioId)
+                    ->orWhere(function (Builder $fallbackBuilder) use ($beneficiarioId) {
+                        $fallbackBuilder->whereNull('beneficiario_id')
+                            ->whereHas('cliente', function (Builder $clienteBuilder) use ($beneficiarioId) {
+                                $clienteBuilder->where('beneficiario_id', $beneficiarioId);
+                            });
+                    });
+            });
+    }
 
-        $commissions = [];
-        foreach (self::COMMISSION_PLANS as $capacity) {
-            $commissions[$capacity] = isset($margins[$capacity])
-                ? (float) $margins[$capacity]->margin_percentage
-                : 0.0;
+    private function applyDateFilters(Builder $query, ?string $startDate, ?string $endDate): Builder
+    {
+        if ($startDate) {
+            try {
+                $query->where('creation_time', '>=', Carbon::parse($startDate)->startOfDay());
+            } catch (\Exception $e) {
+                // Ignore invalid date; no filter applied
+            }
         }
 
-        return $commissions;
+        if ($endDate) {
+            try {
+                $query->where('creation_time', '<=', Carbon::parse($endDate)->endOfDay());
+            } catch (\Exception $e) {
+                // Ignore invalid date; no filter applied
+            }
+        }
+
+        return $query;
+    }
+
+    private function calculateTotalEarnings($transactions): float
+    {
+        return round($transactions->sum(function (Transaction $transaction) {
+            return (float) ($transaction->partner_sale_commission_amount ?? 0);
+        }), 2);
+    }
+
+    private function getSaleCommissions($beneficiario): array
+    {
+        return [
+            'usa_ca_eu' => $beneficiario->sale_commission_usa_ca_eu_pct !== null
+                ? (float) $beneficiario->sale_commission_usa_ca_eu_pct
+                : 0.0,
+            'latam' => $beneficiario->sale_commission_latam_pct !== null
+                ? (float) $beneficiario->sale_commission_latam_pct
+                : 0.0,
+        ];
     }
 }
