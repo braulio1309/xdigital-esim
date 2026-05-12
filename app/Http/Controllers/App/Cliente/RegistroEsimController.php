@@ -608,6 +608,9 @@ class RegistroEsimController extends Controller
                                 'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
                                 'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
                                 'currency' => 'USD',
+                                'country_code' => $selectedCountryCode,
+                                'partner_sale_commission_amount' => 0,
+                                'super_partner_sale_commission_amount' => 0,
                             ]);
 
                             Transaction::create($transactionData);

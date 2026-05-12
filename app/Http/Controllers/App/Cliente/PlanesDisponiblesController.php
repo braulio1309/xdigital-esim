@@ -677,7 +677,17 @@ class PlanesDisponiblesController extends Controller
                 'reference_purchase_amount' => round((float) $pricingSnapshot['charge_amount'], 2),
                 'beneficiary_commission_amount' => round((float) $pricingSnapshot['commission_amount'], 2),
                 'currency' => $request->currency ?? 'USD',
+                'country_code' => $countryCode,
             ];
+
+            $saleCommissions = Transaction::calculateSaleCommissions(
+                round((float) $pricingSnapshot['charge_amount'], 2),
+                $countryCode,
+                $beneficiarioId,
+                $superPartnerId
+            );
+            $transactionData['partner_sale_commission_amount'] = $saleCommissions['partner_sale_commission_amount'];
+            $transactionData['super_partner_sale_commission_amount'] = $saleCommissions['super_partner_sale_commission_amount'];
 
             if ($beneficiarioId) {
                 $transactionData['beneficiario_id'] = $beneficiarioId;
@@ -884,6 +894,9 @@ class PlanesDisponiblesController extends Controller
                 'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
                 'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
                 'currency' => 'USD',
+                'country_code' => $countryCode,
+                'partner_sale_commission_amount' => 0,
+                'super_partner_sale_commission_amount' => 0,
             ];
 
             if ($beneficiarioId) {

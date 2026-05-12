@@ -29,6 +29,8 @@ class Beneficiario extends AppModel
         'total_earnings',
         'total_sales',
         'free_esim_rate',
+        'sale_commission_latam_pct',
+        'sale_commission_usa_ca_eu_pct',
     ];
 
     protected $casts = [
@@ -36,6 +38,8 @@ class Beneficiario extends AppModel
         'total_earnings' => 'decimal:2',
         'total_sales' => 'integer',
         'free_esim_rate' => 'decimal:2',
+        'sale_commission_latam_pct' => 'decimal:2',
+        'sale_commission_usa_ca_eu_pct' => 'decimal:2',
     ];
 
     protected $appends = ['logo_url'];

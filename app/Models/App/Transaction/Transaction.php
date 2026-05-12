@@ -29,7 +29,10 @@ class Transaction extends AppModel
         'api_price',
         'reference_purchase_amount',
         'currency',
+        'country_code',
         'beneficiary_commission_amount',
+        'partner_sale_commission_amount',
+        'super_partner_sale_commission_amount',
         'is_paid',
         'paid_at',
         'payment_history_id',
@@ -44,6 +47,8 @@ class Transaction extends AppModel
         'beneficiary_commission_amount' => 'decimal:2',
         'reference_purchase_amount' => 'decimal:2',
         'api_price' => 'decimal:2',
+        'partner_sale_commission_amount' => 'decimal:2',
+        'super_partner_sale_commission_amount' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -231,6 +236,76 @@ class Transaction extends AppModel
 
         // Fallback to beneficiary's general commission percentage
         return $beneficiario->commission_percentage ?? 0;
+    }
+
+    /**
+     * Calculate sale commission amounts for a transaction based on country and partner.
+     *
+     * @param  float       $purchaseAmount   The final amount paid by the customer
+     * @param  string|null $countryCode      ISO 3166-1 alpha-2 country code
+     * @param  int|null    $beneficiarioId
+     * @param  int|null    $superPartnerId
+     * @return array{partner_sale_commission_amount: float, super_partner_sale_commission_amount: float}
+     */
+    public static function calculateSaleCommissions(
+        float $purchaseAmount,
+        ?string $countryCode,
+        ?int $beneficiarioId,
+        ?int $superPartnerId
+    ): array {
+        $partnerAmount = 0.0;
+        $superPartnerAmount = 0.0;
+
+        if ($purchaseAmount <= 0 || !$countryCode) {
+            return [
+                'partner_sale_commission_amount' => $partnerAmount,
+                'super_partner_sale_commission_amount' => $superPartnerAmount,
+            ];
+        }
+
+        $isLatam = \App\Helpers\CountryTariffHelper::isLatamCountry($countryCode);
+        $isUsaCaEu = \App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode);
+
+        if ($beneficiarioId) {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
+
+            if ($beneficiario) {
+                $pct = null;
+
+                if ($isLatam && $beneficiario->sale_commission_latam_pct !== null) {
+                    $pct = (float) $beneficiario->sale_commission_latam_pct;
+                } elseif ($isUsaCaEu && $beneficiario->sale_commission_usa_ca_eu_pct !== null) {
+                    $pct = (float) $beneficiario->sale_commission_usa_ca_eu_pct;
+                }
+
+                if ($pct !== null) {
+                    $partnerAmount = round($purchaseAmount * $pct / 100, 2);
+                }
+            }
+        }
+
+        if ($superPartnerId) {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::find($superPartnerId);
+
+            if ($superPartner) {
+                $pct = null;
+
+                if ($isLatam && $superPartner->sale_commission_latam_pct !== null) {
+                    $pct = (float) $superPartner->sale_commission_latam_pct;
+                } elseif ($isUsaCaEu && $superPartner->sale_commission_usa_ca_eu_pct !== null) {
+                    $pct = (float) $superPartner->sale_commission_usa_ca_eu_pct;
+                }
+
+                if ($pct !== null) {
+                    $superPartnerAmount = round($purchaseAmount * $pct / 100, 2);
+                }
+            }
+        }
+
+        return [
+            'partner_sale_commission_amount' => $partnerAmount,
+            'super_partner_sale_commission_amount' => $superPartnerAmount,
+        ];
     }
 
     protected function resolveLegacyFreeEsimPrice($owner, float $fallback): float

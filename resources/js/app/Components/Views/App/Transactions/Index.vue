@@ -133,6 +133,11 @@
                         {{ $t('amount_owed') }}: ${{ filterAmountResult.amount }} ({{ filterAmountResult.count }} {{ $t('transactions') }})
                     </span>
                 </div>
+                <div v-if="saleCommissionTotal !== null" class="mr-2 mb-1">
+                    <span class="badge badge-success p-2" style="font-size: 14px;">
+                        Ganancia Venta: ${{ saleCommissionTotal }}
+                    </span>
+                </div>
                 <button v-if="hasActiveFilters"
                         type="button"
                         class="btn btn-sm btn-outline-secondary mb-1"
@@ -218,6 +223,7 @@
                 filterAmountResult: null,
                 filterAmountLoading: false,
                 filterAmountTimer: null,
+                saleCommissionTotal: null,
                 beneficiariosList: [],
                 paymentStats: {
                     unpaid_count: 0,
@@ -288,6 +294,29 @@
                                     return `$${commission}`;
                                 }
                                 return `$${commission} (${percentage}%)`;
+                            }
+                        },
+                        {
+                            title: 'Ganancia Venta',
+                            type: 'custom-html',
+                            key: 'partner_sale_commission_amount',
+                            modifier: (value, row) => {
+                                const partnerAmount = parseFloat(row.partner_sale_commission_amount || 0);
+                                const spAmount = parseFloat(row.super_partner_sale_commission_amount || 0);
+
+                                if (this.isBeneficiario) {
+                                    if (!partnerAmount) return '<span class="text-muted">-</span>';
+                                    return `<span class="badge badge-info">$${partnerAmount.toFixed(2)}</span>`;
+                                }
+                                if (this.isSuperPartner) {
+                                    if (!spAmount) return '<span class="text-muted">-</span>';
+                                    return `<span class="badge badge-info">$${spAmount.toFixed(2)}</span>`;
+                                }
+                                // Admin: show both
+                                const parts = [];
+                                if (partnerAmount) parts.push(`P: $${partnerAmount.toFixed(2)}`);
+                                if (spAmount) parts.push(`SP: $${spAmount.toFixed(2)}`);
+                                return parts.length ? parts.join(' / ') : '<span class="text-muted">-</span>';
                             }
                         },
                         {
@@ -449,6 +478,7 @@
         mounted() {
             this.loadPaymentStats();
             this.loadBeneficiarios();
+            this.loadSaleCommissionTotal();
         },
         methods: {
             loadPaymentStats() {
@@ -561,6 +591,7 @@
                 });
 
                 this.loadPaymentStats();
+                this.loadSaleCommissionTotal();
 
                 const hasBeneficiarioFilter = !!this.activeFilters.beneficiario_id;
                 const hasSuperPartnerFilter = !!this.activeFilters.super_partner_id;
@@ -603,6 +634,32 @@
                 }, 500);
             },
 
+            loadSaleCommissionTotal() {
+                const params = new URLSearchParams();
+                if (this.activeFilters.beneficiario_id) params.append('beneficiario_id', this.activeFilters.beneficiario_id);
+                if (this.activeFilters.super_partner_id) params.append('super_partner_id', this.activeFilters.super_partner_id);
+                if (this.activeFilters.type) params.append('type', this.activeFilters.type);
+                if (this.activeFilters.payment_status !== null && this.activeFilters.payment_status !== '') {
+                    params.append('payment_status', this.activeFilters.payment_status);
+                }
+                if (this.activeFilters.start_date) params.append('start_date', this.formatDateParam(this.activeFilters.start_date));
+                if (this.activeFilters.end_date) params.append('end_date', this.formatDateParam(this.activeFilters.end_date));
+
+                this.axiosGet(actions.TRANSACTIONS_SALE_COMMISSION_TOTAL + (params.toString() ? '?' + params.toString() : ''))
+                    .then(response => {
+                        const data = response.data;
+                        if (data && typeof data.total !== 'undefined') {
+                            const total = parseFloat(data.total);
+                            this.saleCommissionTotal = total > 0 ? total.toFixed(2) : null;
+                        } else {
+                            this.saleCommissionTotal = null;
+                        }
+                    })
+                    .catch(() => {
+                        this.saleCommissionTotal = null;
+                    });
+            },
+
             clearAllFilters() {
                 this.search = '';
                 this.beneficiarioFilter = '';
@@ -615,11 +672,13 @@
                     end_date: '',
                 };
                 this.filterAmountResult = null;
+                this.saleCommissionTotal = null;
                 this.options.url = actions.TRANSACTIONS;
                 this.$nextTick(() => {
                     this.$hub.$emit('reload-' + this.tableId);
                 });
                 this.loadPaymentStats();
+                this.loadSaleCommissionTotal();
             },
 
             openAddEditModal() {
