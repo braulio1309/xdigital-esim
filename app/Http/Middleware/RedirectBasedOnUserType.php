@@ -30,7 +30,7 @@ class RedirectBasedOnUserType
                 if ($request->is('admin/dashboard*') || $request->is('admin')) {
                     return redirect()->route('cliente.dashboard');
                 }
-            } elseif ($user->user_type === 'super_partner') {
+            } elseif ($user->user_type === 'super_partner' || ($user->user_type === 'admin_partner' && !empty($user->super_partner_id))) {
                 // If trying to access admin dashboard, redirect to super partner dashboard
                 if ($request->is('admin/dashboard*') || $request->is('admin')) {
                     return redirect()->route('super-partner.dashboard');

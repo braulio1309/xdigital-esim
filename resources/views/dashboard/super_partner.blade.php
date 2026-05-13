@@ -102,11 +102,11 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="card-title mb-0">Ganancias Totales</h4>
+                            <h4 class="card-title mb-0">Comisiones Totales</h4>
                             <i class="mdi mdi-currency-usd text-success icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">${{ number_format($total_earnings, 2) }}</h2>
-                        <p class="text-muted mb-0">Suma de ganancia venta</p>
+                        <p class="text-muted mb-0">Suma de comisiones</p>
                     </div>
                 </div>
             </div>
@@ -141,11 +141,11 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="card-title mb-0">Pendientes</h4>
+                            <h4 class="card-title mb-0">Cantidad de eSIM por Pagar</h4>
                             <i class="mdi mdi-cash-multiple text-danger icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">{{ $total_unpaid_transactions }}</h2>
-                        <p class="text-muted mb-0">Transacciones sin pagar</p>
+                        <p class="text-muted mb-0">Cantidad de eSIM pendientes por pagar</p>
                     </div>
                 </div>
             </div>
@@ -154,11 +154,11 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="card-title mb-0">Deuda Total</h4>
+                            <h4 class="card-title mb-0">Cuenta por Pagar</h4>
                             <i class="mdi mdi-currency-usd text-danger icon-lg"></i>
                         </div>
                         <h2 class="font-weight-bold mb-2">${{ number_format($total_debt, 2) }}</h2>
-                        <p class="text-muted mb-0">Suma real de eSIMs gratuitas pendientes</p>
+                        <p class="text-muted mb-0">Monto total pendiente por pagar</p>
                     </div>
                 </div>
             </div>
@@ -170,8 +170,8 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
-                                <h4 class="card-title mb-0">Comisiones por Región</h4>
-                                <p class="card-description mb-0">Porcentaje de comisión de venta configurado para Europa y LATAM</p>
+                                <h4 class="card-title mb-0">Comisión por Venta</h4>
+                                <p class="card-description mb-0">Comisión configurada para Europa y LATAM</p>
                             </div>
                             <i class="mdi mdi-currency-usd text-success icon-lg"></i>
                         </div>

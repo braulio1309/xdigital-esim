@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App\SuperPartner;
 
 use App\Http\Controllers\Controller;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -18,13 +19,11 @@ class SuperPartnerDashboardController extends Controller
      */
     public function index(Request $request)
     {
-        $user = $request->user();
+        $superPartner = $this->resolveScopedSuperPartner($request);
 
-        if ($user->user_type !== 'super_partner') {
+        if (!$superPartner) {
             abort(403, 'Unauthorized access');
         }
-
-        $superPartner = $user->superPartner;
 
         if (!$superPartner) {
             abort(404, 'Super Partner not found');
@@ -43,13 +42,11 @@ class SuperPartnerDashboardController extends Controller
      */
     public function data(Request $request)
     {
-        $user = $request->user();
+        $superPartner = $this->resolveScopedSuperPartner($request);
 
-        if ($user->user_type !== 'super_partner') {
+        if (!$superPartner) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-
-        $superPartner = $user->superPartner;
 
         if (!$superPartner) {
             return response()->json(['error' => 'Super Partner not found'], 404);
@@ -218,5 +215,24 @@ class SuperPartnerDashboardController extends Controller
         }
 
         return $query;
+    }
+
+    private function resolveScopedSuperPartner(Request $request): ?SuperPartner
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return null;
+        }
+
+        if ($user->user_type === 'super_partner') {
+            return $user->superPartner;
+        }
+
+        if ($user->user_type === 'admin_partner' && $user->super_partner_id) {
+            return SuperPartner::find($user->super_partner_id);
+        }
+
+        return null;
     }
 }

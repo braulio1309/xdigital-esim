@@ -13,11 +13,11 @@ class SidebarComposer
         $user = auth()->user();
 
         // Determinar el tipo de usuario
-        $isAdmin = !in_array($user->user_type ?? '', ['beneficiario', 'cliente', 'super_partner']);
+        $isAdmin = !in_array($user->user_type ?? '', ['beneficiario', 'cliente', 'super_partner', 'admin_partner']);
 
         $isPartner = $user->user_type === 'beneficiario';
 
-        $isSuperPartner = $user->user_type === 'super_partner';
+        $isSuperPartner = in_array($user->user_type, ['super_partner', 'admin_partner'], true);
 
         // Si es admin, mostrar solo el dashboard de métricas
         if ($isAdmin) {

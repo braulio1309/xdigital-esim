@@ -23,7 +23,7 @@ class AdminMetricsDashboardController extends Controller
      */
     public function index()
     {
-        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+        if ($this->shouldUseSuperPartnerDashboard()) {
             return redirect()->route('super-partner.dashboard');
         }
 
@@ -38,7 +38,7 @@ class AdminMetricsDashboardController extends Controller
      */
     public function getMetrics(Request $request)
     {
-        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+        if ($this->shouldUseSuperPartnerDashboard()) {
             return response()->json([
                 'message' => 'Super partners must use their dedicated dashboard.',
             ], 403);
@@ -57,5 +57,17 @@ class AdminMetricsDashboardController extends Controller
         $metrics = $this->service->getMetricsData($startDate, $endDate);
 
         return response()->json($metrics);
+    }
+
+    private function shouldUseSuperPartnerDashboard(): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user->user_type === 'super_partner'
+            || ($user->user_type === 'admin_partner' && !empty($user->super_partner_id));
     }
 }

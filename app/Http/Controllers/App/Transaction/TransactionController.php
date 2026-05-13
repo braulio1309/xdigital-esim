@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\TransactionRequest as Request;
 use App\Mail\App\Cliente\EsimRechargeMail;
 use App\Models\App\PaymentHistory\PaymentHistory;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
 use App\Services\EsimFxService;
@@ -41,6 +42,8 @@ class TransactionController extends Controller
             ->filters($this->filter)
             ->with('cliente.beneficiario.planMargins', 'beneficiario.planMargins', 'superPartner');
 
+        $superPartner = $this->resolveScopedSuperPartner();
+
         // Filter by beneficiario_id if user is a beneficiario
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
@@ -48,17 +51,14 @@ class TransactionController extends Controller
             if ($beneficiario) {
                 $query = $query->where('beneficiario_id', $beneficiario->id);
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+        } elseif ($superPartner) {
+            $partnerIds = $superPartner->beneficiarios()->pluck('id');
 
-                // Super partner solo ve transacciones de sus propios beneficiarios.
-                $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
-                    $builder->whereIn('beneficiario_id', $partnerIds)
-                        ->orWhere('super_partner_id', $superPartner->id);
-                });
-            }
+            // Super partner y sus usuarios solo ven transacciones de su propia red.
+            $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+            });
         }
         
         $transactions = $query->latest()->paginate(request()->get('per_page', 10));
@@ -92,7 +92,8 @@ class TransactionController extends Controller
     public function paymentStats()
     {
         $isBeneficiarioUser = auth()->check() && auth()->user()->user_type === 'beneficiario';
-        $isSuperPartnerUser = auth()->check() && auth()->user()->user_type === 'super_partner';
+        $superPartner = $this->resolveScopedSuperPartner();
+        $isSuperPartnerUser = $superPartner !== null;
 
         $query = Transaction::with(['beneficiario', 'cliente.beneficiario'])
             ->where(function ($builder) {
@@ -142,15 +143,12 @@ class TransactionController extends Controller
                 $query = $query->where('beneficiario_id', $beneficiario->id);
             }
         } elseif ($isSuperPartnerUser) {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                // Super partner solo ve transacciones de los beneficiarios que pertenecen a su red.
-                $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
-                    $builder->whereIn('beneficiario_id', $partnerIds)
-                        ->orWhere('super_partner_id', $superPartner->id);
-                });
-            }
+            $partnerIds = $superPartner->beneficiarios()->pluck('id');
+            // Super partner y sus usuarios solo ven transacciones de su red.
+            $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+            });
         }
         
         $transactions = $query->get();
@@ -229,17 +227,14 @@ class TransactionController extends Controller
             if ($beneficiario) {
                 $query->where('beneficiario_id', $beneficiario->id);
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $partnerIds = $superPartner->beneficiarios()->pluck('id');
-                // Super partner solo ve transacciones de sus beneficiarios,
-                // incluso cuando se filtra por rango de fechas o por beneficiario.
-                $query->where(function ($builder) use ($partnerIds, $superPartner) {
-                    $builder->whereIn('beneficiario_id', $partnerIds)
-                        ->orWhere('super_partner_id', $superPartner->id);
-                });
-            }
+        } elseif ($superPartner = $this->resolveScopedSuperPartner()) {
+            $partnerIds = $superPartner->beneficiarios()->pluck('id');
+            // Super partner y sus usuarios solo ven transacciones de su red,
+            // incluso cuando se filtra por rango de fechas o por beneficiario.
+            $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+            });
         }
 
         if ($startDate && $endDate) {
@@ -264,6 +259,25 @@ class TransactionController extends Controller
             'count' => $count,
             'amount' => $amount
         ]);
+    }
+
+    private function resolveScopedSuperPartner(): ?SuperPartner
+    {
+        if (!auth()->check()) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'super_partner') {
+            return SuperPartner::where('user_id', $user->id)->first();
+        }
+
+        if ($user->user_type === 'admin_partner' && $user->super_partner_id) {
+            return SuperPartner::find($user->super_partner_id);
+        }
+
+        return null;
     }
 
     /**

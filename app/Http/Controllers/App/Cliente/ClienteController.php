@@ -40,6 +40,7 @@ class ClienteController extends Controller
     public function index()
     {
         $query = $this->service->filters($this->filter)->latest();
+        $superPartner = $this->resolveScopedSuperPartner();
         
         // Filter by beneficiario_id if user is a beneficiario
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
@@ -55,26 +56,19 @@ class ClienteController extends Controller
                       });
                 });
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $partnerIds = $superPartner->beneficiarios()->pluck('id');
+        } elseif ($superPartner) {
+            $partnerIds = $superPartner->beneficiarios()->pluck('id');
 
-                // A super_partner ve todos los clientes de sus partners, tanto
-                // los asignados directamente (beneficiario_id) como los
-                // asociados vía pivot (cliente_beneficiario). Si todavía no
-                // tiene partners, también ve los clientes cuyo usuario quedó
-                // marcado directamente con su super_partner_id.
-                $query = $query->where(function ($q) use ($partnerIds, $superPartner) {
-                    $q->whereIn('beneficiario_id', $partnerIds)
-                      ->orWhereHas('partners', function ($partnerQuery) use ($partnerIds) {
-                          $partnerQuery->whereIn('beneficiario_id', $partnerIds);
-                      })
-                      ->orWhereHas('user', function ($userQuery) use ($superPartner) {
-                          $userQuery->where('created_by', Auth::user()->id);
-                      });
-                });
-            }
+            // El super partner y sus usuarios solo ven clientes de su propia red.
+            $query = $query->where(function ($q) use ($partnerIds, $superPartner) {
+                $q->whereIn('beneficiario_id', $partnerIds)
+                  ->orWhereHas('partners', function ($partnerQuery) use ($partnerIds) {
+                      $partnerQuery->whereIn('beneficiario_id', $partnerIds);
+                  })
+                  ->orWhereHas('user', function ($userQuery) use ($superPartner) {
+                      $userQuery->where('super_partner_id', $superPartner->id);
+                  });
+            });
         }
         
         return $query->with('beneficiario:id,nombre')->paginate(request()->get('per_page', 10));
@@ -140,8 +134,8 @@ class ClienteController extends Controller
             return [$beneficiario, null, $beneficiario ? [$beneficiario->id] : []];
         }
 
-        if ($user->user_type === 'super_partner') {
-            $superPartner = SuperPartner::where('user_id', $user->id)->first();
+        if (in_array($user->user_type, ['super_partner', 'admin_partner'], true)) {
+            $superPartner = $this->resolveScopedSuperPartner();
             $partnerIds = $superPartner
                 ? $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
                     return (int) $id;
@@ -248,28 +242,22 @@ class ClienteController extends Controller
                 $partnerIds = [$beneficiario->id];
                 $superPartnerId = $beneficiario->super_partner_id ? (int) $beneficiario->super_partner_id : null;
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner' && $request->filled('beneficiario_id')) {
+        } elseif (($superPartner = $this->resolveScopedSuperPartner()) && $request->filled('beneficiario_id')) {
             // Super partner must specify a valid beneficiario from their partners
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $superPartnerId = (int) $superPartner->id;
-                $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
-                    return (int) $id;
-                })->all();
-                $requestedId = (int) $request->input('beneficiario_id');
-                $ownsPartner = $superPartner->beneficiarios()->where('id', $requestedId)->exists();
-                if ($ownsPartner) {
-                    $beneficiarioId = $requestedId;
-                }
+            $superPartnerId = (int) $superPartner->id;
+            $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
+                return (int) $id;
+            })->all();
+            $requestedId = (int) $request->input('beneficiario_id');
+            $ownsPartner = $superPartner->beneficiarios()->where('id', $requestedId)->exists();
+            if ($ownsPartner) {
+                $beneficiarioId = $requestedId;
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $superPartnerId = (int) $superPartner->id;
-                $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
-                    return (int) $id;
-                })->all();
-            }
+        } elseif ($superPartner = $this->resolveScopedSuperPartner()) {
+            $superPartnerId = (int) $superPartner->id;
+            $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
+                return (int) $id;
+            })->all();
         } elseif ($request->filled('beneficiario_id')) {
             $beneficiarioId = $request->input('beneficiario_id');
             $partnerIds = [(int) $beneficiarioId];
@@ -289,5 +277,24 @@ class ClienteController extends Controller
             'errors'   => $import->getErrors(),
             'skipped_details' => $import->getSkippedDetails(),
         ]);
+    }
+
+    private function resolveScopedSuperPartner(): ?SuperPartner
+    {
+        if (!auth()->check()) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'super_partner') {
+            return SuperPartner::where('user_id', $user->id)->first();
+        }
+
+        if ($user->user_type === 'admin_partner' && $user->super_partner_id) {
+            return SuperPartner::find($user->super_partner_id);
+        }
+
+        return null;
     }
 }

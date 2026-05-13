@@ -67,19 +67,29 @@ class UserController extends Controller
      */
     public function store(UserRequest $request)
     {
+        $attributes = [];
+
+        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
+            $superPartner = SuperPartner::where('user_id', auth()->id())->first();
+
+            if ($superPartner) {
+                $attributes = [
+                    'super_partner_id' => $superPartner->id,
+                    'user_type' => 'admin_partner',
+                ];
+
+                $request->merge(['roles' => 'Super Partner']);
+            }
+        } else {
+            $attributes = ['user_type' => 'admin'];
+            $request->merge(['roles' => $request->get('roles', 'App admin')]);
+        }
+
         $this->service
-            ->create()
+            ->create($attributes)
             ->when($request->get('roles'), function (UserService $service) use ($request) {
                 $service->assignRole($request->get('roles'));
             })->notify('user_created');
-
-        // If the creator is a super_partner, link the new user to their super_partner record
-        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
-            if ($superPartner) {
-                $this->service->model->update(['super_partner_id' => $superPartner->id]);
-            }
-        }
 
         return created_responses('user');
     }
