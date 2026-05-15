@@ -11,12 +11,37 @@ use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\InstallDemoDataController;
 use App\Http\Controllers\SymlinkController;
 use App\Http\Middleware\PermissionMiddleware;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Route;
 
 /**
  * This route is only for user dashboard
  * And for some additional route
  */
 //auth()->loginUsingId(1);
+
+Route::get('/sitemap.xml', function () {
+    $lastModified = Carbon::today()->toDateString();
+
+    $urls = [
+        [
+            'loc' => url('/registro/esim'),
+            'lastmod' => $lastModified,
+            'changefreq' => 'weekly',
+            'priority' => '0.90',
+        ],
+        [
+            'loc' => url('/planes-disponibles'),
+            'lastmod' => $lastModified,
+            'changefreq' => 'daily',
+            'priority' => '0.80',
+        ],
+    ];
+
+    return response()
+        ->view('sitemap.xml', compact('urls'))
+        ->header('Content-Type', 'application/xml');
+});
 
 Route::redirect('/', 'admin/users/login');
 Route::get('/get-basic-setting-data', [SettingsApiController::class, 'getBasicSettingData']);
