@@ -1,6 +1,8 @@
 @extends('auth-layouts.auth')
 
 @section('title', 'Registro Cliente eSIM - Nomad')
+@section('meta_title', 'NomadeSIM by Xcertus | Plataforma de Datos eSim para Partners B2B')
+@section('meta_description', 'Impulsa tu negocio con nuestra tecnología eSim. Ofrecemos planes internacionales, integración API y paneles de gestión personalizados para socios corporativos y agencias.')
 
 @section('contents')
 {{-- Estilos personalizados para esta vista (Brand Colors) --}}

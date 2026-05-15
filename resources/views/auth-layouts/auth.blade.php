@@ -8,7 +8,17 @@
         <link rel="shortcut icon" href="{{ request()->root().config('settings.application.company_icon') }}" />
         <link rel="apple-touch-icon" href="{{ request()->root().config('settings.application.company_icon') }}" />
         <link rel="apple-touch-icon-precomposed" href="{{ request()->root().config('settings.application.company_icon') }}" />
-        <title>@yield('title') - {{ config('app.name') }} </title>
+        @hasSection('meta_title')
+            <title>@yield('meta_title')</title>
+        @else
+            <title>@yield('title') - {{ config('app.name') }}</title>
+        @endif
+        @hasSection('meta_description')
+            <meta name="description" content="@yield('meta_description')" />
+            <meta property="og:description" content="@yield('meta_description')" />
+            <meta name="twitter:description" content="@yield('meta_description')" />
+        @endif
+        <meta property="og:title" content="@hasSection('meta_title')@yield('meta_title')@else @yield('title') - {{ config('app.name') }} @endif" />
         @include('auth-layouts.includes.header')
     </head>
     <body>
