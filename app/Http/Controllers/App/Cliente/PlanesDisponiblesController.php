@@ -4,10 +4,14 @@ namespace App\Http\Controllers\App\Cliente;
 
 use App\Helpers\CountryTariffHelper;
 use App\Http\Controllers\Controller;
+use App\Mail\App\Cliente\EsimActivationMail;
+use App\Mail\App\Cliente\EsimRechargeMail;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\Cliente\Cliente;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
+use App\Services\App\Cliente\RechargeAccessTokenService;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use App\Services\App\Settings\BeneficiaryPriceService;
 use App\Services\App\Settings\PlanMarginService;
@@ -19,6 +23,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -36,6 +41,7 @@ class PlanesDisponiblesController extends Controller
     protected $superPartnerPlanMarginService;
     protected $beneficiaryPriceService;
     protected $superPartnerPriceService;
+    protected $rechargeAccessTokenService;
 
     public function __construct(
         EsimFxService $esimService,
@@ -45,7 +51,8 @@ class PlanesDisponiblesController extends Controller
         BeneficiaryPlanMarginService $beneficiaryPlanMarginService,
         SuperPartnerPlanMarginService $superPartnerPlanMarginService,
         BeneficiaryPriceService $beneficiaryPriceService,
-        SuperPartnerPriceService $superPartnerPriceService
+        SuperPartnerPriceService $superPartnerPriceService,
+        RechargeAccessTokenService $rechargeAccessTokenService
     ) {
         $this->esimService = $esimService;
         $this->stripeService = $stripeService;
@@ -55,6 +62,7 @@ class PlanesDisponiblesController extends Controller
         $this->superPartnerPlanMarginService = $superPartnerPlanMarginService;
         $this->beneficiaryPriceService = $beneficiaryPriceService;
         $this->superPartnerPriceService = $superPartnerPriceService;
+        $this->rechargeAccessTokenService = $rechargeAccessTokenService;
     }
 
     /**
@@ -136,6 +144,7 @@ class PlanesDisponiblesController extends Controller
             'allCountries' => $allCountries,
             'initialCountry' => $initialCountry,
             'rechargeContext' => $rechargeContext,
+            'tokenAuthenticated' => !Auth::check() && $this->rechargeAccessTokenService->resolveSessionToken() !== null,
             'partnerContext' => $partnerContext,
             'beneficiario' => $brandingContext['beneficiario'],
             'superPartner' => $brandingContext['superPartner'],
@@ -155,12 +164,28 @@ class PlanesDisponiblesController extends Controller
         $beneficiarioId = null;
         $superPartnerId = null;
 
-        $user = Auth::user();
-        $cliente = $user ? $user->cliente : null;
+        $cliente = $this->resolvePurchaseCliente();
 
         if ($cliente && $cliente->beneficiario) {
             $beneficiarioId = $cliente->beneficiario->id;
             $superPartnerId = $cliente->beneficiario->super_partner_id;
+        }
+
+        if ($cliente && (!$beneficiarioId || !$superPartnerId)) {
+            $latestTransaction = $cliente->transactions()
+                ->whereNotNull('order_id')
+                ->latest('creation_time')
+                ->first();
+
+            if ($latestTransaction) {
+                if (!$beneficiarioId && $latestTransaction->beneficiario_id) {
+                    $beneficiarioId = (int) $latestTransaction->beneficiario_id;
+                }
+
+                if (!$superPartnerId && $latestTransaction->super_partner_id) {
+                    $superPartnerId = (int) $latestTransaction->super_partner_id;
+                }
+            }
         }
 
         $partnerContext = session('planes_partner_context');
@@ -176,6 +201,15 @@ class PlanesDisponiblesController extends Controller
         }
 
         return [$beneficiarioId, $superPartnerId];
+    }
+
+    protected function resolvePurchaseCliente(): ?Cliente
+    {
+        if (Auth::check()) {
+            return Auth::user()->cliente;
+        }
+
+        return $this->rechargeAccessTokenService->resolveClienteFromSessionToken();
     }
 
     protected function calculateFreeEsimCommissionAmount(?int $beneficiarioId, ?int $superPartnerId): float
@@ -432,11 +466,11 @@ class PlanesDisponiblesController extends Controller
     {
         $normalizedIccid = trim((string) $iccid);
 
-        if ($normalizedIccid === '' || !Auth::check()) {
+        if ($normalizedIccid === '') {
             return $this->emptyRechargeContext();
         }
 
-        $cliente = Auth::user()->cliente;
+        $cliente = $this->resolvePurchaseCliente();
 
         if (!$cliente) {
             return $this->emptyRechargeContext();
@@ -488,6 +522,20 @@ class PlanesDisponiblesController extends Controller
 
         if (!is_array($rechargeContext) || empty($rechargeContext['is_recharge']) || empty($rechargeContext['iccid'])) {
             return $this->emptyRechargeContext();
+        }
+
+        if (!Auth::check()) {
+            $token = $this->rechargeAccessTokenService->resolveSessionToken();
+
+            if (!$token || !$token->transaction || $token->transaction->iccid !== $rechargeContext['iccid']) {
+                return $this->emptyRechargeContext();
+            }
+
+            return [
+                'is_recharge' => true,
+                'iccid' => $token->transaction->iccid,
+                'transaction_id' => $token->transaction->transaction_id,
+            ];
         }
 
         return $this->resolveRechargeContextForIccid($rechargeContext['iccid']);
@@ -644,23 +692,13 @@ class PlanesDisponiblesController extends Controller
                 'original_price' => 'nullable|numeric|min:0',
             ]);
 
-            // Verificar que el usuario esté autenticado
-            if (!Auth::check()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Debe iniciar sesión para completar la compra.',
-                ], 401);
-            }
-
-            // Obtener el cliente asociado al usuario autenticado
-            $user = Auth::user();
-            $cliente = $user->cliente;
+            $cliente = $this->resolvePurchaseCliente();
 
             if (!$cliente) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No se encontró un cliente asociado a este usuario.',
-                ], 404);
+                    'message' => 'Debe iniciar sesión o usar un enlace válido para completar la compra.',
+                ], 401);
             }
 
             $rechargeContext = $this->getRechargeContext();
@@ -787,6 +825,30 @@ class PlanesDisponiblesController extends Controller
 
             Transaction::create($transactionData);
 
+            try {
+                if ($isRecharge) {
+                    Mail::to($cliente->email)->send(new EsimRechargeMail(
+                        $cliente->email,
+                        (int) ($request->data_amount ?? 0),
+                        $esimData['iccid'] ?? null,
+                        $request->plan_name
+                    ));
+                } else {
+                    $partnerName = optional(Beneficiario::find($beneficiarioId))->nombre
+                        ?: optional(SuperPartner::find($superPartnerId))->nombre;
+                    Mail::to($cliente->email)->send(new EsimActivationMail($esimData, $cliente->email, $partnerName));
+                }
+            } catch (\Throwable $mailException) {
+                Log::warning('No fue posible enviar correo de confirmación de compra.', [
+                    'cliente_id' => $cliente->id,
+                    'message' => $mailException->getMessage(),
+                ]);
+            }
+
+            if (!Auth::check()) {
+                $this->rechargeAccessTokenService->consumeSessionToken();
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => $isRecharge
@@ -820,15 +882,15 @@ class PlanesDisponiblesController extends Controller
                 'currency' => 'required|string|max:3',
             ]);
 
-            // Verificar que el usuario esté autenticado
-            if (!Auth::check()) {
+            $cliente = $this->resolvePurchaseCliente();
+
+            if (!$cliente) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Debe iniciar sesión para continuar.',
+                    'message' => 'Debe iniciar sesión o usar un enlace válido para continuar.',
                 ], 401);
             }
 
-            $user = Auth::user();
             $rechargeContext = $this->getRechargeContext();
 
             // Crear el Payment Intent con metadata
@@ -837,7 +899,7 @@ class PlanesDisponiblesController extends Controller
                 $request->currency,
                 [
                     'product_id' => $request->product_id,
-                    'user_id' => $user->id,
+                    'cliente_id' => $cliente->id,
                     'recharge_iccid' => $rechargeContext['iccid'] ?? '',
                 ]
             );
@@ -876,23 +938,13 @@ class PlanesDisponiblesController extends Controller
                 'country' => 'nullable|string|max:2',
             ]);
 
-            // Verificar que el usuario esté autenticado
-            if (!Auth::check()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Debe iniciar sesión para continuar.',
-                ], 401);
-            }
-
-            // Obtener el cliente asociado al usuario autenticado
-            $user = Auth::user();
-            $cliente = $user->cliente;
+            $cliente = $this->resolvePurchaseCliente();
 
             if (!$cliente) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No se encontró un cliente asociado a este usuario.',
-                ], 404);
+                    'message' => 'Debe iniciar sesión o usar un enlace válido para continuar.',
+                ], 401);
             }
 
             $rechargeContext = $this->getRechargeContext();
@@ -996,6 +1048,10 @@ class PlanesDisponiblesController extends Controller
             $transactionData = $this->sanitizeTransactionData($transactionData);
 
             Transaction::create($transactionData);
+
+            if (!Auth::check()) {
+                $this->rechargeAccessTokenService->consumeSessionToken();
+            }
 
             return response()->json([
                 'success' => true,

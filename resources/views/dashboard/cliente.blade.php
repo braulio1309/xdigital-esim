@@ -84,6 +84,14 @@
                                                 <td>{{ $transaction->creation_time ? $transaction->creation_time->format('d/m/Y H:i') : 'N/A' }}</td>
                                                 <td class="actions-cell">
                                                     @if($transaction->order_id)
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-primary js-recharge-data-btn"
+                                                            data-transaction-id="{{ $transaction->id }}"
+                                                            data-planes-url="{{ route('planes.index') }}"
+                                                        >
+                                                            Recargar
+                                                        </button>
                                                         <button type="button" class="btn btn-sm btn-outline-info js-transaction-detail-btn" data-transaction-id="{{ $transaction->id }}">
                                                             Ver detalles
                                                         </button>
