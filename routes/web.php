@@ -5,6 +5,7 @@ use App\Http\Controllers\App\Cliente\ClienteDashboardController;
 use App\Http\Controllers\App\Cliente\PublicRechargeController;
 use App\Http\Controllers\App\Cliente\PlanesDisponiblesController;
 use App\Http\Controllers\App\Cliente\RegistroEsimController;
+use App\Http\Controllers\App\Transaction\TransactionController;
 use App\Http\Controllers\App\Settings\SettingsApiController;
 use App\Http\Controllers\Core\Auth\User\UserPasswordController;
 use App\Http\Controllers\Core\LanguageController;
@@ -72,6 +73,9 @@ Route::post('/api/auth/login', [AuthController::class, 'login'])->name('api.auth
 Route::post('/api/auth/register', [AuthController::class, 'register'])->name('api.auth.register');
 Route::get('/api/auth/check', [AuthController::class, 'check'])->name('api.auth.check');
 Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+Route::get('/recharge-email/{token}', [TransactionController::class, 'consumeRechargeMagicLink'])
+    ->middleware('throttle:30,1')
+    ->name('transactions.recharge-magic-link');
 
 Route::group(['middleware' => ['auth', 'authorize']], function () {
     include_route_files(__DIR__ . '/app/');

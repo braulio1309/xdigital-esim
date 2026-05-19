@@ -382,6 +382,12 @@
                             component: 'app-recharge-modal',
                             modalId: 'transaction-recharge-modal',
                         }, {
+                            title: this.$t('send_recharge_email'),
+                            icon: 'mail',
+                            type: 'none',
+                            component: 'app-send-recharge-email-action',
+                            modalId: 'transaction-send-recharge-email',
+                        }, {
                             title: this.$t('terminate_subscription'),
                             icon: 'slash',
                             type: 'none',
@@ -707,9 +713,22 @@
                     this.openDetailModal();
                 } else if (actionObj.title == this.$t('recharge_esim')) {
                     this.openRechargeModal();
+                } else if (actionObj.title == this.$t('send_recharge_email')) {
+                    this.sendRechargeEmail(rowData);
                 } else if (actionObj.title == this.$t('terminate_subscription')) {
                     this.openTerminateModal();
                 }
+            },
+
+            sendRechargeEmail(rowData) {
+                this.axiosPost({
+                    url: actions.TRANSACTIONS_SEND_RECHARGE_EMAIL(rowData.id),
+                }).then(response => {
+                    this.$toastr.s(response.data.message || this.$t('recharge_email_sent'));
+                }).catch(error => {
+                    const message = error.response?.data?.message || this.$t('recharge_email_failed');
+                    this.$toastr.e(message);
+                });
             },
 
             openRechargeModal() {
@@ -774,4 +793,3 @@
         }
     }
 </script>
-

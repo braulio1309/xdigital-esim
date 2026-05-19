@@ -18,23 +18,37 @@ class EsimRechargeMail extends Mailable
 
     public ?string $planName;
 
-    public function __construct(string $recipientEmail, int $gbAmount, ?string $iccid = null, ?string $planName = null)
+    public ?string $rechargeUrl;
+
+    public function __construct(
+        string $recipientEmail,
+        int $gbAmount,
+        ?string $iccid = null,
+        ?string $planName = null,
+        ?string $rechargeUrl = null
+    )
     {
         $this->recipientEmail = $recipientEmail;
         $this->gbAmount = $gbAmount;
         $this->iccid = $iccid;
         $this->planName = $planName;
+        $this->rechargeUrl = $rechargeUrl;
     }
 
     public function build()
     {
-        return $this->subject('Tu eSIM fue recargada con ' . $this->gbAmount . ' GB')
+        $subject = $this->rechargeUrl
+            ? 'Recarga tu eSIM'
+            : 'Tu eSIM fue recargada con ' . $this->gbAmount . ' GB';
+
+        return $this->subject($subject)
             ->view('mail.esim.recharge')
             ->with([
                 'recipientEmail' => $this->recipientEmail,
                 'gbAmount' => $this->gbAmount,
                 'iccid' => $this->iccid,
                 'planName' => $this->planName,
+                'rechargeUrl' => $this->rechargeUrl,
             ]);
     }
 }
