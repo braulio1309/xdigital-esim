@@ -767,9 +767,9 @@ class TransactionController extends Controller
             ? route('planes.index', ['referralCode' => $referralCode])
             : route('planes.index');
 
-        $separator = str_contains($redirectUrl, '?') ? '&' : '?';
-
-        return redirect()->to($redirectUrl . $separator . 'recharge_iccid=' . urlencode((string) $transaction->iccid));
+        return redirect()->to($redirectUrl . '?' . http_build_query([
+            'recharge_iccid' => (string) $transaction->iccid,
+        ]));
     }
 
     /**

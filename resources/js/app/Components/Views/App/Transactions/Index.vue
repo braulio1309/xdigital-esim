@@ -385,8 +385,8 @@
                             title: 'Enviar correo de recarga',
                             icon: 'mail',
                             type: 'none',
-                            component: 'dummy-component',
-                            modalId: 'dummy-modal-id',
+                            component: 'app-send-recharge-email-action',
+                            modalId: 'transaction-send-recharge-email',
                         }, {
                             title: this.$t('terminate_subscription'),
                             icon: 'slash',
