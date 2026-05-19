@@ -9,14 +9,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\TransactionRequest as Request;
 use App\Mail\App\Cliente\EsimRechargeMail;
 use App\Models\App\PaymentHistory\PaymentHistory;
+use App\Models\App\Transaction\RechargeEmailToken;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Transaction\TransactionService;
 use App\Services\EsimFxService;
 use App\Exports\App\Transaction\TransactionExport;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -673,6 +676,102 @@ class TransactionController extends Controller
         }
     }
 
+    public function sendRechargeEmail(Transaction $transaction)
+    {
+        $transaction->loadMissing(['cliente.user', 'beneficiario', 'superPartner']);
+
+        if (!$this->canManageTransaction($transaction)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No tienes permisos para enviar correo de recarga para esta transacción.',
+            ], 403);
+        }
+
+        if (!$transaction->cliente || empty($transaction->cliente->email)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'La transacción no tiene un cliente con correo válido.',
+            ], 422);
+        }
+
+        $token = Str::random(64);
+        $tokenHash = hash('sha256', $token);
+
+        RechargeEmailToken::create([
+            'transaction_id' => $transaction->id,
+            'cliente_id' => $transaction->cliente_id,
+            'token_hash' => $tokenHash,
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        $rechargeUrl = route('transactions.recharge-magic-link', ['token' => $token]);
+
+        try {
+            Mail::to($transaction->cliente->email)->send(new EsimRechargeMail(
+                $transaction->cliente->email,
+                (int) ($transaction->data_amount ?: 3),
+                $transaction->iccid,
+                $transaction->plan_name,
+                $rechargeUrl
+            ));
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Correo de recarga enviado correctamente.',
+            ]);
+        } catch (\Throwable $exception) {
+            Log::error('Error sending manual recharge email.', [
+                'transaction_id' => $transaction->id,
+                'email' => $transaction->cliente->email,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'No fue posible enviar el correo de recarga.',
+            ], 500);
+        }
+    }
+
+    public function consumeRechargeMagicLink(string $token)
+    {
+        $tokenHash = hash('sha256', $token);
+
+        $emailToken = RechargeEmailToken::query()
+            ->with([
+                'transaction.beneficiario',
+                'transaction.superPartner',
+                'cliente.user',
+            ])
+            ->where('token_hash', $tokenHash)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+
+        if (!$emailToken || !$emailToken->transaction || !$emailToken->cliente || !$emailToken->cliente->user) {
+            return redirect()
+                ->route('planes.index')
+                ->with('error', 'El enlace de recarga no es válido o ya expiró.');
+        }
+
+        $emailToken->used_at = now();
+        $emailToken->save();
+
+        Auth::login($emailToken->cliente->user);
+        request()->session()->regenerate();
+
+        $transaction = $emailToken->transaction;
+        $referralCode = $this->buildReferralCodeForTransaction($transaction);
+        $redirectUrl = $referralCode
+            ? route('planes.index', ['referralCode' => $referralCode])
+            : route('planes.index');
+
+        $separator = str_contains($redirectUrl, '?') ? '&' : '?';
+
+        return redirect()->to($redirectUrl . $separator . 'recharge_iccid=' . urlencode((string) $transaction->iccid));
+    }
+
     /**
      * Deletion of transactions is not allowed.
      *
@@ -759,5 +858,53 @@ class TransactionController extends Controller
             });
 
         return $countryByName ? strtoupper((string) $countryByName['code']) : null;
+    }
+
+    protected function canManageTransaction(Transaction $transaction): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'admin' || $user->hasRole('Admin')) {
+            return true;
+        }
+
+        if ($user->user_type === 'beneficiario') {
+            $beneficiario = Beneficiario::where('user_id', $user->id)->first();
+
+            if (!$beneficiario) {
+                return false;
+            }
+
+            return (int) $transaction->beneficiario_id === (int) $beneficiario->id
+                || (int) optional($transaction->cliente)->beneficiario_id === (int) $beneficiario->id;
+        }
+
+        if ($superPartner = $this->resolveScopedSuperPartner()) {
+            $partnerIds = $superPartner->beneficiarios()->pluck('id')->map(function ($id) {
+                return (int) $id;
+            })->all();
+
+            return in_array((int) $transaction->beneficiario_id, $partnerIds, true)
+                || (int) $transaction->super_partner_id === (int) $superPartner->id;
+        }
+
+        return false;
+    }
+
+    protected function buildReferralCodeForTransaction(Transaction $transaction): ?string
+    {
+        if ($transaction->beneficiario && !empty($transaction->beneficiario->codigo)) {
+            return Str::slug((string) $transaction->beneficiario->nombre) . '-' . $transaction->beneficiario->codigo;
+        }
+
+        if ($transaction->superPartner && !empty($transaction->superPartner->codigo)) {
+            return Str::slug((string) $transaction->superPartner->nombre) . '-' . $transaction->superPartner->codigo;
+        }
+
+        return null;
     }
 }

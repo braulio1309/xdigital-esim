@@ -12,4 +12,5 @@ Route::post('transactions/mark-as-paid', [TransactionController::class, 'markAsP
 Route::get('transactions/{transaction}/esim-status', [TransactionController::class, 'esimStatus'])->name('transactions.esim-status');
 Route::post('transactions/{transaction}/terminate-subscription', [TransactionController::class, 'terminateSubscription'])->name('transactions.terminate-subscription');
 Route::post('transactions/{transaction}/recharge', [TransactionController::class, 'recharge'])->name('transactions.recharge');
+Route::post('transactions/{transaction}/send-recharge-email', [TransactionController::class, 'sendRechargeEmail'])->name('transactions.send-recharge-email');
 Route::resource('transactions', TransactionController::class);

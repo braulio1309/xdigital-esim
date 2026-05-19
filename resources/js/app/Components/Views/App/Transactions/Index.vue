@@ -382,6 +382,12 @@
                             component: 'app-recharge-modal',
                             modalId: 'transaction-recharge-modal',
                         }, {
+                            title: 'Enviar correo de recarga',
+                            icon: 'mail',
+                            type: 'none',
+                            component: 'dummy-component',
+                            modalId: 'dummy-modal-id',
+                        }, {
                             title: this.$t('terminate_subscription'),
                             icon: 'slash',
                             type: 'none',
@@ -707,9 +713,23 @@
                     this.openDetailModal();
                 } else if (actionObj.title == this.$t('recharge_esim')) {
                     this.openRechargeModal();
+                } else if (actionObj.title == 'Enviar correo de recarga') {
+                    this.sendRechargeEmail(rowData);
                 } else if (actionObj.title == this.$t('terminate_subscription')) {
                     this.openTerminateModal();
                 }
+            },
+
+            sendRechargeEmail(rowData) {
+                this.axiosPost({
+                    url: actions.TRANSACTIONS_SEND_RECHARGE_EMAIL(rowData.id),
+                    data: {}
+                }).then(response => {
+                    this.$toastr.s(response.data.message || 'Correo de recarga enviado.');
+                }).catch(error => {
+                    const message = error.response?.data?.message || 'No fue posible enviar el correo de recarga.';
+                    this.$toastr.e(message);
+                });
             },
 
             openRechargeModal() {
@@ -774,4 +794,3 @@
         }
     }
 </script>
-
