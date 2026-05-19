@@ -694,6 +694,11 @@ class TransactionController extends Controller
             ], 422);
         }
 
+        RechargeEmailToken::query()
+            ->where('transaction_id', $transaction->id)
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+
         $token = Str::random(64);
         $tokenHash = hash('sha256', $token);
 
@@ -746,7 +751,7 @@ class TransactionController extends Controller
             ->where('token_hash', $tokenHash)
             ->whereNull('used_at')
             ->where('expires_at', '>', now())
-            ->latest('id')
+            ->orderByDesc('created_at')
             ->first();
 
         if (!$emailToken || !$emailToken->transaction || !$emailToken->cliente || !$emailToken->cliente->user) {
@@ -758,6 +763,9 @@ class TransactionController extends Controller
         $emailToken->used_at = now();
         $emailToken->save();
 
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+
         Auth::login($emailToken->cliente->user);
         request()->session()->regenerate();
 
@@ -767,9 +775,16 @@ class TransactionController extends Controller
             ? route('planes.index', ['referralCode' => $referralCode])
             : route('planes.index');
 
-        return redirect()->to($redirectUrl . '?' . http_build_query([
+        $existingQuery = [];
+        parse_str((string) (parse_url($redirectUrl, PHP_URL_QUERY) ?? ''), $existingQuery);
+
+        $queryString = http_build_query(array_merge($existingQuery, [
             'recharge_iccid' => (string) $transaction->iccid,
         ]));
+
+        $baseUrl = strtok($redirectUrl, '?') ?: $redirectUrl;
+
+        return redirect()->to($baseUrl . '?' . $queryString);
     }
 
     /**
