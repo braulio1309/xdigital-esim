@@ -39,6 +39,18 @@
                         <h4 class="card-title">Historial de Transacciones</h4>
                         <p class="card-description">Todas tus transacciones registradas</p>
 
+                        @if(session('success'))
+                            <div class="alert alert-success mt-3" role="alert">
+                                {{ session('success') }}
+                            </div>
+                        @endif
+
+                        @if(session('error'))
+                            <div class="alert alert-danger mt-3" role="alert">
+                                {{ session('error') }}
+                            </div>
+                        @endif
+
                         @if($transactions->count() > 0)
                             <div class="table-responsive mt-3">
                                 <table class="table table-hover align-middle">
@@ -70,21 +82,28 @@
                                                     @endif
                                                 </td>
                                                 <td>{{ $transaction->creation_time ? $transaction->creation_time->format('d/m/Y H:i') : 'N/A' }}</td>
-                                                 <td class="actions-cell">
-                                                     @if($transaction->order_id)
-                                                         <button
-                                                             type="button"
-                                                             class="btn btn-sm btn-primary js-recharge-data-btn"
-                                                             data-transaction-id="{{ $transaction->id }}"
-                                                             data-planes-url="{{ route('planes.index') }}"
-                                                         >
-                                                             Recargar
-                                                         </button>
-                                                         <button type="button" class="btn btn-sm btn-outline-info js-transaction-detail-btn" data-transaction-id="{{ $transaction->id }}">
-                                                             Ver detalles
-                                                         </button>
-                                                     @endif
-                                                 </td>
+                                                <td class="actions-cell">
+                                                    @if($transaction->order_id)
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-primary js-recharge-data-btn"
+                                                            data-transaction-id="{{ $transaction->id }}"
+                                                            data-planes-url="{{ route('planes.index') }}"
+                                                        >
+                                                            Recargar
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-info js-transaction-detail-btn" data-transaction-id="{{ $transaction->id }}">
+                                                            Ver detalles
+                                                        </button>
+
+                                                        <form method="POST" action="{{ route('cliente.transactions.send-recharge-email', $transaction) }}" class="d-inline-block js-send-recharge-email-form">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-outline-primary js-send-recharge-email-btn">
+                                                                Enviar correo de recarga
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -313,6 +332,8 @@ function findCountryCode(source) {
 document.addEventListener('DOMContentLoaded', function() {
     var detailButtons = Array.prototype.slice.call(document.querySelectorAll('.js-transaction-detail-btn'));
     var rechargeButtons = Array.prototype.slice.call(document.querySelectorAll('.js-recharge-data-btn'));
+    var sendRechargeEmailForms = Array.prototype.slice.call(document.querySelectorAll('.js-send-recharge-email-form'));
+    var SEND_RECHARGE_EMAIL_RESET_DELAY_MS = 60000;
     var usageNodes = Array.prototype.slice.call(document.querySelectorAll('.js-usage-value'));
     var loadingNode = document.getElementById('transaction-detail-loading');
     var errorNode = document.getElementById('transaction-detail-error');
@@ -427,6 +448,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 .finally(function() {
                     button.disabled = false;
                 });
+        });
+    });
+
+    sendRechargeEmailForms.forEach(function(form) {
+        form.addEventListener('submit', function() {
+            var submitButton = form.querySelector('.js-send-recharge-email-btn');
+
+            if (!submitButton || submitButton.disabled) {
+                return;
+            }
+
+            var originalLabel = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Enviando...';
+
+            setTimeout(function() {
+                if (submitButton.disabled) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalLabel;
+                }
+            }, SEND_RECHARGE_EMAIL_RESET_DELAY_MS);
         });
     });
 });

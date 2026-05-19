@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\App\Cliente\ClienteDashboardController;
 use App\Http\Controllers\App\Cliente\PublicRechargeController;
 use App\Http\Controllers\App\Cliente\PlanesDisponiblesController;
 use App\Http\Controllers\App\Cliente\RegistroEsimController;
@@ -55,6 +56,9 @@ Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'
 // Acepta opcionalmente un referralCode con el código de partner o super partner
 Route::get('/planes-disponibles/{referralCode?}', [PlanesDisponiblesController::class, 'index'])->name('planes.index');
 Route::post('/planes/get-by-country', [PlanesDisponiblesController::class, 'getPlanes'])->name('planes.get');
+Route::get('/planes/recharge-link', [ClienteDashboardController::class, 'openRechargeLink'])
+    ->middleware('signed')
+    ->name('planes.recharge-link');
 Route::post('/planes/create-payment-intent', [PlanesDisponiblesController::class, 'createPaymentIntent'])->name('planes.payment.intent');
 Route::post('/planes/procesar-pago', [PlanesDisponiblesController::class, 'procesarPago'])->name('planes.pago');
 Route::post('/planes/activar-gratis', [PlanesDisponiblesController::class, 'activarGratis'])->name('planes.activar.gratis');
