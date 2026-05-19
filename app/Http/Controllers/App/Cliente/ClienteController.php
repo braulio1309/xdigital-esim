@@ -9,13 +9,16 @@ use App\Imports\App\ClienteImport;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\SuperPartner\SuperPartner;
+use App\Services\App\Cliente\FreeEsimInvitationMailService;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ClienteController extends Controller
 {
     protected $clienteAccessMailService;
+    protected $freeEsimInvitationMailService;
 
     /**
      * ClienteController constructor.
@@ -27,6 +30,7 @@ class ClienteController extends Controller
         $this->service = $service;
         $this->filter = $filter;
         $this->clienteAccessMailService = app('App\Services\App\Cliente\ClienteAccessMailService');
+        $this->freeEsimInvitationMailService = app(FreeEsimInvitationMailService::class);
     }
 
     /**
@@ -115,6 +119,15 @@ class ClienteController extends Controller
         // cuente como cliente "primario" de un solo partner.
         if ($superPartner && !empty($partnerIds)) {
             $cliente->partners()->syncWithoutDetaching($partnerIds);
+        }
+
+        try {
+            $this->freeEsimInvitationMailService->send($cliente, $beneficiario, $superPartner);
+        } catch (\Throwable $exception) {
+            Log::warning('No fue posible enviar correo de invitación de eSIM gratis.', [
+                'cliente_id' => $cliente->id,
+                'message' => $exception->getMessage(),
+            ]);
         }
 
         return created_responses('cliente');
