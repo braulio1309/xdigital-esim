@@ -3,8 +3,10 @@
 namespace App\Imports\App;
 
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
+use App\Services\App\Cliente\FreeEsimInvitationMailService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +25,8 @@ class ClienteImport implements ToCollection, WithHeadingRow
     protected $errors = [];
     protected $skippedDetails = [];
     protected $clienteAccessMailService;
+    protected $freeEsimInvitationMailService;
+    protected $superPartner;
 
     public function __construct($beneficiarioId = null, array $partnerIds = [], $freeEsimCapacity = null, $superPartnerId = null)
     {
@@ -31,6 +35,8 @@ class ClienteImport implements ToCollection, WithHeadingRow
         $this->freeEsimCapacity = $freeEsimCapacity;
         $this->superPartnerId = $superPartnerId ? (int) $superPartnerId : null;
         $this->clienteAccessMailService = app('App\Services\App\Cliente\ClienteAccessMailService');
+        $this->freeEsimInvitationMailService = app(FreeEsimInvitationMailService::class);
+        $this->superPartner = $this->superPartnerId ? SuperPartner::find($this->superPartnerId) : null;
     }
 
     protected function resolveUserStatusId(): int
@@ -168,6 +174,12 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 });
 
                 $this->clienteAccessMailService->sendAccessCredentials($cliente);
+                try {
+                    $beneficiario = $cliente->beneficiario;
+                    $this->freeEsimInvitationMailService->send($cliente, $beneficiario, $this->superPartner);
+                } catch (\Throwable $mailException) {
+                    $this->errors[] = "No se pudo enviar invitación de eSIM gratuita a {$email}: " . $mailException->getMessage();
+                }
 
                 $this->imported++;
             } catch (\Exception $e) {

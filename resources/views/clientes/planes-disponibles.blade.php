@@ -618,7 +618,7 @@
     }
 @endphp
 
-<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}" data-initial-country-label="{{ $initialCountryLabel }}" data-is-recharge="{{ !empty($rechargeContext['is_recharge']) ? '1' : '0' }}" data-recharge-iccid="{{ $rechargeContext['iccid'] ?? '' }}">
+<div id="planes-disponibles-app" class="container-scroller" data-initial-country="{{ $initialCountry ?? '' }}" data-initial-country-label="{{ $initialCountryLabel }}" data-is-recharge="{{ !empty($rechargeContext['is_recharge']) ? '1' : '0' }}" data-recharge-iccid="{{ $rechargeContext['iccid'] ?? '' }}" data-token-authenticated="{{ !empty($tokenAuthenticated) ? '1' : '0' }}">
     <div class="container-fluid page-body-wrapper full-page-wrapper">
         <div class="content-wrapper d-flex align-items-start auth px-0 py-5">
             <div class="row w-100 mx-0">
@@ -1022,6 +1022,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const initialCountryLabel = appElement ? appElement.dataset.initialCountryLabel || '' : '';
     const isRechargeFlow = appElement ? appElement.dataset.isRecharge === '1' : false;
     const rechargeIccid = appElement ? appElement.dataset.rechargeIccid || '' : '';
+    const tokenAuthenticated = appElement ? appElement.dataset.tokenAuthenticated === '1' : false;
     const countryOptions = countryOptionsElement ? JSON.parse(countryOptionsElement.textContent || '[]') : [];
 
     new Vue({
@@ -1035,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', function() {
             plans: [],
             loading: false,
             selectedPlan: null,
-            isAuthenticated: false,
+            isAuthenticated: tokenAuthenticated,
             loginForm: {
                 email: '',
                 password: ''
@@ -1094,8 +1095,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            // Verificar si el usuario está autenticado
-            this.checkAuth();
+            if (!this.isAuthenticated) {
+                this.checkAuth();
+            }
 
             if (initialCountry) {
                 this.selectedCountry = initialCountry;

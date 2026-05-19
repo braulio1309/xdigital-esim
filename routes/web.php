@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\App\Cliente\PublicRechargeController;
 use App\Http\Controllers\App\Cliente\PlanesDisponiblesController;
 use App\Http\Controllers\App\Cliente\RegistroEsimController;
 use App\Http\Controllers\App\Settings\SettingsApiController;
@@ -54,19 +55,19 @@ Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'
 // Acepta opcionalmente un referralCode con el código de partner o super partner
 Route::get('/planes-disponibles/{referralCode?}', [PlanesDisponiblesController::class, 'index'])->name('planes.index');
 Route::post('/planes/get-by-country', [PlanesDisponiblesController::class, 'getPlanes'])->name('planes.get');
+Route::post('/planes/create-payment-intent', [PlanesDisponiblesController::class, 'createPaymentIntent'])->name('planes.payment.intent');
+Route::post('/planes/procesar-pago', [PlanesDisponiblesController::class, 'procesarPago'])->name('planes.pago');
+Route::post('/planes/activar-gratis', [PlanesDisponiblesController::class, 'activarGratis'])->name('planes.activar.gratis');
+
+Route::get('/recarga/esim', [PublicRechargeController::class, 'showDocumentForm'])->name('recharge.document.form');
+Route::post('/recarga/esim', [PublicRechargeController::class, 'lookupByDocument'])->name('recharge.document.lookup');
+Route::get('/recarga/token/{token}', [PublicRechargeController::class, 'accessWithToken'])->name('recharge.token.access');
 
 // Rutas de API para autenticación AJAX (públicas)
 Route::post('/api/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
 Route::post('/api/auth/register', [AuthController::class, 'register'])->name('api.auth.register');
 Route::get('/api/auth/check', [AuthController::class, 'check'])->name('api.auth.check');
 Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
-
-// Rutas que requieren autenticación
-Route::middleware(['auth'])->group(function () {
-    Route::post('/planes/create-payment-intent', [PlanesDisponiblesController::class, 'createPaymentIntent'])->name('planes.payment.intent');
-    Route::post('/planes/procesar-pago', [PlanesDisponiblesController::class, 'procesarPago'])->name('planes.pago');
-    Route::post('/planes/activar-gratis', [PlanesDisponiblesController::class, 'activarGratis'])->name('planes.activar.gratis');
-});
 
 Route::group(['middleware' => ['auth', 'authorize']], function () {
     include_route_files(__DIR__ . '/app/');
