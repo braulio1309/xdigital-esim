@@ -13,3 +13,4 @@ Route::post('clientes/{cliente}/send-access-email', [ClienteController::class, '
 Route::get('cliente/dashboard', [ClienteDashboardController::class, 'index'])->name('cliente.dashboard');
 Route::get('cliente/dashboard/data', [ClienteDashboardController::class, 'data'])->name('cliente.dashboard.data');
 Route::get('cliente/dashboard/transactions/{transaction}/detail', [ClienteDashboardController::class, 'transactionDetail'])->name('cliente.dashboard.transaction-detail');
+Route::post('cliente/transactions/{transaction}/send-recharge-email', [ClienteDashboardController::class, 'sendRechargeEmail'])->name('cliente.transactions.send-recharge-email');

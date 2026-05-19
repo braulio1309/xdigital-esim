@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\App\Cliente;
 
 use App\Http\Controllers\Controller;
+use App\Mail\App\Cliente\EsimRechargeReminderMail;
 use App\Models\App\Transaction\Transaction;
 use App\Services\EsimFxService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class ClienteDashboardController extends Controller
 {
@@ -72,6 +76,51 @@ class ClienteDashboardController extends Controller
             return response()->json(['data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Send a manual recharge email for a specific transaction.
+     *
+     * @param Request $request
+     * @param Transaction $transaction
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function sendRechargeEmail(Request $request, Transaction $transaction)
+    {
+        $user = $request->user();
+
+        if ($user->user_type !== 'cliente' || !$user->cliente || (int) $transaction->cliente_id !== (int) $user->cliente->id) {
+            return redirect()->back()->with('error', 'No autorizado para enviar correo de esta transacción.');
+        }
+
+        if (empty($transaction->iccid) || empty($transaction->cliente) || empty($transaction->cliente->email)) {
+            return redirect()->back()->with('error', 'La transacción no tiene datos suficientes para enviar el correo.');
+        }
+
+        try {
+            $magicToken = (string) Str::uuid();
+            $rechargeLink = route('planes.index', [
+                'recharge_iccid' => $transaction->iccid,
+                'transaction_id' => $transaction->id,
+                'magic_token' => $magicToken,
+            ]);
+
+            Mail::to($transaction->cliente->email)->send(new EsimRechargeReminderMail(
+                $transaction,
+                $rechargeLink,
+                $magicToken
+            ));
+
+            return redirect()->back()->with('success', 'Correo de recarga enviado correctamente.');
+        } catch (\Throwable $exception) {
+            Log::error('Error sending manual recharge email from cliente dashboard.', [
+                'transaction_id' => $transaction->id,
+                'cliente_id' => $transaction->cliente_id,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return redirect()->back()->with('error', 'No fue posible enviar el correo de recarga.');
         }
     }
 

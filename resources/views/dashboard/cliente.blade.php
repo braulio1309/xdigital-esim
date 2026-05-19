@@ -39,6 +39,18 @@
                         <h4 class="card-title">Historial de Transacciones</h4>
                         <p class="card-description">Todas tus transacciones registradas</p>
 
+                        @if(session('success'))
+                            <div class="alert alert-success mt-3" role="alert">
+                                {{ session('success') }}
+                            </div>
+                        @endif
+
+                        @if(session('error'))
+                            <div class="alert alert-danger mt-3" role="alert">
+                                {{ session('error') }}
+                            </div>
+                        @endif
+
                         @if($transactions->count() > 0)
                             <div class="table-responsive mt-3">
                                 <table class="table table-hover align-middle">
@@ -75,6 +87,13 @@
                                                         <button type="button" class="btn btn-sm btn-outline-info js-transaction-detail-btn" data-transaction-id="{{ $transaction->id }}">
                                                             Ver detalles
                                                         </button>
+
+                                                        <form method="POST" action="{{ route('cliente.transactions.send-recharge-email', $transaction) }}" class="d-inline-block">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                                Enviar correo de recarga
+                                                            </button>
+                                                        </form>
                                                     @endif
                                                 </td>
                                             </tr>
