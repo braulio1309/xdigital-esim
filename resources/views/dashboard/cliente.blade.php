@@ -88,9 +88,9 @@
                                                             Ver detalles
                                                         </button>
 
-                                                        <form method="POST" action="{{ route('cliente.transactions.send-recharge-email', $transaction) }}" class="d-inline-block">
+                                                        <form method="POST" action="{{ route('cliente.transactions.send-recharge-email', $transaction) }}" class="d-inline-block js-send-recharge-email-form">
                                                             @csrf
-                                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                            <button type="submit" class="btn btn-sm btn-outline-primary js-send-recharge-email-btn">
                                                                 Enviar correo de recarga
                                                             </button>
                                                         </form>
@@ -324,6 +324,8 @@ function findCountryCode(source) {
 document.addEventListener('DOMContentLoaded', function() {
     var detailButtons = Array.prototype.slice.call(document.querySelectorAll('.js-transaction-detail-btn'));
     var rechargeButtons = Array.prototype.slice.call(document.querySelectorAll('.js-recharge-data-btn'));
+    var sendRechargeEmailForms = Array.prototype.slice.call(document.querySelectorAll('.js-send-recharge-email-form'));
+    var SEND_RECHARGE_EMAIL_RESET_DELAY_MS = 60000;
     var usageNodes = Array.prototype.slice.call(document.querySelectorAll('.js-usage-value'));
     var loadingNode = document.getElementById('transaction-detail-loading');
     var errorNode = document.getElementById('transaction-detail-error');
@@ -438,6 +440,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 .finally(function() {
                     button.disabled = false;
                 });
+        });
+    });
+
+    sendRechargeEmailForms.forEach(function(form) {
+        form.addEventListener('submit', function() {
+            var submitButton = form.querySelector('.js-send-recharge-email-btn');
+
+            if (!submitButton || submitButton.disabled) {
+                return;
+            }
+
+            var originalLabel = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Enviando...';
+
+            setTimeout(function() {
+                if (submitButton.disabled) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalLabel;
+                }
+            }, SEND_RECHARGE_EMAIL_RESET_DELAY_MS);
         });
     });
 });

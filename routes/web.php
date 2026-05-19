@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\App\Cliente\ClienteDashboardController;
 use App\Http\Controllers\App\Cliente\PlanesDisponiblesController;
 use App\Http\Controllers\App\Cliente\RegistroEsimController;
 use App\Http\Controllers\App\Settings\SettingsApiController;
@@ -54,6 +55,9 @@ Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'
 // Acepta opcionalmente un referralCode con el código de partner o super partner
 Route::get('/planes-disponibles/{referralCode?}', [PlanesDisponiblesController::class, 'index'])->name('planes.index');
 Route::post('/planes/get-by-country', [PlanesDisponiblesController::class, 'getPlanes'])->name('planes.get');
+Route::get('/planes/recharge-link', [ClienteDashboardController::class, 'openRechargeLink'])
+    ->middleware('signed')
+    ->name('planes.recharge-link');
 
 // Rutas de API para autenticación AJAX (públicas)
 Route::post('/api/auth/login', [AuthController::class, 'login'])->name('api.auth.login');

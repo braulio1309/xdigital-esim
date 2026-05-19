@@ -38,9 +38,6 @@
                                 </tr>
                             </table>
 
-                            <p style="margin:0; font-size:12px; line-height:1.5; color:#7a879f;">
-                                Token de recarga: {{ $magicToken }}
-                            </p>
                         </td>
                     </tr>
                 </table>

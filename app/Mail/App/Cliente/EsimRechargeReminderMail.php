@@ -15,13 +15,10 @@ class EsimRechargeReminderMail extends Mailable
 
     public string $rechargeLink;
 
-    public string $magicToken;
-
-    public function __construct(Transaction $transaction, string $rechargeLink, string $magicToken)
+    public function __construct(Transaction $transaction, string $rechargeLink)
     {
         $this->transaction = $transaction;
         $this->rechargeLink = $rechargeLink;
-        $this->magicToken = $magicToken;
     }
 
     public function build()
@@ -31,7 +28,6 @@ class EsimRechargeReminderMail extends Mailable
             ->with([
                 'transaction' => $this->transaction,
                 'rechargeLink' => $this->rechargeLink,
-                'magicToken' => $this->magicToken,
             ]);
     }
 }

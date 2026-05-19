@@ -7,12 +7,16 @@ use App\Mail\App\Cliente\EsimRechargeReminderMail;
 use App\Models\App\Transaction\Transaction;
 use App\Services\EsimFxService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class ClienteDashboardController extends Controller
 {
+    private const MANUAL_RECHARGE_LINK_TTL_HOURS = 24;
+
     /**
      * Show the cliente dashboard
      *
@@ -90,7 +94,15 @@ class ClienteDashboardController extends Controller
     {
         $user = $request->user();
 
-        if ($user->user_type !== 'cliente' || !$user->cliente || (int) $transaction->cliente_id !== (int) $user->cliente->id) {
+        if ($user->user_type !== 'cliente') {
+            return redirect()->back()->with('error', 'Solo los clientes pueden enviar este correo.');
+        }
+
+        if (!$user->cliente) {
+            return redirect()->back()->with('error', 'No se encontró el perfil del cliente.');
+        }
+
+        if ((int) $transaction->cliente_id !== (int) $user->cliente->id) {
             return redirect()->back()->with('error', 'No autorizado para enviar correo de esta transacción.');
         }
 
@@ -100,16 +112,18 @@ class ClienteDashboardController extends Controller
 
         try {
             $magicToken = (string) Str::uuid();
-            $rechargeLink = route('planes.index', [
-                'recharge_iccid' => $transaction->iccid,
-                'transaction_id' => $transaction->id,
-                'magic_token' => $magicToken,
+            $expiration = now()->addHours(self::MANUAL_RECHARGE_LINK_TTL_HOURS);
+            Cache::put('manual_recharge_link:' . $magicToken, [
+                'transaction_id' => (int) $transaction->id,
+            ], $expiration);
+
+            $rechargeLink = URL::temporarySignedRoute('planes.recharge-link', $expiration, [
+                'token' => $magicToken,
             ]);
 
             Mail::to($transaction->cliente->email)->send(new EsimRechargeReminderMail(
                 $transaction,
-                $rechargeLink,
-                $magicToken
+                $rechargeLink
             ));
 
             return redirect()->back()->with('success', 'Correo de recarga enviado correctamente.');
@@ -122,6 +136,36 @@ class ClienteDashboardController extends Controller
 
             return redirect()->back()->with('error', 'No fue posible enviar el correo de recarga.');
         }
+    }
+
+    /**
+     * Resolve a temporary signed recharge link and redirect to plans page.
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function openRechargeLink(Request $request)
+    {
+        $token = (string) $request->query('token', '');
+
+        if (!Str::isUuid($token)) {
+            abort(403);
+        }
+
+        $cachedLinkPayload = Cache::pull('manual_recharge_link:' . $token);
+
+        if (!is_array($cachedLinkPayload) || empty($cachedLinkPayload['transaction_id'])) {
+            abort(403);
+        }
+
+        $transaction = Transaction::query()->find((int) $cachedLinkPayload['transaction_id']);
+
+        if (!$transaction || empty($transaction->iccid)) {
+            abort(404);
+        }
+
+        return redirect()->route('planes.index', [
+            'recharge_iccid' => $transaction->iccid,
+        ]);
     }
 
     /**
