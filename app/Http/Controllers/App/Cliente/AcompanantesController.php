@@ -7,12 +7,16 @@ use App\Mail\App\Cliente\EsimActivationMail;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Cliente\ClienteVoucher;
 use App\Models\App\Transaction\Transaction;
+use App\Models\Core\Auth\User;
+use App\Models\Core\Status;
 use App\Services\EsimFxService;
 use App\Helpers\CountryTariffHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AcompanantesController extends Controller
@@ -247,20 +251,65 @@ class AcompanantesController extends Controller
 
     private function findOrCreateCompanionCliente(string $email, array $transactionContext): Cliente
     {
-        $existing = Cliente::whereRaw('LOWER(email) = ?', [mb_strtolower($email)])->first();
+        $email = mb_strtolower($email);
+
+        $existing = Cliente::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if ($existing) {
+            // Ensure the existing cliente has a linked user account
+            if (!$existing->user_id) {
+                $user = $this->findOrCreateUserForCompanion($email, $transactionContext);
+                $existing->user_id = $user->id;
+                $existing->save();
+            }
+
             return $existing;
         }
 
+        $user = $this->findOrCreateUserForCompanion($email, $transactionContext);
+
         return Cliente::create([
-            'email' => mb_strtolower($email),
+            'email' => $email,
             'nombre' => '',
             'apellido' => '',
             'identificador' => '',
+            'user_id' => $user->id,
             'can_activate_free_esim' => false,
             'beneficiario_id' => $transactionContext['beneficiario_id'],
         ]);
+    }
+
+    private function findOrCreateUserForCompanion(string $email, array $transactionContext): User
+    {
+        $existingUser = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($existingUser) {
+            if (!$existingUser->roles()->where('name', 'cliente')->exists()) {
+                $existingUser->assignRole('cliente');
+            }
+
+            if ($existingUser->user_type !== 'cliente') {
+                $existingUser->user_type = 'cliente';
+                $existingUser->save();
+            }
+
+            return $existingUser;
+        }
+
+        $status = Status::findByNameAndType('status_active', 'user');
+
+        $user = User::create([
+            'first_name'       => '',
+            'last_name'        => '',
+            'email'            => $email,
+            'password'         => Hash::make(Str::random(16)),
+            'user_type'        => 'cliente',
+            'status_id'        => $status ? $status->id : null,
+            'super_partner_id' => null,
+        ]);
+        $user->assignRole('cliente');
+
+        return $user;
     }
 
     private function activateEsimForCompanion(
