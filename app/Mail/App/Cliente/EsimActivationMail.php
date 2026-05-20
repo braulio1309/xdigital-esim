@@ -16,11 +16,14 @@ class EsimActivationMail extends Mailable
 
     public ?string $partnerName;
 
-    public function __construct(array $esimData, string $recipientEmail, ?string $partnerName = null)
+    public ?string $companionFormUrl;
+
+    public function __construct(array $esimData, string $recipientEmail, ?string $partnerName = null, ?string $companionFormUrl = null)
     {
         $this->esimData = $esimData;
         $this->recipientEmail = $recipientEmail;
         $this->partnerName = $partnerName;
+        $this->companionFormUrl = $companionFormUrl;
     }
 
     public function build()
@@ -39,6 +42,7 @@ class EsimActivationMail extends Mailable
                 'recipientEmail' => $this->recipientEmail,
                 'partnerName' => $this->partnerName,
                 'activationLink' => $activationLink,
+                'companionFormUrl' => $this->companionFormUrl,
             ]);
     }
 }

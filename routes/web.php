@@ -49,9 +49,15 @@ Route::get('/sitemap.xml', function () {
 Route::redirect('/', 'admin/users/login');
 Route::get('/get-basic-setting-data', [SettingsApiController::class, 'getBasicSettingData']);
 
+use App\Http\Controllers\App\Cliente\AcompanantesController;
+
 // Ruta pública para registro de clientes eSIM (sin autenticación)
 Route::get('/registro/esim/{referralCode?}', [RegistroEsimController::class, 'mostrarFormulario'])->name('registro.esim.form');
 Route::post('/registro/esim', [RegistroEsimController::class, 'registrarCliente'])->name('registro.esim.store');
+
+// Rutas públicas para formulario de acompañantes (acceso por enlace firmado, sin login)
+Route::get('/registro/acompanantes', [AcompanantesController::class, 'showForm'])->name('registro.acompanantes.form');
+Route::post('/registro/acompanantes', [AcompanantesController::class, 'processForm'])->name('registro.acompanantes.store');
 
 // Rutas públicas para planes disponibles
 // Acepta opcionalmente un referralCode con el código de partner o super partner

@@ -21,11 +21,7 @@
                     <td style="padding:28px 32px;">
                         <p style="margin:0 0 16px; font-size:15px; line-height:1.6;">
                             Hola {{ trim(($cliente->nombre ?? '') . ' ' . ($cliente->apellido ?? '')) ?: 'cliente' }},
-                            @if($partnerName)
-                                ya puedes activar tu eSIM gratuita con {{ $partnerName }}.
-                            @else
-                                ya puedes activar tu eSIM gratuita.
-                            @endif
+                            ya puedes activar tu eSIM gratuita.
                         </p>
 
                         <p style="margin:0 0 24px; font-size:14px; line-height:1.7; color:#4b587c;">

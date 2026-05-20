@@ -759,14 +759,6 @@
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="font-weight-bold text-small">Validación de viajeros</label>
-                                    <div class="form-control form-control-lg d-flex align-items-center" style="background-color: #f8f9fa; min-height: calc(1.5em + 1rem + 2px);">
-                                        Usaremos tu documento para consultar el último voucher registrado y validar cuántos viajeros pueden activar su eSIM.
-                                    </div>
-                                    <small class="form-text text-muted mt-2">Cada viajero adicional recibirá su propia eSIM en el correo que registres.</small>
-                                </div>
-
-                                <div class="form-group">
                                     <label for="country_code" class="font-weight-bold text-small">Seleccione su País de destino</label>
                                     <div class="country-autocomplete">
                                         <input type="text"
@@ -793,18 +785,21 @@
                                 </div>
 
                                 {{-- Sección de acompañantes --}}
-                                <div class="mt-2 mb-3">
+                                <div class="mt-3 mb-3">
                                     <button type="button"
                                             id="btn-toggle-companions"
-                                            class="btn btn-outline-secondary btn-sm w-100 text-left d-flex align-items-center justify-content-between"
-                                            style="border-radius: 10px;"
+                                            class="btn btn-block btn-lg text-left d-flex align-items-center justify-content-between"
+                                            style="border-radius: 12px; background: linear-gradient(90deg, rgba(45,156,219,0.10) 0%, rgba(98,59,134,0.08) 100%); border: 2px dashed rgba(45,156,219,0.45); color: var(--nomad-navy); padding: 14px 18px; transition: background 0.2s;"
                                             aria-expanded="{{ $hasOldCompanions ? 'true' : 'false' }}"
                                             aria-controls="companions-section">
-                                        <span>
-                                            <i class="mdi mdi-account-group mr-1"></i>
-                                            ¿Viajan más contigo?
+                                        <span class="d-flex align-items-center">
+                                            <i class="mdi mdi-account-group mr-2" style="font-size: 1.5rem; color: var(--nomad-blue);"></i>
+                                            <span>
+                                                <strong style="font-size: 0.98rem;">¿Viajan más contigo?</strong>
+                                                <small class="d-block text-muted" style="font-size: 0.78rem;">Cada acompañante recibirá su propia eSIM gratuita.</small>
+                                            </span>
                                         </span>
-                                        <i class="mdi {{ $hasOldCompanions ? 'mdi-chevron-up' : 'mdi-chevron-down' }}" id="companions-chevron"></i>
+                                        <i class="mdi {{ $hasOldCompanions ? 'mdi-chevron-up' : 'mdi-chevron-down' }}" id="companions-chevron" style="font-size: 1.3rem; color: var(--xcertus-purple);"></i>
                                     </button>
 
                                     <div id="companions-section" class="mt-2 {{ $hasOldCompanions ? '' : 'd-none' }}" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px; background:#f8fafc;">
