@@ -1829,8 +1829,26 @@ document.addEventListener('DOMContentLoaded', function () {
         btnAdd.addEventListener('click', function () {
             const row = document.createElement('div');
             row.className = 'companion-row input-group mb-2';
-            row.innerHTML = '<input type="email" class="form-control form-control-sm" name="companion_emails[]" placeholder="correo@ejemplo.com" autocomplete="off">'
-                          + '<div class="input-group-append"><button type="button" class="btn btn-outline-danger btn-sm btn-remove-companion" tabindex="-1">&times;</button></div>';
+
+            const input = document.createElement('input');
+            input.type = 'email';
+            input.className = 'form-control form-control-sm';
+            input.name = 'companion_emails[]';
+            input.placeholder = 'correo@ejemplo.com';
+            input.autocomplete = 'off';
+
+            const appendDiv = document.createElement('div');
+            appendDiv.className = 'input-group-append';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-outline-danger btn-sm btn-remove-companion';
+            removeBtn.tabIndex = -1;
+            removeBtn.textContent = '×';
+
+            appendDiv.appendChild(removeBtn);
+            row.appendChild(input);
+            row.appendChild(appendDiv);
             list.appendChild(row);
         });
     }

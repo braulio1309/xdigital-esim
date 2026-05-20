@@ -703,7 +703,7 @@ class RegistroEsimController extends Controller
                                         $companionEmail,
                                         $brandingContext['brandPartner']->nombre ?? null
                                     ));
-                                    Log::info('Correo de activacion de eSIM enviado a acompañante.', [
+                                    Log::info('Correo de activación de eSIM enviado a acompañante.', [
                                         'companion_email' => $companionEmail,
                                         'cliente_id' => $cliente->id,
                                     ]);
