@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acceso a tu cuenta eSIM</title>
 </head>
-<body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#1f2937;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 0;">
+<body style="margin:0;padding:0;background:#eef6fb;font-family:Arial,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef6fb;padding:24px 0;">
         <tr>
             <td align="center">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.08);">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.08);border:1px solid #d7e8f4;">
                     <tr>
-                        <td style="background:#0f172a;padding:24px 32px;color:#ffffff;">
+                        <td style="background:linear-gradient(90deg, #181c36 0%, #2d9cdb 100%);padding:24px 32px;color:#ffffff;">
+                            <p style="margin:0 0 10px;font-size:11px;line-height:1.4;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Alianza Nomad Esim - Xcertus</p>
                             <h1 style="margin:0;font-size:24px;">Tu acceso ya está listo, aquí podrás ver la info de tu eSIM</h1>
                         </td>
                     </tr>
@@ -31,7 +32,7 @@
                                 <p style="margin:0 0 20px;">Usa tu número de cédula exactamente como clave, sin caracteres adicionales al final.</p>
                             @endif
                             <p style="margin:0 0 24px;">
-                                <a href="{{ $loginUrl }}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Ir a iniciar sesión</a>
+                                <a href="{{ $loginUrl }}" style="display:inline-block;background:#2d9cdb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Ir a iniciar sesión</a>
                             </p>
                             <p style="margin:0;color:#6b7280;font-size:14px;">Si no solicitaste este acceso, por favor responde a este correo.</p>
                         </td>

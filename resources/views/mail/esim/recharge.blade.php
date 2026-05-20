@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ !empty($rechargeUrl) ? 'Recarga tu eSIM' : 'Tu eSIM fue recargada' }}</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f5f7fb; font-family:Arial, Helvetica, sans-serif; color:#181c36;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fb; padding:24px 0;">
+<body style="margin:0; padding:0; background-color:#eef6fb; font-family:Arial, Helvetica, sans-serif; color:#181c36;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef6fb; padding:24px 0;">
         <tr>
             <td align="center">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 8px 28px rgba(24,28,54,0.08);">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 8px 28px rgba(24,28,54,0.08); border:1px solid #d7e8f4;">
                     <tr>
-                        <td style="padding:28px 32px; background:linear-gradient(90deg, #181c36 0%, #623b86 100%); color:#ffffff;">
+                        <td style="padding:28px 32px; background:linear-gradient(90deg, #181c36 0%, #2d9cdb 100%); color:#ffffff;">
+                            <p style="margin:0 0 10px; font-size:11px; line-height:1.4; letter-spacing:0.08em; text-transform:uppercase; opacity:0.85;">Alianza Nomad Esim - Xcertus</p>
                             <h1 style="margin:0; font-size:24px; line-height:1.3;">
                                 {{ !empty($rechargeUrl) ? 'Recarga tu eSIM' : 'Tu eSIM fue recargada' }}
                             </h1>
@@ -27,7 +28,7 @@
                                 <strong>{{ $recipientEmail }}</strong>.
                             </p>
 
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px; background:#f8faff; border:1px solid #dbe7f3; border-radius:12px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px; background:#f3f9fd; border:1px solid #cfe6f4; border-radius:12px;">
                                 <tr>
                                     <td style="padding:18px 20px;">
                                         <p style="margin:0 0 8px; font-size:13px; color:#5a6785; text-transform:uppercase; letter-spacing:0.04em;">
@@ -54,7 +55,7 @@
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
                                     <tr>
                                         <td align="center">
-                                            <a href="{{ $rechargeUrl }}" style="display:inline-block; padding:12px 24px; border-radius:8px; background:#2f5bea; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none;">
+                                            <a href="{{ $rechargeUrl }}" style="display:inline-block; padding:12px 24px; border-radius:8px; background:#2d9cdb; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none;">
                                                 Recargar ahora
                                             </a>
                                         </td>
