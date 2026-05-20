@@ -687,6 +687,34 @@ class RegistroEsimController extends Controller
                                 ];
                             }
 
+                            // Send eSIM activation email to companion travelers
+                            $companionEmails = array_filter(
+                                array_map('trim', (array) $request->input('companion_emails', [])),
+                                function ($email) {
+                                    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+                                }
+                            );
+
+                            foreach ($companionEmails as $companionEmail) {
+                                $companionEmail = mb_strtolower($companionEmail);
+                                try {
+                                    Mail::to($companionEmail)->send(new EsimActivationMail(
+                                        $esimDataView,
+                                        $companionEmail,
+                                        $brandingContext['brandPartner']->nombre ?? null
+                                    ));
+                                    Log::info('Correo de activación de eSIM enviado a acompañante.', [
+                                        'companion_email' => $companionEmail,
+                                        'cliente_id' => $cliente->id,
+                                    ]);
+                                } catch (\Throwable $companionMailException) {
+                                    Log::warning('No fue posible enviar correo de eSIM al acompañante.', [
+                                        'companion_email' => $companionEmail,
+                                        'message' => $companionMailException->getMessage(),
+                                    ]);
+                                }
+                            }
+
                             // If this client has the can_activate_free_esim flag, deactivate it after successful activation
                             if ($cliente->can_activate_free_esim) {
                                 $cliente->can_activate_free_esim = false;

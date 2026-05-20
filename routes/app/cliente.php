@@ -9,6 +9,11 @@ Route::resource('clientes', ClienteController::class);
 Route::post('clientes/{cliente}/toggle-free-esim', [ClienteController::class, 'toggleFreeEsim'])->name('clientes.toggle-free-esim');
 Route::post('clientes/{cliente}/send-access-email', [ClienteController::class, 'sendAccessEmail'])->name('clientes.send-access-email');
 
+// Voucher routes
+Route::get('clientes/{cliente}/vouchers', [ClienteController::class, 'vouchers'])->name('clientes.vouchers');
+Route::post('clientes/{cliente}/vouchers', [ClienteController::class, 'storeVoucher'])->name('clientes.vouchers.store');
+Route::delete('clientes/{cliente}/vouchers/{voucher}', [ClienteController::class, 'destroyVoucher'])->name('clientes.vouchers.destroy');
+
 // Cliente dashboard routes
 Route::get('cliente/dashboard', [ClienteDashboardController::class, 'index'])->name('cliente.dashboard');
 Route::get('cliente/dashboard/data', [ClienteDashboardController::class, 'data'])->name('cliente.dashboard.data');
