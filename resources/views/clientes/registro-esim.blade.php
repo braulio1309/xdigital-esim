@@ -732,6 +732,16 @@
                             <h4 class="text-center mb-2 font-weight-bold" style="color: var(--nomad-navy);">Activar eSIM gratis</h4>
                             <p class="text-center text-muted mb-4 small">Completa tus datos para validar si tienes habilitada la activación gratuita.</p>
 
+                            @php
+                                $oldCompanionEmails = old('companion_emails', ['']);
+                                if (!is_array($oldCompanionEmails) || empty($oldCompanionEmails)) {
+                                    $oldCompanionEmails = [''];
+                                }
+                                $hasOldCompanions = collect($oldCompanionEmails)->contains(function ($email) {
+                                    return filled($email);
+                                });
+                            @endphp
+
                             <form class="pt-3" method="POST" action="{{ route('registro.esim.store') }}" id="registro-esim-form">
                                 @csrf
                                 @if(isset($referralCode))
@@ -746,6 +756,14 @@
                                 <div class="form-group">
                                     <label for="email" class="font-weight-bold text-small">Email</label>
                                     <input type="email" class="form-control form-control-lg" name="email" placeholder="Ingrese su correo electrónico asignado" value="{{ old('email') }}" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="font-weight-bold text-small">Validación de viajeros</label>
+                                    <div class="form-control form-control-lg d-flex align-items-center" style="background-color: #f8f9fa; min-height: calc(1.5em + 1rem + 2px);">
+                                        Usaremos tu documento para consultar el último voucher registrado y validar cuántos viajeros pueden activar su eSIM.
+                                    </div>
+                                    <small class="form-text text-muted mt-2">Cada viajero adicional recibirá su propia eSIM en el correo que registres.</small>
                                 </div>
 
                                 <div class="form-group">
@@ -780,28 +798,31 @@
                                             id="btn-toggle-companions"
                                             class="btn btn-outline-secondary btn-sm w-100 text-left d-flex align-items-center justify-content-between"
                                             style="border-radius: 10px;"
-                                            aria-expanded="false"
+                                            aria-expanded="{{ $hasOldCompanions ? 'true' : 'false' }}"
                                             aria-controls="companions-section">
                                         <span>
                                             <i class="mdi mdi-account-group mr-1"></i>
                                             ¿Viajan más contigo?
                                         </span>
-                                        <i class="mdi mdi-chevron-down" id="companions-chevron"></i>
+                                        <i class="mdi {{ $hasOldCompanions ? 'mdi-chevron-up' : 'mdi-chevron-down' }}" id="companions-chevron"></i>
                                     </button>
 
-                                    <div id="companions-section" class="mt-2 d-none" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px; background:#f8fafc;">
-                                        <p class="small text-muted mb-2">Agrega los correos de tus acompañantes registrados. Al activar tu eSIM, también les enviaremos los datos de activación por correo.</p>
+                                    <div id="companions-section" class="mt-2 {{ $hasOldCompanions ? '' : 'd-none' }}" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px; background:#f8fafc;">
+                                        <p class="small text-muted mb-2">Agrega solo los correos adicionales de los acompañantes cubiertos por tu voucher. El titular ya cuenta como 1 viajero.</p>
                                         <div id="companions-list">
+                                            @foreach($oldCompanionEmails as $companionEmail)
                                             <div class="companion-row input-group mb-2">
                                                 <input type="email"
                                                        class="form-control form-control-sm"
                                                        name="companion_emails[]"
+                                                       value="{{ $companionEmail }}"
                                                        placeholder="correo@ejemplo.com"
                                                        autocomplete="off">
                                                 <div class="input-group-append">
                                                     <button type="button" class="btn btn-outline-danger btn-sm btn-remove-companion" tabindex="-1">&times;</button>
                                                 </div>
                                             </div>
+                                            @endforeach
                                         </div>
                                         <button type="button" id="btn-add-companion" class="btn btn-outline-primary btn-sm mt-1">
                                             <i class="mdi mdi-plus"></i> Agregar acompañante

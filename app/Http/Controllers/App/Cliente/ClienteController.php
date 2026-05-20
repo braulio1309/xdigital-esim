@@ -178,7 +178,22 @@ class ClienteController extends Controller
      */
     public function show($id)
     {
-        return $this->service->find($id);
+        $cliente = $this->service->find($id);
+
+        if (!$cliente) {
+            return response()->json(null, 404);
+        }
+
+        $latestVoucher = $cliente->vouchers()->latest()->first();
+
+        return response()->json(array_merge(
+            $cliente->toArray(),
+            [
+                'numero_voucher' => $latestVoucher->numero_voucher ?? '',
+                'numero_personas' => $latestVoucher->numero_personas ?? 1,
+                'voucher_edit_id' => $latestVoucher->id ?? null,
+            ]
+        ));
     }
 
     /**
@@ -191,6 +206,35 @@ class ClienteController extends Controller
     public function update(Request $request, Cliente $cliente)
     {
         $cliente = $this->service->update($cliente);
+
+        $numeroVoucher = trim((string) $request->input('numero_voucher', ''));
+
+        if ($numeroVoucher !== '') {
+            $numeroPersonas = max(1, (int) $request->input('numero_personas', 1));
+            $voucherId = $request->input('voucher_edit_id');
+            $voucher = null;
+
+            if ($voucherId) {
+                $voucher = $cliente->vouchers()->whereKey($voucherId)->first();
+            }
+
+            if (!$voucher) {
+                $voucher = $cliente->vouchers()->latest()->first();
+            }
+
+            if ($voucher) {
+                $voucher->update([
+                    'numero_voucher' => $numeroVoucher,
+                    'numero_personas' => $numeroPersonas,
+                ]);
+            } else {
+                $voucher = ClienteVoucher::create([
+                    'cliente_id' => $cliente->id,
+                    'numero_voucher' => $numeroVoucher,
+                    'numero_personas' => $numeroPersonas,
+                ]);
+            }
+        }
 
         return updated_responses('cliente');
     }

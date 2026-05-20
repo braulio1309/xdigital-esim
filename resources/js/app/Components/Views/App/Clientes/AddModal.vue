@@ -185,6 +185,7 @@
                     free_esim_capacity: 1,
                     numero_voucher: '',
                     numero_personas: 1,
+                    voucher_edit_id: null,
                 },
                 beneficiarios: [],
                 voucherList: [],
@@ -236,8 +237,17 @@
                 this.axiosGet(`/clientes/${clienteId}/vouchers`)
                     .then(response => {
                         this.voucherList = response.data || [];
+
+                        if (!this.inputs.voucher_edit_id && this.voucherList.length) {
+                            this.applyVoucherToInputs(this.voucherList[0]);
+                        }
                     })
                     .catch(() => {});
+            },
+            applyVoucherToInputs(voucher = null) {
+                this.inputs.numero_voucher = voucher ? voucher.numero_voucher : '';
+                this.inputs.numero_personas = voucher ? voucher.numero_personas : 1;
+                this.inputs.voucher_edit_id = voucher ? voucher.id : null;
             },
             deleteVoucher(voucher) {
                 if (!confirm('¿Eliminar este voucher?')) return;
@@ -245,6 +255,11 @@
                 this.axiosDelete(`/clientes/${clienteId}/vouchers/${voucher.id}`)
                     .then(() => {
                         this.voucherList = this.voucherList.filter(v => v.id !== voucher.id);
+
+                        if (this.inputs.voucher_edit_id === voucher.id) {
+                            this.applyVoucherToInputs(this.voucherList[0] || null);
+                        }
+
                         this.$toastr.s('Voucher eliminado.');
                     })
                     .catch(() => {
@@ -263,8 +278,9 @@
                 this.inputs = {
                     ...response.data,
                     password: '',
-                    numero_voucher: '',
-                    numero_personas: 1,
+                    numero_voucher: response.data.numero_voucher || '',
+                    numero_personas: response.data.numero_personas || 1,
+                    voucher_edit_id: response.data.voucher_edit_id || null,
                 };
                 if (response.data.id) {
                     this.loadVouchers(response.data.id);

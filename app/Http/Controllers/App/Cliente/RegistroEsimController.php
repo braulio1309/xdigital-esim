@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\ClienteRequest as Request;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\Cliente\ClienteVoucher;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\ClienteService;
@@ -392,6 +393,134 @@ class RegistroEsimController extends Controller
         return array_intersect_key($transactionData, $transactionColumns);
     }
 
+    private function resolveVoucherForCliente(Cliente $cliente, string $numeroVoucher): ?ClienteVoucher
+    {
+        $normalizedVoucher = mb_strtolower(trim($numeroVoucher));
+
+        if ($normalizedVoucher === '') {
+            return null;
+        }
+
+        return $cliente->vouchers()
+            ->whereRaw('LOWER(numero_voucher) = ?', [$normalizedVoucher])
+            ->latest('id')
+            ->first();
+    }
+
+    private function resolveLatestVoucherForCliente(Cliente $cliente): ?ClienteVoucher
+    {
+        return $cliente->vouchers()
+            ->latest('id')
+            ->first();
+    }
+
+    private function normalizeCompanionEmails(array $emails, string $clienteEmail): array
+    {
+        $clienteEmail = mb_strtolower(trim($clienteEmail));
+
+        return array_values(array_unique(array_filter(array_map(function ($email) use ($clienteEmail) {
+            $email = mb_strtolower(trim((string) $email));
+
+            if ($email === '' || $email === $clienteEmail) {
+                return null;
+            }
+
+            return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+        }, $emails))));
+    }
+
+    private function buildEsimDataView(array $esimPayload, array $selectedProduct): ?array
+    {
+        $qrValue = $esimPayload['esim_qr'] ?? null;
+
+        if (!$qrValue) {
+            return null;
+        }
+
+        $qrImage = QrCode::size(300)->generate($qrValue);
+        $parts = explode('$', $qrValue);
+
+        if (count($parts) < 3) {
+            Log::warning('Formato de QR inesperado: ' . $qrValue);
+        }
+
+        return [
+            'qr_svg' => (string) $qrImage,
+            'smdp' => $parts[1] ?? 'N/A',
+            'code' => $parts[2] ?? 'N/A',
+            'iccid' => $esimPayload['iccid'] ?? 'N/A',
+            'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
+            'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
+        ];
+    }
+
+    private function activateEsimForRecipient(
+        Cliente $cliente,
+        array $selectedProduct,
+        array $transactionContext,
+        array $pricingSnapshot,
+        string $countryCode,
+        string $transactionId,
+        EsimFxService $esimService
+    ): array {
+        $apiResponse = $esimService->createOrder($selectedProduct['id'], $transactionId);
+
+        if (empty($apiResponse['id'])) {
+            Log::error('La API de eSIM no devolvió un ID de orden válido.', ['response' => $apiResponse]);
+            throw new \RuntimeException('No fue posible crear la orden de eSIM. Inténtalo nuevamente en unos minutos.');
+        }
+
+        $activate = $esimService->activateOrder($apiResponse['id']);
+        $esimPayload = $this->resolveEsimPayload($apiResponse, is_array($activate) ? $activate : []);
+
+        if (!$esimPayload) {
+            Log::warning('No se recibieron datos de eSIM en la respuesta de la API', [
+                'order_id' => $apiResponse['id'],
+                'activation_response' => $activate,
+                'order_response' => $apiResponse,
+            ]);
+
+            throw new \RuntimeException('La eSIM fue procesada pero no se recibieron los datos de activación. Inténtalo nuevamente o contacta soporte.');
+        }
+
+        $esimDataView = $this->buildEsimDataView($esimPayload, $selectedProduct);
+
+        if (!$esimDataView) {
+            Log::warning('No se recibió esim_qr en la activación gratuita.', [
+                'order_id' => $apiResponse['id'],
+                'activation_response' => $activate,
+                'order_response' => $apiResponse,
+            ]);
+
+            throw new \RuntimeException('La eSIM fue creada pero no se recibieron los datos del QR de activación.');
+        }
+
+        Transaction::create($this->sanitizeTransactionData([
+            'order_id' => $apiResponse['id'],
+            'transaction_id' => $transactionId,
+            'status' => $apiResponse['status'] ?? 'completed',
+            'iccid' => $esimPayload['iccid'] ?? null,
+            'esim_qr' => $esimPayload['esim_qr'] ?? null,
+            'creation_time' => now(),
+            'cliente_id' => $cliente->id,
+            'beneficiario_id' => $transactionContext['beneficiario_id'],
+            'super_partner_id' => $transactionContext['super_partner_id'],
+            'plan_name' => $selectedProduct['name'] ?? null,
+            'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
+            'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
+            'purchase_amount' => 0,
+            'api_price' => isset($selectedProduct['price']) ? (float) $selectedProduct['price'] : null,
+            'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
+            'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
+            'currency' => 'USD',
+            'country_code' => $countryCode,
+            'partner_sale_commission_amount' => 0,
+            'super_partner_sale_commission_amount' => 0,
+        ]));
+
+        return $esimDataView;
+    }
+
     /**
      * Mostrar el formulario de registro de eSIM
      * 
@@ -452,7 +581,9 @@ class RegistroEsimController extends Controller
                 'identificador' => 'required|string|max:255',
                 'email' => 'required|email',
                 'country_code' => 'required|string|max:2',
-                'referralCode' => 'nullable|string'
+                'referralCode' => 'nullable|string',
+                'companion_emails' => 'nullable|array',
+                'companion_emails.*' => 'nullable|email',
             ]);
             $validated['email'] = mb_strtolower(trim((string) $validated['email']));
 
@@ -530,6 +661,26 @@ class RegistroEsimController extends Controller
                 $cliente->save();
             }
 
+            $clienteVoucher = $this->resolveLatestVoucherForCliente($cliente);
+
+            if (!$clienteVoucher) {
+                return redirect()->back()
+                    ->with('error', 'No encontramos vouchers registrados para esta cédula. Verifica los datos o contacta soporte.')
+                    ->withInput();
+            }
+
+            $companionEmails = $this->normalizeCompanionEmails(
+                (array) $request->input('companion_emails', []),
+                $cliente->email
+            );
+            $allowedCompanions = max(((int) ($clienteVoucher->numero_personas ?? 1)) - 1, 0);
+
+            if (count($companionEmails) > $allowedCompanions) {
+                return redirect()->back()
+                    ->with('error', "El voucher {$clienteVoucher->numero_voucher} permite {$clienteVoucher->numero_personas} viajero(s) en total. Puedes registrar hasta {$allowedCompanions} acompañante(s) además del titular.")
+                    ->withInput();
+            }
+
             // Variable para almacenar datos de eSIM
             $esimDataView = null;
             // 3. Buscar producto por país
@@ -566,169 +717,78 @@ class RegistroEsimController extends Controller
                             $cliente,
                             $countryCode
                         );
-                        $productId = $selectedProduct['id'];
-                        Log::info("Producto seleccionado: {$productId}");
+                        Log::info("Producto seleccionado: {$selectedProduct['id']}");
 
-                        // Generar ID de transacción único
-                        $transactionId = 'WEB-' . $cliente->id . '-' . time();
-
-                        // Crear orden en eSIM FX
-                        $apiResponse = $esimService->createOrder($productId, $transactionId);
-
-                        if (empty($apiResponse['id'])) {
-                            Log::error('La API de eSIM no devolvió un ID de orden válido.', ['response' => $apiResponse]);
-
-                            return redirect()->back()
-                                ->with('error', 'No fue posible crear la orden de eSIM. Inténtalo nuevamente en unos minutos.')
-                                ->withInput();
+                        if ($transactionContext['beneficiario_id']) {
+                            $cliente->partners()->syncWithoutDetaching([$transactionContext['beneficiario_id']]);
                         }
-                        
-                        // Activar la suscripción
-                        $activate = $esimService->activateOrder($apiResponse['id']);
 
-                        $esimPayload = $this->resolveEsimPayload($apiResponse, is_array($activate) ? $activate : []);
+                        $activationRecipients = array_merge([$cliente->email], $companionEmails);
 
-                        if ($esimPayload) {
-                            // Guardar datos técnicos en la transacción
-                            $transactionData = $this->sanitizeTransactionData([
-                                'order_id' => $apiResponse['id'],
-                                'transaction_id' => $transactionId,
-                                'status' => $apiResponse['status'] ?? 'completed',
-                                'iccid' => $esimPayload['iccid'] ?? null,
-                                'esim_qr' => $esimPayload['esim_qr'] ?? null,
-                                'creation_time' => now(),
-                                'cliente_id' => $cliente->id,
-                                'beneficiario_id' => $transactionContext['beneficiario_id'],
-                                'super_partner_id' => $transactionContext['super_partner_id'],
-                                'plan_name' => $selectedProduct['name'] ?? null,
-                                'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
-                                'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
-                                'purchase_amount' => 0,
-                                'api_price' => isset($selectedProduct['price']) ? (float) $selectedProduct['price'] : null,
-                                'reference_purchase_amount' => $pricingSnapshot['charge_amount'],
-                                'beneficiary_commission_amount' => $pricingSnapshot['charge_amount'],
-                                'currency' => 'USD',
-                                'country_code' => $selectedCountryCode,
-                                'partner_sale_commission_amount' => 0,
-                                'super_partner_sale_commission_amount' => 0,
-                            ]);
+                        foreach ($activationRecipients as $index => $recipientEmail) {
+                            $recipientEsimData = $this->activateEsimForRecipient(
+                                $cliente,
+                                $selectedProduct,
+                                $transactionContext,
+                                $pricingSnapshot,
+                                $selectedCountryCode,
+                                'WEB-' . $cliente->id . '-' . time() . '-' . $index,
+                                $esimService
+                            );
 
-                            Transaction::create($transactionData);
-
-                            // Sync client-partner association in pivot table
-                            if ($transactionContext['beneficiario_id']) {
-                                $cliente->partners()->syncWithoutDetaching([$transactionContext['beneficiario_id']]);
+                            if ($index === 0) {
+                                $esimDataView = $recipientEsimData;
                             }
-
-                            // Generar código QR
-                            $qrValue = $esimPayload['esim_qr'] ?? null;
-
-                            if (!$qrValue) {
-                                Log::warning('No se recibió esim_qr en la activación gratuita.', [
-                                    'order_id' => $apiResponse['id'],
-                                    'activation_response' => $activate,
-                                    'order_response' => $apiResponse,
-                                ]);
-
-                                return redirect()->back()
-                                    ->with('error', 'La eSIM fue creada pero no se recibieron los datos del QR de activación.')
-                                    ->withInput();
-                            }
-
-                            $qrImage = QrCode::size(300)->generate($qrValue);
-
-                            // Separar datos para instalación manual
-                            // Formato esperado: LPA:1$smdp.address$activationCode
-                            $parts = explode('$', $qrValue);
-                            
-                            // Validar que tenemos las partes necesarias
-                            if (count($parts) < 3) {
-                                Log::warning("Formato de QR inesperado: " . $qrValue);
-                            }
-
-                            // Preparar datos para la vista
-                            $esimDataView = [
-                                'qr_svg' => (string) $qrImage,
-                                'smdp' => $parts[1] ?? 'N/A',
-                                'code' => $parts[2] ?? 'N/A',
-                                'iccid' => $esimPayload['iccid'] ?? 'N/A',
-                                'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
-                                'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
-                            ];
-                           
 
                             try {
-                                
-
-                                Mail::to($cliente->email)->send(new EsimActivationMail(
-                                    $esimDataView,
-                                    $cliente->email,
+                                Mail::to($recipientEmail)->send(new EsimActivationMail(
+                                    $recipientEsimData,
+                                    $recipientEmail,
                                     $brandingContext['brandPartner']->nombre ?? null
                                 ));
 
-                                Log::info('Correo de activacion de eSIM enviado.', [
-                                    'cliente_id' => $cliente->id,
-                                    'email' => $cliente->email,
-                                ]);
+                                if ($index === 0) {
+                                    Log::info('Correo de activacion de eSIM enviado.', [
+                                        'cliente_id' => $cliente->id,
+                                        'email' => $recipientEmail,
+                                    ]);
 
-                                $emailDeliveryStatus = [
-                                    'sent' => true,
-                                    'message' => 'Se ha enviado por correo los datos para activar la eSIM. Revisa tambien la carpeta de spam.',
-                                ];
-                            } catch (\Throwable $mailException) {
-                                Log::error('No fue posible enviar el correo de activacion de eSIM.', [
-                                    'cliente_id' => $cliente->id,
-                                    'email' => $cliente->email,
-                                    'message' => $mailException->getMessage(),
-                                ]);
-                                $emailDeliveryStatus = [
-                                    'sent' => false,
-                                    'message' => 'La eSIM se activo correctamente, pero no fue posible enviar el correo con los datos de activacion.',
-                                ];
-                            }
-
-                            // Send eSIM activation email to companion travelers
-                            $companionEmails = array_filter(
-                                array_map('trim', (array) $request->input('companion_emails', [])),
-                                function ($email) {
-                                    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-                                }
-                            );
-
-                            foreach ($companionEmails as $companionEmail) {
-                                $companionEmail = mb_strtolower($companionEmail);
-                                try {
-                                    Mail::to($companionEmail)->send(new EsimActivationMail(
-                                        $esimDataView,
-                                        $companionEmail,
-                                        $brandingContext['brandPartner']->nombre ?? null
-                                    ));
+                                    $emailDeliveryStatus = [
+                                        'sent' => true,
+                                        'message' => 'Se ha enviado por correo los datos para activar la eSIM. Revisa tambien la carpeta de spam.',
+                                    ];
+                                } else {
                                     Log::info('Correo de activación de eSIM enviado a acompañante.', [
-                                        'companion_email' => $companionEmail,
+                                        'companion_email' => $recipientEmail,
                                         'cliente_id' => $cliente->id,
                                     ]);
-                                } catch (\Throwable $companionMailException) {
+                                }
+                            } catch (\Throwable $mailException) {
+                                if ($index === 0) {
+                                    Log::error('No fue posible enviar el correo de activacion de eSIM.', [
+                                        'cliente_id' => $cliente->id,
+                                        'email' => $recipientEmail,
+                                        'message' => $mailException->getMessage(),
+                                    ]);
+                                    $emailDeliveryStatus = [
+                                        'sent' => false,
+                                        'message' => 'La eSIM se activo correctamente, pero no fue posible enviar el correo con los datos de activacion.',
+                                    ];
+                                } else {
                                     Log::warning('No fue posible enviar correo de eSIM al acompañante.', [
-                                        'companion_email' => $companionEmail,
-                                        'message' => $companionMailException->getMessage(),
+                                        'companion_email' => $recipientEmail,
+                                        'message' => $mailException->getMessage(),
                                     ]);
                                 }
                             }
-
-                            // If this client has the can_activate_free_esim flag, deactivate it after successful activation
-                            if ($cliente->can_activate_free_esim) {
-                                $cliente->can_activate_free_esim = false;
-                                $cliente->save();
-                            }
-
-                            Log::info("eSIM activada exitosamente para cliente ID: {$cliente->id}");
-                        } else {
-                            Log::warning("No se recibieron datos de eSIM en la respuesta de la API");
-
-                            return redirect()->back()
-                                ->with('error', 'La eSIM fue procesada pero no se recibieron los datos de activación. Inténtalo nuevamente o contacta soporte.')
-                                ->withInput();
                         }
+
+                        if ($cliente->can_activate_free_esim) {
+                            $cliente->can_activate_free_esim = false;
+                            $cliente->save();
+                        }
+
+                        Log::info("eSIM activada exitosamente para cliente ID: {$cliente->id}");
                     } else {
                         Log::error("No se encontraron productos disponibles para el país: {$countryCode}");
 
@@ -737,6 +797,12 @@ class RegistroEsimController extends Controller
                             ->withInput();
                     }
 
+                } catch (\RuntimeException $e) {
+                    Log::error("Error al activar eSIM: " . $e->getMessage());
+
+                    return redirect()->back()
+                        ->with('error', $e->getMessage())
+                        ->withInput();
                 } catch (\Exception $e) {
                     Log::error("Error al activar eSIM: " . $e->getMessage());
 
