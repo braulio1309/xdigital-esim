@@ -147,7 +147,7 @@
             </div>
         </div>
 
-        <app-table :id="tableId" :options="options" :search="search" @action="getListAction"/>
+        <app-table :id="tableId" :options="tableOptions" :search="search" @action="getListAction"/>
 
         <add-modal v-if="isAddEditModalActive"
                    :table-id="tableId"
@@ -387,13 +387,7 @@
                             type: 'none',
                             component: 'app-send-recharge-email-action',
                             modalId: 'transaction-send-recharge-email',
-                        }, {
-                            title: this.$t('terminate_subscription'),
-                            icon: 'slash',
-                            type: 'none',
-                            component: 'app-confirmation-modal',
-                            modalId: 'transaction-terminate',
-                        }
+                        },
                     ],
                     showFilter: false,
                     showSearch: true,
@@ -417,6 +411,24 @@
                 return this.$store.state.user &&
                        this.$store.state.user.loggedInUser &&
                        this.$store.state.user.loggedInUser.user_type === 'super_partner';
+            },
+            tableOptions() {
+                if (!this.isAdmin) {
+                    return this.options;
+                }
+                return {
+                    ...this.options,
+                    actions: [
+                        ...this.options.actions,
+                        {
+                            title: this.$t('terminate_subscription'),
+                            icon: 'slash',
+                            type: 'none',
+                            component: 'app-confirmation-modal',
+                            modalId: 'transaction-terminate',
+                        }
+                    ]
+                };
             },
             isBeneficiario() {
                 return this.$store.state.user && 

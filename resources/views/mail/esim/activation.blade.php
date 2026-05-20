@@ -20,12 +20,7 @@
                     <tr>
                         <td style="padding:28px 32px;">
                             <p style="margin:0 0 16px; font-size:15px; line-height:1.6;">
-                                La activacion quedo asociada al correo <strong>{{ $recipientEmail }}</strong>
-                                @if($partnerName)
-                                    para el aliado <strong>{{ $partnerName }}</strong>.
-                                @else
-                                    .
-                                @endif
+                                La activacion quedo asociada al correo <strong>{{ $recipientEmail }}</strong>.
                             </p>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px; background:#f3f9fd; border:1px solid #cfe6f4; border-radius:12px;">
@@ -67,6 +62,21 @@
                             <p style="margin:0; font-size:14px; line-height:1.7; color:#4b587c;">
                                 Si no puedes escanear el QR desde la web, usa los datos manuales anteriores dentro de la opcion <strong>Agregar eSIM</strong> o <strong>Plan de datos moviles</strong> de tu telefono.
                             </p>
+
+                            @if(!empty($companionFormUrl))
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0; background:#f0f9ff; border:1px solid #bde0f5; border-radius:12px;">
+                                    <tr>
+                                        <td style="padding:18px 20px;">
+                                            <p style="margin:0 0 6px; font-size:14px; font-weight:700; color:#181c36;">¿Viajan más contigo?</p>
+                                            <p style="margin:0 0 14px; font-size:13px; color:#4b587c; line-height:1.6;">Tu voucher incluye viajeros adicionales. Haz clic en el botón para registrar sus correos y enviarles su eSIM gratuita.</p>
+                                            <a href="{{ $companionFormUrl }}" style="display:inline-block; background:#2d9cdb; color:#ffffff; text-decoration:none; padding:12px 20px; border-radius:10px; font-weight:700; font-size:14px;">
+                                                Registrar acompañantes
+                                            </a>
+                                            <p style="margin:12px 0 0; font-size:11px; color:#6f7a96; word-break:break-all;">Si el botón no funciona, copia este enlace: {{ $companionFormUrl }}</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            @endif
                         </td>
                     </tr>
                 </table>

@@ -19,6 +19,7 @@ class Transaction extends AppModel
         'esim_qr',
         'creation_time',
         'cliente_id',
+        'companion_of_cliente_id',
         'beneficiario_id',
         'super_partner_id',
         'order_id',

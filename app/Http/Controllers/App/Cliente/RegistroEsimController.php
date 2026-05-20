@@ -26,6 +26,7 @@ use Illuminate\Support\Str;
 use App\Helpers\CountryTariffHelper;
 use App\Mail\App\Cliente\EsimActivationMail;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 
 class RegistroEsimController extends Controller
 {
@@ -725,6 +726,22 @@ class RegistroEsimController extends Controller
 
                         $activationRecipients = array_merge([$cliente->email], $companionEmails);
 
+                        // Build signed companion-form URL if the voucher has companion slots
+                        $companionFormUrl = null;
+                        $allowedCompanions = max(((int) ($clienteVoucher->numero_personas ?? 1)) - 1, 0);
+
+                        if ($allowedCompanions > 0) {
+                            $companionFormUrl = URL::temporarySignedRoute(
+                                'registro.acompanantes.form',
+                                now()->addDays(7),
+                                [
+                                    'cliente_id' => $cliente->id,
+                                    'voucher_id' => $clienteVoucher->id,
+                                    'country_code' => $selectedCountryCode,
+                                ]
+                            );
+                        }
+
                         foreach ($activationRecipients as $index => $recipientEmail) {
                             $recipientEsimData = $this->activateEsimForRecipient(
                                 $cliente,
@@ -744,7 +761,8 @@ class RegistroEsimController extends Controller
                                 Mail::to($recipientEmail)->send(new EsimActivationMail(
                                     $recipientEsimData,
                                     $recipientEmail,
-                                    $brandingContext['brandPartner']->nombre ?? null
+                                    null,
+                                    $index === 0 ? $companionFormUrl : null
                                 ));
 
                                 if ($index === 0) {
