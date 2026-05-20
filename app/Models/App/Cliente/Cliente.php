@@ -20,6 +20,16 @@ class Cliente extends AppModel
     ];
 
     /**
+     * Relationship with ClienteVoucher model
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function vouchers()
+    {
+        return $this->hasMany(ClienteVoucher::class);
+    }
+
+    /**
      * Relationship with Transaction model
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

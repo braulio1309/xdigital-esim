@@ -3,6 +3,7 @@
 namespace App\Imports\App;
 
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\Cliente\ClienteVoucher;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
@@ -94,6 +95,9 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 ?? ''
             );
             $email    = mb_strtolower(trim((string) ($row['email'] ?? $row['correo'] ?? $row['e_mail'] ?? $row['Email'] ?? $row['Correo'] ?? '')));
+            $numeroVoucher = trim((string) ($row['numero_voucher'] ?? $row['voucher'] ?? $row['num_voucher'] ?? ''));
+            $numeroPersonas = (int) ($row['numero_personas'] ?? $row['personas'] ?? $row['num_personas'] ?? 1);
+            $numeroPersonas = $numeroPersonas > 0 ? $numeroPersonas : 1;
             $rowPayload = [
                 'nombre' => $nombre,
                 'apellido' => $apellido,
@@ -168,6 +172,15 @@ class ClienteImport implements ToCollection, WithHeadingRow
 
                     if (!empty($this->partnerIds)) {
                         $cliente->partners()->syncWithoutDetaching($this->partnerIds);
+                    }
+
+                    // Registrar voucher si viene en el Excel
+                    if (!empty($numeroVoucher)) {
+                        ClienteVoucher::create([
+                            'cliente_id'      => $cliente->id,
+                            'numero_voucher'  => $numeroVoucher,
+                            'numero_personas' => $numeroPersonas,
+                        ]);
                     }
 
                     return $cliente;

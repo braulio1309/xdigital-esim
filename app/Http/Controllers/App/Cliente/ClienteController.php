@@ -8,6 +8,7 @@ use App\Http\Requests\App\ClienteRequest as Request;
 use App\Imports\App\ClienteImport;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
+use App\Models\App\Cliente\ClienteVoucher;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Services\App\Cliente\FreeEsimInvitationMailService;
 use App\Services\App\Cliente\ClienteService;
@@ -119,6 +120,15 @@ class ClienteController extends Controller
         // cuente como cliente "primario" de un solo partner.
         if ($superPartner && !empty($partnerIds)) {
             $cliente->partners()->syncWithoutDetaching($partnerIds);
+        }
+
+        // Crear voucher si se proporcionó uno
+        if ($request->filled('numero_voucher')) {
+            ClienteVoucher::create([
+                'cliente_id'      => $cliente->id,
+                'numero_voucher'  => trim($request->input('numero_voucher')),
+                'numero_personas' => max(1, (int) $request->input('numero_personas', 1)),
+            ]);
         }
 
         try {
@@ -290,6 +300,62 @@ class ClienteController extends Controller
             'errors'   => $import->getErrors(),
             'skipped_details' => $import->getSkippedDetails(),
         ]);
+    }
+
+    /**
+     * Get all vouchers for a specific cliente.
+     *
+     * @param Cliente $cliente
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function vouchers(Cliente $cliente)
+    {
+        return response()->json($cliente->vouchers()->latest()->get());
+    }
+
+    /**
+     * Create a new voucher for a specific cliente.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param Cliente $cliente
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeVoucher(\Illuminate\Http\Request $request, Cliente $cliente)
+    {
+        $request->validate([
+            'numero_voucher'  => 'required|string|max:255',
+            'numero_personas' => 'required|integer|min:1|max:9999',
+        ]);
+
+        $voucher = ClienteVoucher::create([
+            'cliente_id'      => $cliente->id,
+            'numero_voucher'  => trim($request->input('numero_voucher')),
+            'numero_personas' => (int) $request->input('numero_personas'),
+        ]);
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Voucher registrado exitosamente.',
+            'data'    => $voucher,
+        ], 201);
+    }
+
+    /**
+     * Delete a voucher.
+     *
+     * @param Cliente $cliente
+     * @param ClienteVoucher $voucher
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroyVoucher(Cliente $cliente, ClienteVoucher $voucher)
+    {
+        if ($voucher->cliente_id !== $cliente->id) {
+            return response()->json(['status' => false, 'message' => 'No autorizado.'], 403);
+        }
+
+        $voucher->delete();
+
+        return response()->json(['status' => true, 'message' => 'Voucher eliminado.']);
     }
 
     private function resolveScopedSuperPartner(): ?SuperPartner

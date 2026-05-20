@@ -111,6 +111,51 @@
                         <small class="text-muted">Capacidad de datos de la eSIM gratuita que se asignará al cliente.</small>
                     </div>
                 </div>
+
+                <hr class="my-3">
+                <p class="mb-2 font-weight-bold text-muted small text-uppercase" style="letter-spacing: .05em;">Voucher de viaje</p>
+
+                <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_numero_voucher" class="col-sm-3 mb-0">
+                        Nº de voucher
+                    </label>
+                    <app-input id="inputs_numero_voucher"
+                               class="col-sm-9"
+                               type="text"
+                               v-model="inputs.numero_voucher"
+                               placeholder="Número de voucher (opcional)"
+                               :required="false"/>
+                </div>
+                <div class="form-group row align-items-center mb-0">
+                    <label for="inputs_numero_personas" class="col-sm-3 mb-0">
+                        Nº de viajeros
+                    </label>
+                    <app-input id="inputs_numero_personas"
+                               class="col-sm-9"
+                               type="number"
+                               v-model="inputs.numero_personas"
+                               placeholder="Cantidad de personas en el voucher"
+                               :required="false"/>
+                </div>
+
+                <!-- Vouchers registrados (solo en modo edición) -->
+                <div v-if="selectedUrl && voucherList.length" class="mt-3">
+                    <p class="mb-1 font-weight-bold small text-muted">Vouchers anteriores</p>
+                    <ul class="list-group list-group-flush">
+                        <li v-for="v in voucherList" :key="v.id"
+                            class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
+                            <span>
+                                <strong>{{ v.numero_voucher }}</strong>
+                                <span class="text-muted ml-2">{{ v.numero_personas }} viajero(s)</span>
+                            </span>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    @click="deleteVoucher(v)">
+                                <i class="feather icon-trash-2"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
             </form>
         </template>
     </modal>
@@ -138,8 +183,11 @@
                     beneficiario_id: null,
                     can_activate_free_esim: false,
                     free_esim_capacity: 1,
+                    numero_voucher: '',
+                    numero_personas: 1,
                 },
                 beneficiarios: [],
+                voucherList: [],
                 modalId: 'cliente-add-edit-modal',
                 modalTitle: this.$t('add'),
             }
@@ -184,6 +232,25 @@
                         this.$toastr.e('Error al cargar la lista de beneficiarios');
                     });
             },
+            loadVouchers(clienteId) {
+                this.axiosGet(`/clientes/${clienteId}/vouchers`)
+                    .then(response => {
+                        this.voucherList = response.data || [];
+                    })
+                    .catch(() => {});
+            },
+            deleteVoucher(voucher) {
+                if (!confirm('¿Eliminar este voucher?')) return;
+                const clienteId = this.inputs.id;
+                this.axiosDelete(`/clientes/${clienteId}/vouchers/${voucher.id}`)
+                    .then(() => {
+                        this.voucherList = this.voucherList.filter(v => v.id !== voucher.id);
+                        this.$toastr.s('Voucher eliminado.');
+                    })
+                    .catch(() => {
+                        this.$toastr.e('No se pudo eliminar el voucher.');
+                    });
+            },
             submit() {
                 this.save(this.inputs);
             },
@@ -196,7 +263,12 @@
                 this.inputs = {
                     ...response.data,
                     password: '',
+                    numero_voucher: '',
+                    numero_personas: 1,
                 };
+                if (response.data.id) {
+                    this.loadVouchers(response.data.id);
+                }
                 this.preloader = false;
             },
         },

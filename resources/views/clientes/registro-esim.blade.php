@@ -774,6 +774,41 @@
                                      </div>
                                 </div>
 
+                                {{-- Sección de acompañantes --}}
+                                <div class="mt-2 mb-3">
+                                    <button type="button"
+                                            id="btn-toggle-companions"
+                                            class="btn btn-outline-secondary btn-sm w-100 text-left d-flex align-items-center justify-content-between"
+                                            style="border-radius: 10px;"
+                                            aria-expanded="false"
+                                            aria-controls="companions-section">
+                                        <span>
+                                            <i class="mdi mdi-account-group mr-1"></i>
+                                            ¿Viajan más contigo?
+                                        </span>
+                                        <i class="mdi mdi-chevron-down" id="companions-chevron"></i>
+                                    </button>
+
+                                    <div id="companions-section" class="mt-2 d-none" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px; background:#f8fafc;">
+                                        <p class="small text-muted mb-2">Agrega los correos de tus acompañantes registrados. Al activar tu eSIM, también les enviaremos los datos de activación por correo.</p>
+                                        <div id="companions-list">
+                                            <div class="companion-row input-group mb-2">
+                                                <input type="email"
+                                                       class="form-control form-control-sm"
+                                                       name="companion_emails[]"
+                                                       placeholder="correo@ejemplo.com"
+                                                       autocomplete="off">
+                                                <div class="input-group-append">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm btn-remove-companion" tabindex="-1">&times;</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" id="btn-add-companion" class="btn btn-outline-primary btn-sm mt-1">
+                                            <i class="mdi mdi-plus"></i> Agregar acompañante
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div class="mt-4">
                                     <button type="submit" class="btn btn-block btn-brand-gradient btn-lg font-weight-medium">
                                         Obtener eSIM Gratis
@@ -1767,5 +1802,55 @@ document.addEventListener('DOMContentLoaded', function() {
     loadPlans();
 });
 </script>
+
+{{-- Companions section JS (always shown when free esim form is visible) --}}
+@if($showFreeEsimForm)
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btnToggle = document.getElementById('btn-toggle-companions');
+    const section   = document.getElementById('companions-section');
+    const chevron   = document.getElementById('companions-chevron');
+    const list      = document.getElementById('companions-list');
+    const btnAdd    = document.getElementById('btn-add-companion');
+
+    if (!btnToggle || !section) return;
+
+    btnToggle.addEventListener('click', function () {
+        const isOpen = !section.classList.contains('d-none');
+        section.classList.toggle('d-none', isOpen);
+        btnToggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        if (chevron) {
+            chevron.classList.toggle('mdi-chevron-up', !isOpen);
+            chevron.classList.toggle('mdi-chevron-down', isOpen);
+        }
+    });
+
+    if (btnAdd) {
+        btnAdd.addEventListener('click', function () {
+            const row = document.createElement('div');
+            row.className = 'companion-row input-group mb-2';
+            row.innerHTML = '<input type="email" class="form-control form-control-sm" name="companion_emails[]" placeholder="correo@ejemplo.com" autocomplete="off">'
+                          + '<div class="input-group-append"><button type="button" class="btn btn-outline-danger btn-sm btn-remove-companion" tabindex="-1">&times;</button></div>';
+            list.appendChild(row);
+        });
+    }
+
+    if (list) {
+        list.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-remove-companion');
+            if (!btn) return;
+            const rows = list.querySelectorAll('.companion-row');
+            if (rows.length > 1) {
+                btn.closest('.companion-row').remove();
+            } else {
+                // Keep at least one row but clear its value
+                const input = btn.closest('.companion-row').querySelector('input');
+                if (input) input.value = '';
+            }
+        });
+    }
+});
+</script>
+@endif
 @endpush
 @endsection
