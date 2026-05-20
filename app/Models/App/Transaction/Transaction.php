@@ -36,7 +36,9 @@ class Transaction extends AppModel
         'is_paid',
         'paid_at',
         'payment_history_id',
-        'terminated_at'
+        'terminated_at',
+        'usage_75_notified_at',
+        'usage_90_notified_at',
     ];
 
     protected $casts = [
@@ -49,6 +51,8 @@ class Transaction extends AppModel
         'api_price' => 'decimal:2',
         'partner_sale_commission_amount' => 'decimal:2',
         'super_partner_sale_commission_amount' => 'decimal:2',
+        'usage_75_notified_at' => 'datetime',
+        'usage_90_notified_at' => 'datetime',
     ];
 
     protected static function boot()

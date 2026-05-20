@@ -3,18 +3,19 @@
 namespace App\Console\Commands;
 
 use App\Mail\App\Cliente\LowDataUsageMail;
-use App\Models\App\Cliente\RechargeAccessToken;
 use App\Models\App\Transaction\Transaction;
 use App\Services\App\Cliente\RechargeAccessTokenService;
 use App\Services\EsimFxService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class NotifyLowDataUsageCommand extends Command
 {
-    protected $signature = 'esim:notify-low-data';
-    protected $description = 'Envía aviso de bajo consumo (~75%) con link tokenizado de recarga.';
+    protected $signature = 'notificar:consumo-esim';
+    protected $aliases = ['esim:notify-low-data'];
+    protected $description = 'Envía avisos de consumo eSIM (75% y 90%) con link tokenizado de recarga.';
 
     public function handle(EsimFxService $esimFxService, RechargeAccessTokenService $rechargeAccessTokenService): int
     {
@@ -23,18 +24,24 @@ class NotifyLowDataUsageCommand extends Command
             ->whereNotNull('iccid')
             ->whereNotNull('cliente_id')
             ->where('status', 'completed')
-            ->with('cliente')
-            ->orderByDesc('creation_time')
-            ->get()
-            ->unique('iccid');
+            ->where(function ($query) {
+                $query->whereNull('usage_75_notified_at')
+                    ->orWhereNull('usage_90_notified_at');
+            })
+            ->whereHas('cliente', function ($query) {
+                $query->whereNotNull('email');
+            })
+            ->whereHas('cliente.user', function ($query) {
+                $query->active();
+            })
+            ->with(['cliente', 'beneficiario'])
+            ->orderBy('id')
+            ->get();
 
-        $sent = 0;
+        $sent75 = 0;
+        $sent90 = 0;
 
         foreach ($candidates as $transaction) {
-            if (!$transaction->cliente || empty($transaction->cliente->email)) {
-                continue;
-            }
-
             try {
                 $detail = $esimFxService->getOrder($transaction->order_id);
                 $subscription = $detail['subscription'] ?? [];
@@ -51,29 +58,13 @@ class NotifyLowDataUsageCommand extends Command
                     continue;
                 }
 
-                $alreadySent = RechargeAccessToken::query()
-                    ->where('purpose', 'low_data_75')
-                    ->where('transaction_id', $transaction->id)
-                    ->where('created_at', '>=', now()->subDay())
-                    ->exists();
-
-                if ($alreadySent) {
-                    continue;
+                if ($this->dispatchThresholdNotification($transaction, 75, $usagePercentage, $rechargeAccessTokenService)) {
+                    $sent75++;
                 }
 
-                $tokenPayload = $rechargeAccessTokenService->createForTransaction($transaction, [
-                    'purpose' => 'low_data_75',
-                    'expires_at' => now()->addDays(7),
-                ]);
-
-                Mail::to($transaction->cliente->email)->send(new LowDataUsageMail(
-                    $transaction->cliente,
-                    $transaction,
-                    $tokenPayload['url'],
-                    $usagePercentage
-                ));
-
-                $sent++;
+                if ($usagePercentage >= 90 && $this->dispatchThresholdNotification($transaction, 90, $usagePercentage, $rechargeAccessTokenService)) {
+                    $sent90++;
+                }
             } catch (\Throwable $exception) {
                 Log::warning('No fue posible procesar aviso de bajo consumo.', [
                     'transaction_id' => $transaction->id,
@@ -82,8 +73,51 @@ class NotifyLowDataUsageCommand extends Command
             }
         }
 
-        $this->info("Notificaciones enviadas: {$sent}");
+        $this->info("Notificaciones enviadas: 75%={$sent75}, 90%={$sent90}");
 
         return self::SUCCESS;
+    }
+
+    protected function dispatchThresholdNotification(
+        Transaction $transaction,
+        int $threshold,
+        float $usagePercentage,
+        RechargeAccessTokenService $rechargeAccessTokenService
+    ): bool {
+        $field = $threshold === 90 ? 'usage_90_notified_at' : 'usage_75_notified_at';
+
+        return DB::transaction(function () use ($transaction, $threshold, $usagePercentage, $rechargeAccessTokenService, $field) {
+            $lockedTransaction = Transaction::query()
+                ->with('cliente')
+                ->lockForUpdate()
+                ->find($transaction->id);
+
+            if (!$lockedTransaction || $lockedTransaction->{$field}) {
+                return false;
+            }
+
+            if (!$lockedTransaction->cliente || empty($lockedTransaction->cliente->email)) {
+                return false;
+            }
+
+            $tokenPayload = $rechargeAccessTokenService->createForTransaction($lockedTransaction, [
+                'purpose' => sprintf('low_data_%d', $threshold),
+                'expires_at' => now()->addDays(7),
+            ]);
+
+            Mail::to($lockedTransaction->cliente->email)->queue(new LowDataUsageMail(
+                $lockedTransaction->cliente,
+                $lockedTransaction,
+                $tokenPayload['url'],
+                $usagePercentage,
+                $threshold
+            ));
+
+            $lockedTransaction->forceFill([
+                $field => now(),
+            ])->save();
+
+            return true;
+        }, 3);
     }
 }
