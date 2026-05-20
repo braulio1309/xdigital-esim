@@ -16,13 +16,21 @@ class LowDataUsageMail extends Mailable
     public Transaction $transaction;
     public string $rechargeUrl;
     public float $usagePercentage;
+    public int $threshold;
 
-    public function __construct(Cliente $cliente, Transaction $transaction, string $rechargeUrl, float $usagePercentage)
+    public function __construct(
+        Cliente $cliente,
+        Transaction $transaction,
+        string $rechargeUrl,
+        float $usagePercentage,
+        int $threshold = 75
+    )
     {
         $this->cliente = $cliente;
         $this->transaction = $transaction;
         $this->rechargeUrl = $rechargeUrl;
         $this->usagePercentage = $usagePercentage;
+        $this->threshold = $threshold;
     }
 
     public function build()

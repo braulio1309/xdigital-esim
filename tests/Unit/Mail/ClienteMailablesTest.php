@@ -41,4 +41,23 @@ class ClienteMailablesTest extends TestCase
 
         $this->assertSame('Tu eSIM está cerca de agotarse', $built->subject);
     }
+
+    public function test_low_data_usage_mail_accepts_ninety_percent_threshold(): void
+    {
+        $cliente = new Cliente([
+            'nombre' => 'Ana',
+            'apellido' => 'Ruiz',
+            'email' => 'ana@example.com',
+        ]);
+
+        $transaction = new Transaction([
+            'iccid' => '1234567890',
+        ]);
+
+        $mail = new LowDataUsageMail($cliente, $transaction, 'https://example.com/recarga/token/test', 92, 90);
+        $built = $mail->build();
+
+        $this->assertSame('Tu eSIM está cerca de agotarse', $built->subject);
+        $this->assertSame(90, $mail->threshold);
+    }
 }
