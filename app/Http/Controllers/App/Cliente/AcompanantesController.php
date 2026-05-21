@@ -7,12 +7,17 @@ use App\Mail\App\Cliente\EsimActivationMail;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Cliente\ClienteVoucher;
 use App\Models\App\Transaction\Transaction;
+use App\Models\Core\Auth\User;
+use App\Models\Core\Status;
 use App\Services\EsimFxService;
 use App\Helpers\CountryTariffHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AcompanantesController extends Controller
@@ -247,20 +252,84 @@ class AcompanantesController extends Controller
 
     private function findOrCreateCompanionCliente(string $email, array $transactionContext): Cliente
     {
-        $existing = Cliente::whereRaw('LOWER(email) = ?', [mb_strtolower($email)])->first();
+        $email = mb_strtolower($email);
+        $beneficiarioId = $transactionContext['beneficiario_id'] ?? null;
 
-        if ($existing) {
-            return $existing;
+        return DB::transaction(function () use ($email, $beneficiarioId, $transactionContext) {
+            $existing = Cliente::whereRaw('LOWER(email) = ?', [$email])->lockForUpdate()->first();
+
+            if ($existing) {
+                // Ensure the existing cliente has a linked user account
+                if (!$existing->user_id) {
+                    $user = $this->findOrCreateUserForCompanion($email, $transactionContext);
+                    $existing->user_id = $user->id;
+                    $existing->save();
+                }
+
+                // Associate with the partner in the pivot table so they are visible to the partner/super_partner
+                if ($beneficiarioId) {
+                    $existing->partners()->syncWithoutDetaching([$beneficiarioId]);
+                }
+
+                return $existing;
+            }
+
+            $user = $this->findOrCreateUserForCompanion($email, $transactionContext);
+
+            $companionCliente = Cliente::create([
+                'email'                  => $email,
+                'nombre'                 => '',
+                'apellido'               => '',
+                'identificador'          => '',
+                'user_id'                => $user->id,
+                'can_activate_free_esim' => false,
+                'beneficiario_id'        => $beneficiarioId,
+            ]);
+
+            // Sync pivot table so beneficiario and super_partner can see this companion client
+            if ($beneficiarioId) {
+                $companionCliente->partners()->syncWithoutDetaching([$beneficiarioId]);
+            }
+
+            return $companionCliente;
+        });
+    }
+
+    private function findOrCreateUserForCompanion(string $email, array $transactionContext): User
+    {
+        $existingUser = User::whereRaw('LOWER(email) = ?', [$email])->lockForUpdate()->first();
+
+        if ($existingUser) {
+            // Spatie's assignRole is idempotent (uses syncWithoutDetaching internally)
+            $existingUser->assignRole('cliente');
+
+            if ($existingUser->user_type !== 'cliente') {
+                $existingUser->user_type = 'cliente';
+                $existingUser->save();
+            }
+
+            return $existingUser;
         }
 
-        return Cliente::create([
-            'email' => mb_strtolower($email),
-            'nombre' => '',
-            'apellido' => '',
-            'identificador' => '',
-            'can_activate_free_esim' => false,
-            'beneficiario_id' => $transactionContext['beneficiario_id'],
+        $status = Status::findByNameAndType('status_active', 'user')
+            ?? Status::where('type', 'user')->orderBy('id')->first();
+
+        if (!$status) {
+            throw new \RuntimeException("No se encontró un estado activo para usuarios al registrar acompañante {$email}. Verifica los seeders de estados.");
+        }
+
+        $user = User::create([
+            'first_name'       => '',
+            'last_name'        => '',
+            'email'            => $email,
+            'password'         => Hash::make(Str::random(16)),
+            'user_type'        => 'cliente',
+            'status_id'        => $status->id,
+            'super_partner_id' => $transactionContext['super_partner_id'] ?? null,
         ]);
+        $user->assignRole('cliente');
+
+        return $user;
     }
 
     private function activateEsimForCompanion(
