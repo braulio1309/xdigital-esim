@@ -33,6 +33,24 @@
                                 </tr>
                             </table>
 
+                            @if(!empty($qrBase64))
+                                <h2 style="margin:0 0 14px; font-size:18px; color:#181c36;">Escanea el código QR</h2>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                                    <tr>
+                                        <td align="center" style="padding:20px; background:#f3f9fd; border:1px solid #cfe6f4; border-radius:12px;">
+                                            <img src="data:image/png;base64,{{ $qrBase64 }}"
+                                                 alt="QR de activación eSIM"
+                                                 width="220"
+                                                 height="220"
+                                                 style="display:block; border:0;">
+                                            <p style="margin:14px 0 0; font-size:13px; color:#5a6785; text-align:center;">
+                                                Escanea este código desde los ajustes de tu dispositivo en <strong>Agregar eSIM</strong>.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            @endif
+
                             <h2 style="margin:0 0 14px; font-size:18px; color:#181c36;">Datos de activacion manual</h2>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin-bottom:20px;">
@@ -60,7 +78,7 @@
                             @endif
 
                             <p style="margin:0; font-size:14px; line-height:1.7; color:#4b587c;">
-                                Si no puedes escanear el QR desde la web, usa los datos manuales anteriores dentro de la opcion <strong>Agregar eSIM</strong> o <strong>Plan de datos moviles</strong> de tu telefono.
+                                Si tienes problemas para escanear el QR, usa los datos manuales de activacion que aparecen a continuacion.
                             </p>
 
                             @if(!empty($companionFormUrl))
