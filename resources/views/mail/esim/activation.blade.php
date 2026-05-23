@@ -33,6 +33,16 @@
                                 </tr>
                             </table>
 
+                            @php
+                                $qrImageSrc = null;
+
+                                if (!empty($qrPng)) {
+                                    $qrImageSrc = isset($message)
+                                        ? $message->embedData($qrPng, 'esim-activation-qr.png', 'image/png')
+                                        : 'data:image/png;base64,' . base64_encode($qrPng);
+                                }
+                            @endphp
+
                             @if($qrImageSrc)
                                 <h2 style="margin:0 0 14px; font-size:18px; color:#181c36;">Escanea el código QR</h2>
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
