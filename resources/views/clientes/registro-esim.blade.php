@@ -748,10 +748,11 @@
                                     <input type="hidden" name="referralCode" value="{{ $referralCode }}">
                                 @endif
 
-                                <div class="mb-4">
-                                    <button type="submit" class="btn btn-block btn-brand-gradient btn-lg font-weight-medium">
-                                        Obtener eSIM Gratis
-                                    </button>
+                                <div class="compatibility-link-wrap mb-4">
+                                    <a href="#" class="compatibility-link" data-toggle="modal" data-target="#deviceCompatibilityModal">
+                                        <i class="mdi mdi-cellphone-link"></i>
+                                        <span>Verifica la compatibilidad de tu dispositivo</span>
+                                    </a>
                                 </div>
 
                                 <div class="form-group">
@@ -782,12 +783,6 @@
                                            value="{{ $selectedCountryForForm }}"
                                          data-plans-base-url="{{ $plansBaseUrl }}">
                                      <small class="form-text text-muted mt-2">Selecciona el país de destino. Si no aplica para eSIM gratis, te llevamos directo a sus planes disponibles.</small>
-                                     <div class="compatibility-link-wrap">
-                                        <a href="#" class="compatibility-link" data-toggle="modal" data-target="#deviceCompatibilityModal">
-                                            <i class="mdi mdi-cellphone-link"></i>
-                                            <span>Verifica la compatibilidad de tu dispositivo</span>
-                                        </a>
-                                     </div>
                                 </div>
 
                                 {{-- Sección de acompañantes --}}
@@ -829,6 +824,12 @@
                                             <i class="mdi mdi-plus"></i> Agregar acompañante
                                         </button>
                                     </div>
+                                </div>
+
+                                <div class="mt-4">
+                                    <button type="submit" class="btn btn-block btn-brand-gradient btn-lg font-weight-medium">
+                                        Obtener eSIM Gratis
+                                    </button>
                                 </div>
 
                             </form>
