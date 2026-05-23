@@ -5,6 +5,7 @@ namespace App\Mail\App\Cliente;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EsimActivationMail extends Mailable
 {
@@ -29,10 +30,16 @@ class EsimActivationMail extends Mailable
     public function build()
     {
         $activationLink = null;
+        $qrBase64 = null;
 
         if (!empty($this->esimData['smdp']) && !empty($this->esimData['code'])
             && $this->esimData['smdp'] !== 'N/A' && $this->esimData['code'] !== 'N/A') {
             $activationLink = 'LPA:1$' . $this->esimData['smdp'] . '$' . $this->esimData['code'];
+        }
+
+        if ($activationLink) {
+            $qrPng = QrCode::format('png')->size(280)->margin(1)->generate($activationLink);
+            $qrBase64 = base64_encode($qrPng);
         }
 
         return $this->subject('Tu eSIM ya fue activada')
@@ -43,6 +50,7 @@ class EsimActivationMail extends Mailable
                 'partnerName' => $this->partnerName,
                 'activationLink' => $activationLink,
                 'companionFormUrl' => $this->companionFormUrl,
+                'qrBase64' => $qrBase64,
             ]);
     }
 }
