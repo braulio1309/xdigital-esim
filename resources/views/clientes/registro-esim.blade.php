@@ -748,6 +748,12 @@
                                     <input type="hidden" name="referralCode" value="{{ $referralCode }}">
                                 @endif
 
+                                <div class="mb-4">
+                                    <button type="submit" class="btn btn-block btn-brand-gradient btn-lg font-weight-medium">
+                                        Obtener eSIM Gratis
+                                    </button>
+                                </div>
+
                                 <div class="form-group">
                                     <label for="identificador" class="font-weight-bold text-small">DNI o Pasaporte</label>
                                     <input type="text" class="form-control form-control-lg" name="identificador" value="{{ old('identificador') }}" placeholder="Ingrese su número de documento o pasaporte" required>
@@ -825,11 +831,6 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-4">
-                                    <button type="submit" class="btn btn-block btn-brand-gradient btn-lg font-weight-medium">
-                                        Obtener eSIM Gratis
-                                    </button>
-                                </div>
                             </form>
                         @elseif($showAvailablePlans)
                             <div class="text-center mb-3">
