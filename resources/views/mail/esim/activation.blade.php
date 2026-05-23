@@ -36,10 +36,10 @@
                             @php
                                 $qrImageSrc = null;
 
-                                if (!empty($qrPng)) {
+                                if (!empty($qrImagePath)) {
                                     $qrImageSrc = isset($message)
-                                        ? $message->embedData($qrPng, 'esim-activation-qr.png', 'image/png')
-                                        : 'data:image/png;base64,' . base64_encode($qrPng);
+                                        ? $message->embed($qrImagePath)
+                                        : null;
                                 }
                             @endphp
 

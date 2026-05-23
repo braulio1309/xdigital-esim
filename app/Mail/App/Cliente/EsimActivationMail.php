@@ -30,7 +30,7 @@ class EsimActivationMail extends Mailable
     public function build()
     {
         $activationLink = null;
-        $qrPng = null;
+        $qrImagePath = null;
 
         if (!empty($this->esimData['smdp']) && !empty($this->esimData['code'])
             && $this->esimData['smdp'] !== 'N/A' && $this->esimData['code'] !== 'N/A') {
@@ -39,6 +39,23 @@ class EsimActivationMail extends Mailable
 
         if ($activationLink) {
             $qrPng = QrCode::format('png')->size(280)->margin(1)->generate($activationLink);
+            $tempPath = tempnam(sys_get_temp_dir(), 'esim-qr-');
+
+            if ($tempPath !== false) {
+                $qrImagePath = $tempPath . '.png';
+
+                if (@rename($tempPath, $qrImagePath) === false) {
+                    $qrImagePath = $tempPath;
+                }
+
+                file_put_contents($qrImagePath, $qrPng);
+
+                register_shutdown_function(static function () use ($qrImagePath) {
+                    if (is_string($qrImagePath) && is_file($qrImagePath)) {
+                        @unlink($qrImagePath);
+                    }
+                });
+            }
         }
 
         return $this->subject('Tu eSIM ya fue activada')
@@ -49,7 +66,7 @@ class EsimActivationMail extends Mailable
                 'partnerName' => $this->partnerName,
                 'activationLink' => $activationLink,
                 'companionFormUrl' => $this->companionFormUrl,
-                'qrPng' => $qrPng,
+                'qrImagePath' => $qrImagePath,
             ]);
     }
 }
