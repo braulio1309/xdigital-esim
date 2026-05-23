@@ -6,10 +6,13 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\Mime\Part\DataPart;
 
 class EsimActivationMail extends Mailable
 {
     use Queueable, SerializesModels;
+
+    private const QR_CONTENT_ID = 'esim-activation-qr@xcertus.local';
 
     public array $esimData;
 
@@ -39,6 +42,14 @@ class EsimActivationMail extends Mailable
 
         if ($activationLink) {
             $qrPng = QrCode::format('png')->size(280)->margin(1)->generate($activationLink);
+
+            $this->withSymfonyMessage(function ($message) use ($qrPng) {
+                $message->addPart(
+                    (new DataPart($qrPng, 'esim-activation-qr.png', 'image/png'))
+                        ->asInline()
+                        ->setContentId(self::QR_CONTENT_ID)
+                );
+            });
         }
 
         return $this->subject('Tu eSIM ya fue activada')
@@ -49,7 +60,7 @@ class EsimActivationMail extends Mailable
                 'partnerName' => $this->partnerName,
                 'activationLink' => $activationLink,
                 'companionFormUrl' => $this->companionFormUrl,
-                'qrPng' => $qrPng,
+                'qrImageSrc' => $qrPng ? 'cid:' . self::QR_CONTENT_ID : null,
             ]);
     }
 }
