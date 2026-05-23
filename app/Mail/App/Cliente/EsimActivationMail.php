@@ -30,7 +30,7 @@ class EsimActivationMail extends Mailable
     public function build()
     {
         $activationLink = null;
-        $qrBase64 = null;
+        $qrPng = null;
 
         if (!empty($this->esimData['smdp']) && !empty($this->esimData['code'])
             && $this->esimData['smdp'] !== 'N/A' && $this->esimData['code'] !== 'N/A') {
@@ -39,7 +39,6 @@ class EsimActivationMail extends Mailable
 
         if ($activationLink) {
             $qrPng = QrCode::format('png')->size(280)->margin(1)->generate($activationLink);
-            $qrBase64 = base64_encode($qrPng);
         }
 
         return $this->subject('Tu eSIM ya fue activada')
@@ -50,7 +49,7 @@ class EsimActivationMail extends Mailable
                 'partnerName' => $this->partnerName,
                 'activationLink' => $activationLink,
                 'companionFormUrl' => $this->companionFormUrl,
-                'qrBase64' => $qrBase64,
+                'qrPng' => $qrPng,
             ]);
     }
 }
