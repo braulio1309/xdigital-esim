@@ -8,6 +8,7 @@ use App\Filters\Core\UserFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Core\Auth\User\UserRequest;
 use App\Jobs\User\UserDeleted;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use App\Notifications\Core\User\UserNotification;
@@ -41,19 +42,36 @@ class UserController extends Controller
         $query = (new AppUserFilter(
             $this->service
                 ->filters($this->filter)
-                ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id'])
+                ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id', 'beneficiario_id', 'user_sub_type'])
                 ->with('roles:id,name,is_admin,is_default,type_id', 'status', 'profilePicture')
                 ->latest()
         ))->filter();
 
-        // If the authenticated user is a super_partner, only show their own users
-        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+        $authUser = auth()->user();
+
+        // Super partner sees their own admin_partner sub-users
+        if ($authUser && $authUser->user_type === 'super_partner') {
+            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', $authUser->id)->first();
             if ($superPartner) {
                 $query = $query->where('super_partner_id', $superPartner->id)
-                                ->where('user_type', 'admin_partner');
+                               ->whereIn('user_type', ['admin_partner']);
             }
-        }else{
+        } elseif ($authUser && $authUser->user_type === 'admin_partner' && $authUser->super_partner_id) {
+            // Directivo admin_partner sees other sub-users of the same super_partner
+            $query = $query->where('super_partner_id', $authUser->super_partner_id)
+                           ->whereIn('user_type', ['admin_partner']);
+        } elseif ($authUser && $authUser->user_type === 'beneficiario') {
+            // Partner sees their own admin_beneficiario sub-users
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', $authUser->id)->first();
+            if ($beneficiario) {
+                $query = $query->where('beneficiario_id', $beneficiario->id)
+                               ->whereIn('user_type', ['admin_beneficiario']);
+            }
+        } elseif ($authUser && $authUser->user_type === 'admin_beneficiario' && $authUser->beneficiario_id) {
+            // Directivo admin_beneficiario sees other sub-users of the same beneficiario
+            $query = $query->where('beneficiario_id', $authUser->beneficiario_id)
+                           ->whereIn('user_type', ['admin_beneficiario']);
+        } else {
             $query = $query->where('user_type', 'admin');
         }
 

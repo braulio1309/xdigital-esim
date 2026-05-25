@@ -21,6 +21,8 @@ class DashboardController extends Controller
             return redirect()->route('beneficiario.dashboard');
         } elseif ($user && $user->user_type === 'cliente') {
             return redirect()->route('cliente.dashboard');
+        } elseif ($user && $user->user_type === 'admin_beneficiario') {
+            return redirect()->route('beneficiario.dashboard');
         }
         
         // Admin users go to metrics dashboard

@@ -662,24 +662,24 @@ class RegistroEsimController extends Controller
                 $cliente->save();
             }
 
+            // Voucher is optional: companions are only allowed when a voucher is registered.
             $clienteVoucher = $this->resolveLatestVoucherForCliente($cliente);
 
-            if (!$clienteVoucher) {
-                return redirect()->back()
-                    ->with('error', 'No encontramos vouchers registrados para esta cédula. Verifica los datos o contacta soporte.')
-                    ->withInput();
-            }
+            $companionEmails = [];
+            $allowedCompanions = 0;
 
-            $companionEmails = $this->normalizeCompanionEmails(
-                (array) $request->input('companion_emails', []),
-                $cliente->email
-            );
-            $allowedCompanions = max(((int) ($clienteVoucher->numero_personas ?? 1)) - 1, 0);
+            if ($clienteVoucher) {
+                $companionEmails = $this->normalizeCompanionEmails(
+                    (array) $request->input('companion_emails', []),
+                    $cliente->email
+                );
+                $allowedCompanions = max(((int) ($clienteVoucher->numero_personas ?? 1)) - 1, 0);
 
-            if (count($companionEmails) > $allowedCompanions) {
-                return redirect()->back()
-                    ->with('error', "El voucher {$clienteVoucher->numero_voucher} permite {$clienteVoucher->numero_personas} viajero(s) en total. Puedes registrar hasta {$allowedCompanions} acompañante(s) además del titular.")
-                    ->withInput();
+                if (count($companionEmails) > $allowedCompanions) {
+                    return redirect()->back()
+                        ->with('error', "El voucher {$clienteVoucher->numero_voucher} permite {$clienteVoucher->numero_personas} viajero(s) en total. Puedes registrar hasta {$allowedCompanions} acompañante(s) además del titular.")
+                        ->withInput();
+                }
             }
 
             // Variable para almacenar datos de eSIM

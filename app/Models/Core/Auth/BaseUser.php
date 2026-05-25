@@ -35,7 +35,9 @@ abstract class BaseUser extends Authenticatable
         'invitation_token',
         'remember_token',
         'user_type',
-        'super_partner_id'
+        'super_partner_id',
+        'user_sub_type',
+        'beneficiario_id',
     ];
 
     /**
