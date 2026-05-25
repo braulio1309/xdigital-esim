@@ -12,14 +12,19 @@ class SidebarComposer
         $table = CustomTable::all();
         $user = auth()->user();
 
-        // Determinar el tipo de usuario
-        $isAdmin = !in_array($user->user_type ?? '', ['beneficiario', 'cliente', 'super_partner', 'admin_partner']);
+        $userType = $user->user_type ?? '';
+        $userSubType = $user->user_sub_type ?? null;
 
-        $isPartner = $user->user_type === 'beneficiario';
+        // Determine user category
+        $isAdmin = !in_array($userType, ['beneficiario', 'cliente', 'super_partner', 'admin_partner', 'admin_beneficiario']);
+        $isPartner = $userType === 'beneficiario';
+        $isSuperPartner = in_array($userType, ['super_partner', 'admin_partner'], true);
+        $isAdminBeneficiario = $userType === 'admin_beneficiario';
 
-        $isSuperPartner = in_array($user->user_type, ['super_partner', 'admin_partner'], true);
+        // Atención al cliente: sub-users with atencion_cliente sub-type
+        $isAtencionCliente = in_array($userSubType, ['atencion_cliente'], true)
+            && in_array($userType, ['admin_partner', 'admin_beneficiario'], true);
 
-        // Si es admin, mostrar solo el dashboard de métricas
         if ($isAdmin) {
             $menu = [
                 [
@@ -90,6 +95,22 @@ class SidebarComposer
                     ]),
                 ],
             ];
+        } elseif ($isAtencionCliente) {
+            // Atención al cliente users: only Transactions and Clients
+            $menu = [
+                [
+                    'icon' => 'users',
+                    'name' => 'Transacciones',
+                    'url' => request()->root() . '/admin/transactions',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'user',
+                    'name' => 'Clientes',
+                    'url' => request()->root() . '/admin/clientes',
+                    'permission' => true,
+                ],
+            ];
         } elseif ($isSuperPartner) {
             $menu = [
                 [
@@ -129,13 +150,52 @@ class SidebarComposer
                     'permission' => true,
                 ],
             ];
-        } elseif ($isPartner) {
+        } elseif ($isAdminBeneficiario) {
+            // Directivo sub-user of a partner (beneficiario)
             $menu = [
-                //Agrega el dashboard de métricas para beneficiarios
                 [
                     'icon' => 'bar-chart-2',
                     'name' => 'Dashboard',
                     'url' => request()->root() . '/admin/dashboard',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'user-check',
+                    'name' => trans('custom.user_and_roles'),
+                    'url' => request()->root() . '/users-and-roles',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'users',
+                    'name' => 'Mis Clientes',
+                    'url' => request()->root() . '/admin/clientes',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'users',
+                    'name' => 'Transacciones',
+                    'url' => request()->root() . '/admin/transactions',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'credit-card',
+                    'name' => 'Historial de Pagos',
+                    'url' => request()->root() . '/admin/payment-histories',
+                    'permission' => true,
+                ],
+            ];
+        } elseif ($isPartner) {
+            $menu = [
+                [
+                    'icon' => 'bar-chart-2',
+                    'name' => 'Dashboard',
+                    'url' => request()->root() . '/admin/dashboard',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'user-check',
+                    'name' => trans('custom.user_and_roles'),
+                    'url' => request()->root() . '/users-and-roles',
                     'permission' => true,
                 ],
                 [
@@ -158,7 +218,7 @@ class SidebarComposer
                 ],
             ];
         } else {
-            $menu = [];   
+            $menu = [];
         }
 
         $view->with(['data' => $menu]);

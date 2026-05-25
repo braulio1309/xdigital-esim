@@ -1,5 +1,34 @@
 <template>
     <div class="content-wrapper">
+
+        <!-- Search-first screen for Atención al Cliente users -->
+        <div v-if="isAtencionCliente && !atencionClienteSearchSubmitted" class="row justify-content-center mt-5">
+            <div class="col-md-8 col-lg-6">
+                <div class="card card-with-shadow border-0 p-4">
+                    <h5 class="card-title mb-3">
+                        <app-icon name="search" class="mr-2" style="width:20px;height:20px;"/>
+                        Buscar transacción
+                    </h5>
+                    <p class="text-muted mb-4">Ingresa el correo del cliente, ID de transacción o ICCID para buscar.</p>
+                    <div class="input-group mb-3">
+                        <input type="text"
+                               class="form-control form-control-lg"
+                               v-model="atencionClienteSearchQuery"
+                               placeholder="Correo, ID de transacción o ICCID"
+                               @keyup.enter="submitAtencionClienteSearch"/>
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" @click="submitAtencionClienteSearch">
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
+                    <small class="text-muted">Debes buscar para poder ver transacciones.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main content: shown for non-atencion_cliente users OR after search submitted -->
+        <template v-if="!isAtencionCliente || atencionClienteSearchSubmitted">
         <div class="row">
             <div class="col-sm-12 col-md-6">
                 <app-breadcrumb :page-title="$t('transactions')" :directory="$t('transactions')" :icon="'list'"/>
@@ -175,6 +204,7 @@
                           modal-id="transaction-terminate"
                           @confirmed="confirmedTerminate"
                           @cancelled="cancelledTerminate"/>
+        </template>
     </div>
 </template>
 
@@ -210,6 +240,9 @@
                 selectedUrl: '',
                 tableId: 'transactions-table',
                 rowData: {},
+                // Search-first mode for atencion_cliente users
+                atencionClienteSearchQuery: '',
+                atencionClienteSearchSubmitted: false,
                 // All active filters tracked in one place
                 activeFilters: {
                     type: null,
@@ -411,6 +444,10 @@
                 return this.$store.state.user &&
                        this.$store.state.user.loggedInUser &&
                        this.$store.state.user.loggedInUser.user_type === 'super_partner';
+            },
+            isAtencionCliente() {
+                const u = this.$store.state.user && this.$store.state.user.loggedInUser;
+                return u && u.user_sub_type === 'atencion_cliente';
             },
             tableOptions() {
                 if (!this.isAdmin) {
@@ -793,6 +830,15 @@
             reSetData() {
                 this.rowData = {};
                 this.selectedUrl = '';
+            },
+
+            submitAtencionClienteSearch() {
+                if (!this.atencionClienteSearchQuery.trim()) return;
+                this.search = this.atencionClienteSearchQuery.trim();
+                this.atencionClienteSearchSubmitted = true;
+                this.$nextTick(() => {
+                    this.$hub.$emit('reload-' + this.tableId);
+                });
             },
 
             /**

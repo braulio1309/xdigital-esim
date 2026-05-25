@@ -53,6 +53,16 @@
                                :placeholder="$t('enter_password')"
                                :required="true"/>
                 </div>
+                <!-- User sub-type selector: shown when logged in user is super_partner, admin_partner, beneficiario, or admin_beneficiario -->
+                <div v-if="showUserSubTypeSelector" class="form-group row align-items-center mt-3">
+                    <label class="col-sm-3 mb-0">Tipo de usuario</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" v-model="user.user_sub_type" name="user_sub_type">
+                            <option value="directivo">Directivo (acceso completo)</option>
+                            <option value="atencion_cliente">Atención al cliente (solo consultas)</option>
+                        </select>
+                    </div>
+                </div>
             </form>
         </template>
     </modal>
@@ -75,8 +85,17 @@
                     last_name: '',
                     email: '',
                     password: '',
+                    user_sub_type: 'directivo',
                 },
             }
+        },
+        computed: {
+            showUserSubTypeSelector() {
+                const loggedIn = this.$store.state.user && this.$store.state.user.loggedInUser;
+                if (!loggedIn) return false;
+                const type = loggedIn.user_type;
+                return ['super_partner', 'admin_partner', 'beneficiario', 'admin_beneficiario'].includes(type);
+            },
         },
         methods: {
             submit() {

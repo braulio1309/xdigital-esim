@@ -1,11 +1,40 @@
 <template>
     <div class="content-wrapper">
+
+        <!-- Search-first screen for Atención al Cliente users -->
+        <div v-if="isAtencionCliente && !atencionClienteSearchSubmitted" class="row justify-content-center mt-5">
+            <div class="col-md-8 col-lg-6">
+                <div class="card card-with-shadow border-0 p-4">
+                    <h5 class="card-title mb-3">
+                        <app-icon name="search" class="mr-2" style="width:20px;height:20px;"/>
+                        Buscar cliente
+                    </h5>
+                    <p class="text-muted mb-4">Ingresa el correo o nombre del cliente para verificar si fue cargado.</p>
+                    <div class="input-group mb-3">
+                        <input type="text"
+                               class="form-control form-control-lg"
+                               v-model="atencionClienteSearchQuery"
+                               placeholder="Correo o nombre del cliente"
+                               @keyup.enter="submitAtencionClienteSearch"/>
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" @click="submitAtencionClienteSearch">
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
+                    <small class="text-muted">Debes buscar para poder ver clientes.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main content: shown for non-atencion_cliente users OR after search submitted -->
+        <template v-if="!isAtencionCliente || atencionClienteSearchSubmitted">
         <div class="row">
             <div class="col-sm-12 col-md-6">
                 <app-breadcrumb :page-title="'Clientes'" :directory="'Clientes'" :icon="'users'"/>
             </div>
             <div class="col-sm-12 col-md-6 breadcrumb-side-button">
-                <div class="float-md-right mb-3 mb-sm-3 mb-md-0">
+                <div v-if="!isAtencionCliente" class="float-md-right mb-3 mb-sm-3 mb-md-0">
                     <button type="button"
                             class="btn btn-success btn-with-shadow mr-2"
                             @click="openImportModal">
@@ -21,7 +50,7 @@
             </div>
         </div>
 
-        <app-table :id="tableId" :options="options" @action="getListAction"/>
+        <app-table :id="tableId" :options="tableOptions" :search="search" @action="getListAction"/>
 
         <add-modal v-if="isAddEditModalActive"
                    :table-id="tableId"
@@ -37,6 +66,7 @@
                           modal-id="cliente-delete"
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
+        </template>
     </div>
 </template>
 
@@ -63,6 +93,10 @@
                 selectedUrl: '',
                 tableId: 'clientes-table',
                 rowData: {},
+                // Search-first mode for atencion_cliente users
+                atencionClienteSearchQuery: '',
+                atencionClienteSearchSubmitted: false,
+                search: '',
                 options: {
                     url: actions.CLIENTES,
                     name: 'Clientes',
@@ -156,7 +190,33 @@
                 }
             }
         },
+        computed: {
+            isAtencionCliente() {
+                const u = this.$store.state.user && this.$store.state.user.loggedInUser;
+                return u && u.user_sub_type === 'atencion_cliente';
+            },
+            tableOptions() {
+                if (this.isAtencionCliente) {
+                    // Atención al cliente: hide edit/delete/toggle actions
+                    return {
+                        ...this.options,
+                        actions: [],
+                        showAction: false,
+                    };
+                }
+                return this.options;
+            },
+        },
         methods: {
+            submitAtencionClienteSearch() {
+                if (!this.atencionClienteSearchQuery.trim()) return;
+                this.search = this.atencionClienteSearchQuery.trim();
+                this.atencionClienteSearchSubmitted = true;
+                this.$nextTick(() => {
+                    this.$hub.$emit('reload-' + this.tableId);
+                });
+            },
+
             /**
              * for open import modal
              */

@@ -47,10 +47,16 @@ class TransactionController extends Controller
 
         $superPartner = $this->resolveScopedSuperPartner();
 
-        // Filter by beneficiario_id if user is a beneficiario
+        // Filter by beneficiario_id if user is a beneficiario or admin_beneficiario sub-user
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             
+            if ($beneficiario) {
+                $query = $query->where('beneficiario_id', $beneficiario->id);
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'admin_beneficiario' && auth()->user()->beneficiario_id) {
+            $beneficiario = Beneficiario::find(auth()->user()->beneficiario_id);
+
             if ($beneficiario) {
                 $query = $query->where('beneficiario_id', $beneficiario->id);
             }

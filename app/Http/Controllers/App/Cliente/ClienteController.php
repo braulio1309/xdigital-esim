@@ -47,13 +47,22 @@ class ClienteController extends Controller
         $query = $this->service->filters($this->filter)->latest();
         $superPartner = $this->resolveScopedSuperPartner();
         
-        // Filter by beneficiario_id if user is a beneficiario
+        // Filter by beneficiario_id if user is a beneficiario or admin_beneficiario sub-user
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             
             if ($beneficiario) {
-                // Show clients whose primary beneficiario is this partner
-                // OR clients associated through the pivot cliente_beneficiario table
+                $query = $query->where(function ($q) use ($beneficiario) {
+                    $q->where('beneficiario_id', $beneficiario->id)
+                      ->orWhereHas('partners', function ($partnerQuery) use ($beneficiario) {
+                          $partnerQuery->where('beneficiario_id', $beneficiario->id);
+                      });
+                });
+            }
+        } elseif (auth()->check() && auth()->user()->user_type === 'admin_beneficiario' && auth()->user()->beneficiario_id) {
+            $beneficiario = Beneficiario::find(auth()->user()->beneficiario_id);
+
+            if ($beneficiario) {
                 $query = $query->where(function ($q) use ($beneficiario) {
                     $q->where('beneficiario_id', $beneficiario->id)
                       ->orWhereHas('partners', function ($partnerQuery) use ($beneficiario) {
@@ -153,6 +162,12 @@ class ClienteController extends Controller
 
         if ($user->user_type === 'beneficiario') {
             $beneficiario = Beneficiario::where('user_id', $user->id)->first();
+
+            return [$beneficiario, null, $beneficiario ? [$beneficiario->id] : []];
+        }
+
+        if ($user->user_type === 'admin_beneficiario' && $user->beneficiario_id) {
+            $beneficiario = Beneficiario::find($user->beneficiario_id);
 
             return [$beneficiario, null, $beneficiario ? [$beneficiario->id] : []];
         }
