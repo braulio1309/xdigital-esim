@@ -9,18 +9,23 @@
                         <app-icon name="search" class="mr-2" style="width:20px;height:20px;"/>
                         Buscar cliente
                     </h5>
-                    <p class="text-muted mb-4">Ingresa el correo o nombre del cliente para verificar si fue cargado.</p>
+                    <p class="text-muted mb-4">Ingresa el correo del cliente o una fecha para poder ver resultados.</p>
                     <div class="input-group mb-3">
                         <input type="text"
                                class="form-control form-control-lg"
                                v-model="atencionClienteSearchQuery"
-                               placeholder="Correo o nombre del cliente"
+                               placeholder="Correo del cliente"
                                @keyup.enter="submitAtencionClienteSearch"/>
                         <div class="input-group-append">
                             <button class="btn btn-primary" type="button" @click="submitAtencionClienteSearch">
                                 Buscar
                             </button>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="date"
+                               class="form-control form-control-lg"
+                               v-model="atencionClienteSearchDate">
                     </div>
                     <small class="text-muted">Debes buscar para poder ver clientes.</small>
                 </div>
@@ -95,6 +100,7 @@
                 rowData: {},
                 // Search-first mode for atencion_cliente users
                 atencionClienteSearchQuery: '',
+                atencionClienteSearchDate: '',
                 atencionClienteSearchSubmitted: false,
                 search: '',
                 options: {
@@ -195,6 +201,15 @@
                 const u = this.$store.state.user && this.$store.state.user.loggedInUser;
                 return u && u.user_sub_type === 'atencion_cliente';
             },
+            canDeleteClientes() {
+                const u = this.$store.state.user && this.$store.state.user.loggedInUser;
+
+                if (!u) {
+                    return false;
+                }
+
+                return u.user_type === 'admin' && u.user_sub_type !== 'directivo';
+            },
             tableOptions() {
                 if (this.isAtencionCliente) {
                     // Atención al cliente: hide edit/delete/toggle actions
@@ -204,13 +219,31 @@
                         showAction: false,
                     };
                 }
-                return this.options;
+                return {
+                    ...this.options,
+                    actions: this.options.actions.filter(action => {
+                        return action.title !== this.$t('delete') || this.canDeleteClientes;
+                    }),
+                };
             },
         },
         methods: {
             submitAtencionClienteSearch() {
-                if (!this.atencionClienteSearchQuery.trim()) return;
-                this.search = this.atencionClienteSearchQuery.trim();
+                const query = this.atencionClienteSearchQuery.trim();
+                const params = new URLSearchParams();
+
+                if (!query && !this.atencionClienteSearchDate) {
+                    return;
+                }
+
+                this.search = query;
+
+                if (this.atencionClienteSearchDate) {
+                    params.append('start_date', this.atencionClienteSearchDate);
+                    params.append('end_date', this.atencionClienteSearchDate);
+                }
+
+                this.options.url = actions.CLIENTES + (params.toString() ? '?' + params.toString() : '');
                 this.atencionClienteSearchSubmitted = true;
                 this.$nextTick(() => {
                     this.$hub.$emit('reload-' + this.tableId);

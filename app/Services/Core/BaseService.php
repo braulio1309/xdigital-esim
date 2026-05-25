@@ -5,6 +5,7 @@ namespace App\Services\Core;
 
 
 use App\Helpers\Core\Traits\HasAttrs;
+use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Model;
 
 class BaseService
@@ -25,7 +26,17 @@ class BaseService
 
     public function save($options = [])
     {
-        $attributes = count($options) ? $options : request()->all();
+        if ($options instanceof Request) {
+            $attributes = $options->all();
+        } elseif (is_array($options)) {
+            $attributes = $options;
+        } else {
+            $attributes = [];
+        }
+
+        if (empty($attributes)) {
+            $attributes = request()->all();
+        }
 
         $this->model
             ->fill($this->getFillAble($attributes))

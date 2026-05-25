@@ -6,6 +6,7 @@ use App\Models\App\Cliente\Cliente;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
 use App\Services\App\AppService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -25,7 +26,17 @@ class ClienteService extends AppService
     public function save($options = [])
     {
         return DB::transaction(function () use ($options) {
-            $attributes = count($options) ? $options : request()->all();
+            if ($options instanceof Request) {
+                $attributes = $options->all();
+            } elseif (is_array($options)) {
+                $attributes = $options;
+            } else {
+                $attributes = [];
+            }
+
+            if (empty($attributes)) {
+                $attributes = request()->all();
+            }
 
             if (isset($attributes['email'])) {
                 $attributes['email'] = mb_strtolower(trim((string) $attributes['email']));

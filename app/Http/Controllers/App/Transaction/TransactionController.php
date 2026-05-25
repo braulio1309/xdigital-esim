@@ -45,6 +45,32 @@ class TransactionController extends Controller
             ->filters($this->filter)
             ->with('cliente.beneficiario.planMargins', 'beneficiario.planMargins', 'superPartner');
 
+        if ($this->isAtencionClienteUser() && !$this->hasAtencionClienteFilters()) {
+            $transactions = $query->whereRaw('1 = 0')
+                ->latest()
+                ->paginate(request()->get('per_page', 10));
+
+            $transactions->getCollection()->transform(function ($transaction) {
+                $transaction->commission_amount = $transaction->getCommissionAmount();
+                $transaction->commission_percentage = $transaction->getCommissionPercentage();
+                $transaction->beneficiario = $transaction->beneficiario ?? ($transaction->cliente->beneficiario ?? null);
+                $transaction->super_partner_name = $transaction->superPartner ? $transaction->superPartner->nombre : null;
+                $transaction->partner_name = $transaction->beneficiario
+                    ? $transaction->beneficiario->nombre
+                    : ($transaction->superPartner ? 'SP: ' . $transaction->superPartner->nombre : 'N/A');
+                $transaction->partner_sale_commission_amount = $transaction->partner_sale_commission_amount !== null
+                    ? (float) $transaction->partner_sale_commission_amount
+                    : null;
+                $transaction->super_partner_sale_commission_amount = $transaction->super_partner_sale_commission_amount !== null
+                    ? (float) $transaction->super_partner_sale_commission_amount
+                    : null;
+
+                return $transaction;
+            });
+
+            return $transactions;
+        }
+
         $superPartner = $this->resolveScopedSuperPartner();
 
         // Filter by beneficiario_id if user is a beneficiario or admin_beneficiario sub-user
@@ -100,6 +126,13 @@ class TransactionController extends Controller
      */
     public function paymentStats()
     {
+        if ($this->isAtencionClienteUser()) {
+            return response()->json([
+                'unpaid_count' => 0,
+                'total_owed' => 0,
+            ]);
+        }
+
         $isBeneficiarioUser = auth()->check() && auth()->user()->user_type === 'beneficiario';
         $superPartner = $this->resolveScopedSuperPartner();
         $isSuperPartnerUser = $superPartner !== null;
@@ -181,6 +214,13 @@ class TransactionController extends Controller
      */
     public function calculatePaymentAmount(\Illuminate\Http\Request $request)
     {
+        if ($this->isAtencionClienteUser()) {
+            return response()->json([
+                'count' => 0,
+                'amount' => 0,
+            ]);
+        }
+
         $beneficiarioId = $request->get('beneficiario_id');
         $superPartnerId = $request->get('super_partner_id');
         $startDateRaw = $request->get('start_date');
@@ -298,6 +338,10 @@ class TransactionController extends Controller
      */
     public function saleCommissionTotal(\Illuminate\Http\Request $request)
     {
+        if ($this->isAtencionClienteUser()) {
+            return response()->json(['total' => 0]);
+        }
+
         $query = Transaction::where('purchase_amount', '>', 0);
 
         $beneficiarioIdFilter = $request->get('beneficiario_id');
@@ -524,6 +568,12 @@ class TransactionController extends Controller
      */
     public function terminateSubscription(Transaction $transaction)
     {
+        if (!$this->canTerminateSubscription()) {
+            return response()->json([
+                'message' => 'No autorizado. Solo el administrador puede terminar suscripciones.',
+            ], 403);
+        }
+
         if (empty($transaction->order_id)) {
             return response()->json(['message' => 'This transaction does not have an order ID.'], 422);
         }
@@ -546,6 +596,10 @@ class TransactionController extends Controller
      */
     public function export(\Illuminate\Http\Request $request)
     {
+        if ($this->isAtencionClienteUser()) {
+            abort(403, 'Unauthorized. Atención al cliente no puede exportar transacciones.');
+        }
+
         $filters = $request->only([
             'beneficiario_id',
             'super_partner_id',
@@ -569,6 +623,37 @@ class TransactionController extends Controller
         return Excel::download(new TransactionExport($filters), $filename);
     }
 
+    private function isAtencionClienteUser(): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user->user_sub_type === 'atencion_cliente'
+            && in_array($user->user_type, ['admin', 'admin_partner', 'admin_beneficiario'], true);
+    }
+
+    private function canTerminateSubscription(): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user->user_type === 'admin'
+            && ($user->user_sub_type ?? null) !== 'directivo';
+    }
+
+    private function hasAtencionClienteFilters(): bool
+    {
+        return request()->filled('search')
+            || request()->filled('start_date')
+            || request()->filled('end_date');
+    }
+
     /**
      * Recharge an existing eSIM with a new data top-up (admin only).
      *
@@ -578,8 +663,8 @@ class TransactionController extends Controller
      */
     public function recharge(\Illuminate\Http\Request $request, Transaction $transaction)
     {
-        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
-            return response()->json(['message' => 'Unauthorized. Only administrators can recharge eSIMs.'], 403);
+        if (!auth()->check() || (!$this->isAtencionClienteUser() && auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+            return response()->json(['message' => 'Unauthorized. Only authorized users can recharge eSIMs.'], 403);
         }
 
         $validated = $request->validate([

@@ -14,6 +14,14 @@ class CustomRoute extends HookContract
         // Redirect based on user type after login
         if (auth()->check()) {
             $user = auth()->user();
+
+            if (($user->user_sub_type ?? null) === 'atencion_cliente'
+                && in_array($user->user_type, ['admin', 'admin_partner', 'admin_beneficiario'], true)) {
+                return [
+                    'route_name' => 'transactions.view',
+                    'route_params' => null
+                ];
+            }
             
             if ($user->user_type === 'beneficiario') {
                 return [

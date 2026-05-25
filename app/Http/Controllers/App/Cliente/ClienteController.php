@@ -46,6 +46,12 @@ class ClienteController extends Controller
     {
         $query = $this->service->filters($this->filter)->latest();
         $superPartner = $this->resolveScopedSuperPartner();
+
+        if ($this->isAtencionClienteUser() && !$this->hasAtencionClienteFilters()) {
+            return $query->whereRaw('1 = 0')
+                ->with('beneficiario:id,nombre')
+                ->paginate(request()->get('per_page', 10));
+        }
         
         // Filter by beneficiario_id if user is a beneficiario or admin_beneficiario sub-user
         if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
@@ -86,6 +92,25 @@ class ClienteController extends Controller
         }
         
         return $query->with('beneficiario:id,nombre')->paginate(request()->get('per_page', 10));
+    }
+
+    private function isAtencionClienteUser(): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user->user_sub_type === 'atencion_cliente'
+            && in_array($user->user_type, ['admin', 'admin_partner', 'admin_beneficiario'], true);
+    }
+
+    private function hasAtencionClienteFilters(): bool
+    {
+        return request()->filled('search')
+            || request()->filled('start_date')
+            || request()->filled('end_date');
     }
 
     /**
@@ -263,6 +288,13 @@ class ClienteController extends Controller
      */
     public function destroy(Cliente $cliente)
     {
+        if (!$this->canDeleteCliente()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado. Solo el administrador puede eliminar clientes.',
+            ], 403);
+        }
+
         if ($this->service->delete($cliente)) {
             return deleted_responses('cliente');
         }
@@ -434,5 +466,17 @@ class ClienteController extends Controller
         }
 
         return null;
+    }
+
+    private function canDeleteCliente(): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user->user_type === 'admin'
+            && ($user->user_sub_type ?? null) !== 'directivo';
     }
 }

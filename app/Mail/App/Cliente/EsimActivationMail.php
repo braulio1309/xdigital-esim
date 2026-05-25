@@ -38,17 +38,17 @@ class EsimActivationMail extends Mailable
         }
 
         if ($activationLink) {
-            $qrPng = QrCode::format('png')->size(280)->margin(1)->generate($activationLink);
+            $qrSvg = QrCode::size(280)->margin(1)->generate($activationLink);
             $tempPath = tempnam(sys_get_temp_dir(), 'esim-qr-');
 
             if ($tempPath !== false) {
-                $qrImagePath = $tempPath . '.png';
+                $qrImagePath = $tempPath . '.svg';
 
                 if (@rename($tempPath, $qrImagePath) === false) {
                     $qrImagePath = $tempPath;
                 }
 
-                file_put_contents($qrImagePath, $qrPng);
+                file_put_contents($qrImagePath, $qrSvg);
 
                 register_shutdown_function(static function () use ($qrImagePath) {
                     if (is_string($qrImagePath) && is_file($qrImagePath)) {

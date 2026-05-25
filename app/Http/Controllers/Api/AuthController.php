@@ -119,15 +119,10 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Preparar datos para el servicio de cliente
-            // Usar merge en lugar de modificar directamente el request
             $clienteData = $request->all();
-            
-            // El ClienteService espera estos datos
-            $requestForService = new Request($clienteData);
-            
+
             // Guardar el cliente (esto también crea el usuario)
-            $cliente = $this->clienteService->save($requestForService);
+            $cliente = $this->clienteService->save($clienteData);
 
             // Autenticar automáticamente al usuario recién creado
             $user = $cliente->user;

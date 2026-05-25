@@ -92,8 +92,11 @@ class UserController extends Controller
                 ]);
             }
         } else if (auth()->check() && auth()->user()->user_type === 'admin') {
-            $request->merge(['roles' => 'App admin']);
-            $request->merge(['user_type' => 'admin']);
+            $request->merge([
+                'roles' => 'App admin',
+                'user_type' => 'admin',
+                'user_sub_type' => $userSubType,
+            ]);
         }
 
        $this->service

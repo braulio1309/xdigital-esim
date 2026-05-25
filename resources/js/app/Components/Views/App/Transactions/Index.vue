@@ -9,18 +9,23 @@
                         <app-icon name="search" class="mr-2" style="width:20px;height:20px;"/>
                         Buscar transacción
                     </h5>
-                    <p class="text-muted mb-4">Ingresa el correo del cliente, ID de transacción o ICCID para buscar.</p>
+                    <p class="text-muted mb-4">Ingresa el correo del cliente, el ICCID o una fecha para poder ver transacciones.</p>
                     <div class="input-group mb-3">
                         <input type="text"
                                class="form-control form-control-lg"
                                v-model="atencionClienteSearchQuery"
-                               placeholder="Correo, ID de transacción o ICCID"
+                               placeholder="Correo del cliente o ICCID"
                                @keyup.enter="submitAtencionClienteSearch"/>
                         <div class="input-group-append">
                             <button class="btn btn-primary" type="button" @click="submitAtencionClienteSearch">
                                 Buscar
                             </button>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="date"
+                               class="form-control form-control-lg"
+                               v-model="atencionClienteSearchDate">
                     </div>
                     <small class="text-muted">Debes buscar para poder ver transacciones.</small>
                 </div>
@@ -34,7 +39,7 @@
                 <app-breadcrumb :page-title="$t('transactions')" :directory="$t('transactions')" :icon="'list'"/>
             </div>
             <div class="col-sm-12 col-md-6 breadcrumb-side-button">
-                <div class="float-md-right mb-3 mb-sm-3 mb-md-0">
+                <div v-if="!isAtencionCliente" class="float-md-right mb-3 mb-sm-3 mb-md-0">
                     <!-- Show unpaid transactions stats -->
                     <span v-if="showPaymentStats" class="badge badge-warning mr-2 p-2" style="font-size: 14px;">
                         {{ $t('unpaid_transactions') }}: {{ paymentStats.unpaid_count }} (${{ paymentStats.total_owed }})
@@ -68,7 +73,7 @@
         </div>
 
         <!-- Filter buttons row -->
-        <div class="row mb-3">
+        <div v-if="!isAtencionCliente" class="row mb-3">
             <div class="col-12 d-flex align-items-center flex-wrap">
                 <!-- Type filter (all / free / paid plans) -->
                 <div class="btn-group mr-2 mb-1" role="group">
@@ -134,7 +139,7 @@
         </div>
 
         <!-- Date range filter row -->
-        <div class="row mb-3">
+        <div v-if="!isAtencionCliente" class="row mb-3">
             <div class="col-12 d-flex align-items-center flex-wrap">
                 <div class="mr-2 mb-1" style="min-width: 280px;">
                     <app-search @input="getSearchValue"/>
@@ -242,6 +247,7 @@
                 rowData: {},
                 // Search-first mode for atencion_cliente users
                 atencionClienteSearchQuery: '',
+                atencionClienteSearchDate: '',
                 atencionClienteSearchSubmitted: false,
                 // All active filters tracked in one place
                 activeFilters: {
@@ -449,8 +455,27 @@
                 const u = this.$store.state.user && this.$store.state.user.loggedInUser;
                 return u && u.user_sub_type === 'atencion_cliente';
             },
+            canTerminateSubscriptions() {
+                const u = this.$store.state.user && this.$store.state.user.loggedInUser;
+
+                if (!u) {
+                    return false;
+                }
+
+                return u.user_type === 'admin' && u.user_sub_type !== 'directivo';
+            },
             tableOptions() {
-                if (!this.isAdmin) {
+                if (this.isAtencionCliente) {
+                    const rechargeOnlyActions = this.options.actions.filter(action => action.title === this.$t('recharge_esim'));
+
+                    return {
+                        ...this.options,
+                        actions: rechargeOnlyActions,
+                        showAction: rechargeOnlyActions.length > 0,
+                    };
+                }
+
+                if (!this.canTerminateSubscriptions) {
                     return this.options;
                 }
                 return {
@@ -527,6 +552,10 @@
             }
         },
         mounted() {
+            if (this.isAtencionCliente) {
+                return;
+            }
+
             this.loadPaymentStats();
             this.loadBeneficiarios();
             this.loadSaleCommissionTotal();
@@ -641,6 +670,10 @@
                     this.$hub.$emit('reload-' + this.tableId);
                 });
 
+                if (this.isAtencionCliente) {
+                    return;
+                }
+
                 this.loadPaymentStats();
                 this.loadSaleCommissionTotal();
 
@@ -728,6 +761,11 @@
                 this.$nextTick(() => {
                     this.$hub.$emit('reload-' + this.tableId);
                 });
+
+                if (this.isAtencionCliente) {
+                    return;
+                }
+
                 this.loadPaymentStats();
                 this.loadSaleCommissionTotal();
             },
@@ -833,12 +871,17 @@
             },
 
             submitAtencionClienteSearch() {
-                if (!this.atencionClienteSearchQuery.trim()) return;
-                this.search = this.atencionClienteSearchQuery.trim();
+                const query = this.atencionClienteSearchQuery.trim();
+
+                if (!query && !this.atencionClienteSearchDate) {
+                    return;
+                }
+
+                this.search = query;
+                this.activeFilters.start_date = this.atencionClienteSearchDate || '';
+                this.activeFilters.end_date = this.atencionClienteSearchDate || '';
                 this.atencionClienteSearchSubmitted = true;
-                this.$nextTick(() => {
-                    this.$hub.$emit('reload-' + this.tableId);
-                });
+                this.applyFilters();
             },
 
             /**

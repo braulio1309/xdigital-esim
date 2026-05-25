@@ -53,7 +53,7 @@
                                :placeholder="$t('enter_password')"
                                :required="true"/>
                 </div>
-                <!-- User sub-type selector: shown when logged in user is super_partner, admin_partner, beneficiario, or admin_beneficiario -->
+                <!-- User sub-type selector: shown when the creator can define directivo / atencion al cliente -->
                 <div v-if="showUserSubTypeSelector" class="form-group row align-items-center mt-3">
                     <label class="col-sm-3 mb-0">Tipo de usuario</label>
                     <div class="col-sm-9">
@@ -94,7 +94,7 @@
                 const loggedIn = this.$store.state.user && this.$store.state.user.loggedInUser;
                 if (!loggedIn) return false;
                 const type = loggedIn.user_type;
-                return ['super_partner', 'admin_partner', 'beneficiario', 'admin_beneficiario'].includes(type);
+                return ['admin', 'super_partner', 'admin_partner', 'beneficiario', 'admin_beneficiario'].includes(type);
             },
         },
         methods: {

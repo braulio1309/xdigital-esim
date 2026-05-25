@@ -23,9 +23,25 @@ class SidebarComposer
 
         // Atención al cliente: sub-users with atencion_cliente sub-type
         $isAtencionCliente = in_array($userSubType, ['atencion_cliente'], true)
-            && in_array($userType, ['admin_partner', 'admin_beneficiario'], true);
+            && in_array($userType, ['admin', 'admin_partner', 'admin_beneficiario'], true);
 
-        if ($isAdmin) {
+        if ($isAtencionCliente) {
+            // Atención al cliente users: only Transactions and Clients
+            $menu = [
+                [
+                    'icon' => 'users',
+                    'name' => 'Transacciones',
+                    'url' => request()->root() . '/admin/transactions',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'user',
+                    'name' => 'Clientes',
+                    'url' => request()->root() . '/admin/clientes',
+                    'permission' => true,
+                ],
+            ];
+        } elseif ($isAdmin) {
             $menu = [
                 [
                     'icon' => 'bar-chart-2',
@@ -93,22 +109,6 @@ class SidebarComposer
                         'view_notification_templates',
                         'update_notification_templates',
                     ]),
-                ],
-            ];
-        } elseif ($isAtencionCliente) {
-            // Atención al cliente users: only Transactions and Clients
-            $menu = [
-                [
-                    'icon' => 'users',
-                    'name' => 'Transacciones',
-                    'url' => request()->root() . '/admin/transactions',
-                    'permission' => true,
-                ],
-                [
-                    'icon' => 'user',
-                    'name' => 'Clientes',
-                    'url' => request()->root() . '/admin/clientes',
-                    'permission' => true,
                 ],
             ];
         } elseif ($isSuperPartner) {
