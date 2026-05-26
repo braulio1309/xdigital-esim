@@ -21,7 +21,21 @@ class UserController extends Controller
 
     public function index()
     {
-        return $this->service->with('status:id,name,type')
+        $query = $this->service->with('status:id,name,type');
+
+        $user = auth()->user();
+        if ($user) {
+            if ($user->user_type === 'super_partner') {
+                // Solo usuarios de este super partner
+                $query = $query->where('super_partner_id', $user->super_partner->id ?? 0);
+            } elseif ($user->user_type === 'admin_partner' || $user->user_type === 'beneficiario') {
+                // Solo usuarios de este partner/beneficiario
+                $beneficiarioId = $user->beneficiario->id ?? $user->beneficiario_id ?? 0;
+                $query = $query->where('beneficiario_id', $beneficiarioId);
+            }
+        }
+
+        return $query
             ->filters($this->filter)
             ->latest()
             ->paginate(request()->get('per_page', 10));
