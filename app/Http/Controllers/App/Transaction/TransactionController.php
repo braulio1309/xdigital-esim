@@ -862,6 +862,7 @@ class TransactionController extends Controller
 
         $transaction = $emailToken->transaction;
         $referralCode = $this->buildReferralCodeForTransaction($transaction);
+        $country = $transaction->country_code ? strtoupper((string) $transaction->country_code) : null;
         $redirectUrl = $referralCode
             ? route('planes.index', ['referralCode' => $referralCode])
             : route('planes.index');
@@ -869,9 +870,15 @@ class TransactionController extends Controller
         $existingQuery = [];
         parse_str((string) (parse_url($redirectUrl, PHP_URL_QUERY) ?? ''), $existingQuery);
 
-        $queryString = http_build_query(array_merge($existingQuery, [
+        $queryParams = array_merge($existingQuery, [
             'recharge_iccid' => (string) $transaction->iccid,
-        ]));
+        ]);
+
+        if ($country && strlen($country) === 2) {
+            $queryParams['country'] = $country;
+        }
+
+        $queryString = http_build_query($queryParams);
 
         $baseUrl = strtok($redirectUrl, '?') ?: $redirectUrl;
 
