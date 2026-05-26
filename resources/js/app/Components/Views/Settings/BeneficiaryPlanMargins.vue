@@ -2,7 +2,7 @@
     <app-modal 
         modal-id="beneficiary-plan-margins-modal"
         modal-size="large"
-        @close-modal="handleModalClosed">
+        @close-modal="closeModal">
         
         <template slot="header">
             <h5 class="modal-title">{{ $t('beneficiary_plan_margins') }} - {{ beneficiarioName }}</h5>
@@ -29,12 +29,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" :class="{active: activeTab === 'country'}" href="#" @click.prevent="activeTab = 'country'">
-                            Porcentaje por País (%)
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" :class="{active: activeTab === 'sale_commissions'}" href="#" @click.prevent="activeTab = 'sale_commissions'">
-                            Comisiones de Venta
+                            Precios por País
                         </a>
                     </li>
                 </ul>
@@ -152,160 +147,68 @@
                 <!-- Tab: Country-Specific Prices -->
                 <div v-show="activeTab === 'country'">
                     <div class="alert alert-info">
-                        <strong>Configuracion por Pais</strong>
+                        <strong>Precios por País</strong>
                         <p class="mb-0 mt-2">
-                            Al agregar un pais se crean de una vez las capacidades 1GB, 3GB, 5GB y 10GB.
-                            Para 1GB se guarda un precio fijo en USD. Para 3GB, 5GB y 10GB se mantiene el porcentaje sobre el precio original.
+                            Estos precios tienen la mayor prioridad. Si existe un precio para un país y plan específico, 
+                            se usará ese monto en lugar del precio fijo general o el cálculo de porcentaje.
                         </p>
-                    </div>
-
-                    <div class="d-flex align-items-end mb-3">
-                        <div class="mr-2" style="max-width: 180px; width: 100%;">
-                            <label class="mb-1">Pais</label>
-                            <app-input
-                                type="text"
-                                v-model="newCountryCode"
-                                :placeholder="'US'"
-                                :maxlength="2"/>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary" @click="addCountryPrice">
-                            <app-icon name="plus" style="width:14px;height:14px;" class="mr-1"/> Agregar pais
-                        </button>
                     </div>
 
                     <div class="table-responsive mb-3">
                         <table class="table table-sm table-hover">
                             <thead>
                                 <tr>
-                                    <th>Pais</th>
-                                    <th>1GB</th>
-                                    <th>3GB</th>
-                                    <th>5GB</th>
-                                    <th>10GB</th>
+                                    <th>País (Código)</th>
+                                    <th>Plan</th>
+                                    <th>Precio (USD)</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="countryRow in groupedCountryPrices" :key="countryRow.country_code">
+                                <tr v-for="(entry, idx) in countryPrices" :key="idx">
                                     <td class="align-middle">
-                                        <strong>{{ countryRow.country_code }}</strong>
+                                        <select class="form-control form-control-sm"
+                                                v-model="entry.country_code"
+                                                style="min-width: 240px; max-width: 320px;">
+                                            <option value="">Selecciona un país</option>
+                                            <option v-for="country in countryOptions" :key="country.code" :value="country.code">
+                                                {{ country.name }} ({{ country.code }})
+                                            </option>
+                                        </select>
                                     </td>
                                     <td class="align-middle">
-                                        <div v-if="countryRow.entries['1']" style="min-width: 170px; max-width: 180px;">
+                                        <select class="form-control form-control-sm" v-model="entry.plan_capacity" style="max-width: 100px;">
+                                            <option v-for="cap in allCapacities" :key="cap" :value="cap">{{ cap }}GB</option>
+                                        </select>
+                                    </td>
+                                    <td class="align-middle">
+                                        <div class="input-group" style="max-width: 150px;">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">$</span>
+                                            </div>
                                             <app-input type="number"
-                                                       v-model="countryRow.entries['1'].price"
+                                                       v-model="entry.price"
                                                        :min="0"
-                                                       step="0.01"
-                                                       :placeholder="'Precio fijo USD'"/>
+                                                       step="0.01"/>
                                         </div>
-                                        <span v-else class="text-muted">-</span>
                                     </td>
                                     <td class="align-middle">
-                                        <div v-if="countryRow.entries['3']" style="min-width: 145px; max-width: 150px;">
-                                            <app-input type="number"
-                                                       v-model="countryRow.entries['3'].percentage"
-                                                       :min="0"
-                                                       :max="100"
-                                                       step="0.01"
-                                                       :placeholder="'Porcentaje %'"/>
-                                        </div>
-                                        <span v-else class="text-muted">-</span>
-                                    </td>
-                                    <td class="align-middle">
-                                        <div v-if="countryRow.entries['5']" style="min-width: 145px; max-width: 150px;">
-                                            <app-input type="number"
-                                                       v-model="countryRow.entries['5'].percentage"
-                                                       :min="0"
-                                                       :max="100"
-                                                       step="0.01"
-                                                       :placeholder="'Porcentaje %'"/>
-                                        </div>
-                                        <span v-else class="text-muted">-</span>
-                                    </td>
-                                    <td class="align-middle">
-                                        <div v-if="countryRow.entries['10']" style="min-width: 145px; max-width: 150px;">
-                                            <app-input type="number"
-                                                       v-model="countryRow.entries['10'].percentage"
-                                                       :min="0"
-                                                       :max="100"
-                                                       step="0.01"
-                                                       :placeholder="'Porcentaje %'"/>
-                                        </div>
-                                        <span v-else class="text-muted">-</span>
-                                    </td>
-                                    <td class="align-middle">
-                                        <button type="button" class="btn btn-sm btn-outline-danger" @click="removeCountry(countryRow.country_code)">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" @click="removeCountryPrice(idx)">
                                             <app-icon name="trash-2" style="width:14px;height:14px;"/>
                                         </button>
                                     </td>
                                 </tr>
                                 <tr v-if="countryPrices.length === 0">
-                                    <td colspan="6" class="text-center text-muted py-3">
-                                        No hay porcentajes por país configurados.
+                                    <td colspan="4" class="text-center text-muted py-3">
+                                        No hay precios por país configurados.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                <!-- Tab: Sale Commissions -->
-                <div v-show="activeTab === 'sale_commissions'">
-                    <div class="alert alert-info">
-                        <strong>Comisiones de Venta por Región</strong>
-                        <p class="mb-0 mt-2">
-                            Define el porcentaje de comisión que gana este partner por cada eSIM vendida,
-                            según el país de destino. Estas comisiones no afectan el precio de la eSIM.
-                        </p>
-                        <small class="text-muted">Fórmula: Precio Final × Porcentaje / 100 = Comisión ganada.</small>
-                    </div>
-
-                    <div v-if="!isAdmin" class="alert alert-warning">
-                        <app-icon name="lock" style="width:14px;height:14px;" class="mr-1"/>
-                        Solo los administradores pueden modificar las comisiones de venta.
-                    </div>
-
-                    <div class="form-group row align-items-center mb-3">
-                        <label class="col-sm-5 mb-0 font-weight-bold">
-                            Comisión USA, Canadá y Europa (%)
-                        </label>
-                        <div class="col-sm-4">
-                            <div class="input-group" style="max-width: 200px;">
-                                <app-input
-                                    type="number"
-                                    v-model="saleCommissionUsaCaEuPct"
-                                    step="0.01"
-                                    :placeholder="'0.00'"/>
-                                <div class="input-group-append">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                            <small class="text-muted d-block mt-1">
-                                Aplica para: Estados Unidos (US), Canadá (CA) y países europeos (EU28 + Europa).
-                            </small>
-                        </div>
-                    </div>
-
-                    <div class="form-group row align-items-center mb-3">
-                        <label class="col-sm-5 mb-0 font-weight-bold">
-                            Comisión LATAM (%)
-                        </label>
-                        <div class="col-sm-4">
-                            <div class="input-group" style="max-width: 200px;">
-                                <app-input
-                                    type="number"
-                                    v-model="saleCommissionLatamPct"
-                                    step="0.01"
-                                    :placeholder="'0.00'"/>
-                                <div class="input-group-append">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                            <small class="text-muted d-block mt-1">
-                                Aplica para países de América Latina.
-                            </small>
-                        </div>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addCountryPrice">
+                        <app-icon name="plus" style="width:14px;height:14px;" class="mr-1"/> Agregar precio por país
+                    </button>
                 </div>
 
                 <div class="mt-4 d-flex justify-content-between">
@@ -361,131 +264,16 @@
                     '5': { price: '', is_active: true },
                     '10': { price: '', is_active: true },
                 },
+                countryOptions: [],
                 countryPrices: [],
-                newCountryCode: '',
                 freeEsimRate: 0.85,
-                saleCommissionLatamPct: null,
-                saleCommissionUsaCaEuPct: null,
                 preloader: false,
             }
         },
         mounted() {
             this.getMargins();
         },
-        computed: {
-            isAdmin() {
-                return this.$store.state.user &&
-                    this.$store.state.user.loggedInUser &&
-                    (this.$store.state.user.loggedInUser.role === 'Admin' ||
-                     this.$store.state.user.loggedInUser.user_type === 'admin');
-            },
-            groupedCountryPrices() {
-                const groupedEntries = {};
-
-                this.countryPrices.forEach((entry) => {
-                    const countryCode = String(entry.country_code || '').trim().toUpperCase();
-                    const planCapacity = String(entry.plan_capacity || '').trim();
-
-                    if (!countryCode || !planCapacity) {
-                        return;
-                    }
-
-                    if (!groupedEntries[countryCode]) {
-                        groupedEntries[countryCode] = {
-                            country_code: countryCode,
-                            entries: {},
-                        };
-                    }
-
-                    groupedEntries[countryCode].entries[planCapacity] = entry;
-                });
-
-                return Object.values(groupedEntries).sort((firstEntry, secondEntry) =>
-                    firstEntry.country_code.localeCompare(secondEntry.country_code)
-                );
-            },
-        },
         methods: {
-            sortCountryPrices(entries = []) {
-                const planOrder = { '1': 0, '3': 1, '5': 2, '10': 3 };
-
-                return [...entries].sort((firstEntry, secondEntry) => {
-                    const countryComparison = String(firstEntry.country_code || '').localeCompare(String(secondEntry.country_code || ''));
-
-                    if (countryComparison !== 0) {
-                        return countryComparison;
-                    }
-
-                    return (planOrder[String(firstEntry.plan_capacity)] ?? 99)
-                        - (planOrder[String(secondEntry.plan_capacity)] ?? 99);
-                });
-            },
-            hydrateCountryPrices(entries = []) {
-                return this.sortCountryPrices(entries.map((entry) => ({
-                    ...entry,
-                    country_code: String(entry.country_code || '').trim().toUpperCase(),
-                    plan_capacity: String(entry.plan_capacity || '').trim(),
-                    price: String(entry.plan_capacity || '') === '1'
-                        ? (entry.price === null || typeof entry.price === 'undefined' ? '' : entry.price)
-                        : '',
-                    percentage: String(entry.plan_capacity || '') === '1'
-                        ? ''
-                        : (entry.percentage === null || typeof entry.percentage === 'undefined' ? '' : entry.percentage),
-                })));
-            },
-            normalizeCountryPriceEntry(entry) {
-                const countryCode = String(entry.country_code || '').trim().toUpperCase();
-                const planCapacity = String(entry.plan_capacity || '').trim();
-
-                if (!countryCode || countryCode.length !== 2 || !planCapacity) {
-                    return null;
-                }
-
-                if (planCapacity === '1') {
-                    const price = entry.price === '' || entry.price === null ? null : Number(entry.price);
-
-                    if (price === null || Number.isNaN(price)) {
-                        return null;
-                    }
-
-                    return {
-                        ...entry,
-                        country_code: countryCode,
-                        plan_capacity: planCapacity,
-                        price,
-                        percentage: 0,
-                    };
-                }
-
-                const percentage = entry.percentage === '' || entry.percentage === null ? null : Number(entry.percentage);
-
-                if (percentage === null || Number.isNaN(percentage)) {
-                    return null;
-                }
-
-                return {
-                    ...entry,
-                    country_code: countryCode,
-                    plan_capacity: planCapacity,
-                    price: null,
-                    percentage,
-                };
-            },
-            getNormalizedCountryPrices() {
-                const entriesByKey = {};
-
-                this.countryPrices.forEach((entry) => {
-                    const normalizedEntry = this.normalizeCountryPriceEntry(entry);
-
-                    if (!normalizedEntry) {
-                        return;
-                    }
-
-                    entriesByKey[`${normalizedEntry.country_code}|${normalizedEntry.plan_capacity}`] = normalizedEntry;
-                });
-
-                return this.sortCountryPrices(Object.values(entriesByKey));
-            },
             getMargins() {
                 this.preloader = true;
                 axios.get(actions.GET_BENEFICIARY_PLAN_MARGINS, {
@@ -510,15 +298,12 @@
                         });
                     }
                     if (response.data && response.data.country_prices) {
-                        this.countryPrices = this.hydrateCountryPrices(response.data.country_prices);
+                        this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
                     }
-                    if (response.data) {
-                        this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null && typeof response.data.sale_commission_latam_pct !== 'undefined'
-                            ? parseFloat(response.data.sale_commission_latam_pct)
-                            : null;
-                        this.saleCommissionUsaCaEuPct = response.data.sale_commission_usa_ca_eu_pct !== null && typeof response.data.sale_commission_usa_ca_eu_pct !== 'undefined'
-                            ? parseFloat(response.data.sale_commission_usa_ca_eu_pct)
-                            : null;
+                    if (response.data && response.data.countries) {
+                        this.countryOptions = response.data.countries
+                            .map(country => ({ code: country.code, name: country.name }))
+                            .sort((left, right) => left.name.localeCompare(right.name));
                     }
                 })
                 .catch(error => {
@@ -532,24 +317,13 @@
 
             submit() {
                 this.preloader = true;
-                const normalizedCountryPrices = this.getNormalizedCountryPrices();
-
                 const data = {
                     beneficiario_id: this.beneficiarioId,
                     margins: this.margins,
                     free_esim_rate: this.freeEsimRate,
                     plan_prices: this.planPrices,
-                    country_prices: normalizedCountryPrices,
+                    country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.price !== '' && e.price !== null),
                 };
-
-                if (this.isAdmin) {
-                    data.sale_commission_latam_pct = this.saleCommissionLatamPct !== '' && this.saleCommissionLatamPct !== null
-                        ? parseFloat(this.saleCommissionLatamPct)
-                        : null;
-                    data.sale_commission_usa_ca_eu_pct = this.saleCommissionUsaCaEuPct !== '' && this.saleCommissionUsaCaEuPct !== null
-                        ? parseFloat(this.saleCommissionUsaCaEuPct)
-                        : null;
-                }
 
                 axios.post(actions.UPDATE_BENEFICIARY_PLAN_MARGINS, data)
                 .then(response => {
@@ -572,21 +346,12 @@
                         });
                     }
                     if (response.data && response.data.country_prices) {
-                        this.countryPrices = this.hydrateCountryPrices(response.data.country_prices);
-                    } else {
-                        this.countryPrices = this.hydrateCountryPrices(normalizedCountryPrices);
+                        this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
                     }
-                    if (response.data) {
-                        if (typeof response.data.sale_commission_latam_pct !== 'undefined') {
-                            this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null
-                                ? parseFloat(response.data.sale_commission_latam_pct)
-                                : null;
-                        }
-                        if (typeof response.data.sale_commission_usa_ca_eu_pct !== 'undefined') {
-                            this.saleCommissionUsaCaEuPct = response.data.sale_commission_usa_ca_eu_pct !== null
-                                ? parseFloat(response.data.sale_commission_usa_ca_eu_pct)
-                                : null;
-                        }
+                    if (response.data && response.data.countries) {
+                        this.countryOptions = response.data.countries
+                            .map(country => ({ code: country.code, name: country.name }))
+                            .sort((left, right) => left.name.localeCompare(right.name));
                     }
                     setTimeout(() => { this.closeModal(); }, 1000);
                 })
@@ -624,55 +389,14 @@
             },
 
             addCountryPrice() {
-                const countryCode = String(this.newCountryCode || '').trim().toUpperCase();
-
-                if (!/^[A-Z]{2}$/.test(countryCode)) {
-                    this.$toastr.e('Ingresa un codigo de pais valido de 2 letras.');
-                    return;
-                }
-
-                const existingCapacities = new Set(
-                    this.countryPrices
-                        .filter((entry) => String(entry.country_code || '').trim().toUpperCase() === countryCode)
-                        .map((entry) => String(entry.plan_capacity || '').trim())
-                );
-
-                const entriesToAdd = this.allCapacities
-                    .filter((capacity) => !existingCapacities.has(capacity))
-                    .map((capacity) => ({
-                        country_code: countryCode,
-                        plan_capacity: capacity,
-                        price: capacity === '1' ? '' : '',
-                        percentage: capacity === '1' ? '' : '',
-                    }));
-
-                if (!entriesToAdd.length) {
-                    this.$toastr.i('Ese pais ya tiene configurados 1GB, 3GB, 5GB y 10GB.');
-                    this.newCountryCode = '';
-                    return;
-                }
-
-                this.countryPrices = this.sortCountryPrices([...this.countryPrices, ...entriesToAdd]);
-                this.newCountryCode = '';
+                this.countryPrices.push({ country_code: '', plan_capacity: '1', price: '' });
             },
 
-            removeCountry(countryCode) {
-                const normalizedCountryCode = String(countryCode || '').trim().toUpperCase();
-                this.countryPrices = this.countryPrices.filter((entry) => String(entry.country_code || '').trim().toUpperCase() !== normalizedCountryCode);
+            removeCountryPrice(idx) {
+                this.countryPrices.splice(idx, 1);
             },
 
             closeModal() {
-                const modal = $('#beneficiary-plan-margins-modal');
-
-                if (modal.length && modal.hasClass('show')) {
-                    modal.modal('hide');
-                    return;
-                }
-
-                this.handleModalClosed();
-            },
-
-            handleModalClosed() {
                 this.$emit('close');
             }
         }

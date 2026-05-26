@@ -29,6 +29,118 @@ class ClienteImport implements ToCollection, WithHeadingRow
     protected $freeEsimInvitationMailService;
     protected $superPartner;
 
+    protected function normalizeKey(string $key): string
+    {
+        return Str::slug($key, '_');
+    }
+
+    protected function rowHasAnyToken(string $key, array $tokens): bool
+    {
+        foreach ($tokens as $token) {
+            if (Str::contains($key, $token)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function findValueByKeyPatterns(Collection $row, array $requiredTokens, array $preferredTokens = [], string $default = ''): string
+    {
+        foreach ($row as $key => $value) {
+            $normalizedKey = $this->normalizeKey((string) $key);
+
+            if (!$this->rowHasAnyToken($normalizedKey, $requiredTokens)) {
+                continue;
+            }
+
+            if (!empty($preferredTokens) && !$this->rowHasAnyToken($normalizedKey, $preferredTokens)) {
+                continue;
+            }
+
+            $normalizedValue = trim((string) $value);
+
+            if ($normalizedValue !== '') {
+                return $normalizedValue;
+            }
+        }
+
+        return $default;
+    }
+
+    protected function findPositiveIntegerByKeyPatterns(Collection $row, array $requiredTokens, array $preferredTokens = [], int $default = 1): int
+    {
+        foreach ($row as $key => $value) {
+            $normalizedKey = $this->normalizeKey((string) $key);
+
+            if (!$this->rowHasAnyToken($normalizedKey, $requiredTokens)) {
+                continue;
+            }
+
+            if (!empty($preferredTokens) && !$this->rowHasAnyToken($normalizedKey, $preferredTokens)) {
+                continue;
+            }
+
+            if (is_string($value)) {
+                preg_match('/\d+/', $value, $matches);
+                $value = $matches[0] ?? 0;
+            }
+
+            $normalizedValue = (int) $value;
+
+            if ($normalizedValue > 0) {
+                return $normalizedValue;
+            }
+        }
+
+        return $default;
+    }
+
+    protected function firstNonEmptyValue(Collection $row, array $keys, string $default = ''): string
+    {
+        foreach ($keys as $key) {
+            $normalizedKey = $this->normalizeKey($key);
+
+            if (!array_key_exists($normalizedKey, $row->all())) {
+                continue;
+            }
+
+            $value = trim((string) $row[$normalizedKey]);
+
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return $default;
+    }
+
+    protected function firstPositiveInteger(Collection $row, array $keys, int $default = 1): int
+    {
+        foreach ($keys as $key) {
+            $normalizedKey = $this->normalizeKey($key);
+
+            if (!array_key_exists($normalizedKey, $row->all())) {
+                continue;
+            }
+
+            $rawValue = $row[$normalizedKey];
+
+            if (is_string($rawValue)) {
+                preg_match('/\d+/', $rawValue, $matches);
+                $rawValue = $matches[0] ?? 0;
+            }
+
+            $value = (int) $rawValue;
+
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return $default;
+    }
+
     public function __construct($beneficiarioId = null, array $partnerIds = [], $freeEsimCapacity = null, $superPartnerId = null)
     {
         $this->beneficiarioId = $beneficiarioId;
@@ -82,22 +194,71 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 return [Str::slug($key, '_') => $value];
             });
 
-            // Extraemos los valores buscando variaciones comunes de nombres de columna
-            $nombre   = trim($row['nombre'] ?? $row['name'] ?? $row['first_name'] ?? $row['Nombre'] ??'');
-            $apellido = trim($row['apellido'] ?? $row['last_name'] ?? $row['surname'] ?? $row['Apellido'] ?? '');
-            $identificador = trim(
-                $row['identificador']
-                ?? $row['documento']
-                ?? $row['numero_documento']
-                ?? $row['dni']
-                ?? $row['pasaporte']
-                ?? $row['passport']
-                ?? ''
-            );
-            $email    = mb_strtolower(trim((string) ($row['email'] ?? $row['correo'] ?? $row['e_mail'] ?? $row['Email'] ?? $row['Correo'] ?? '')));
-            $numeroVoucher = trim((string) ($row['numero_voucher'] ?? $row['voucher'] ?? $row['num_voucher'] ?? ''));
-            $numeroPersonas = (int) ($row['numero_personas'] ?? $row['personas'] ?? $row['num_personas'] ?? 1);
-            $numeroPersonas = $numeroPersonas > 0 ? $numeroPersonas : 1;
+            // Extraemos los valores buscando variaciones comunes de nombres de columna.
+            // Primero intentamos llaves conocidas y luego una búsqueda más flexible por tokens.
+            $nombreCompletoContratante = $this->firstNonEmptyValue($row, [
+                'nombre_del_contratante',
+                'nombre_contratante',
+                'contratante',
+            ], $this->findValueByKeyPatterns($row, ['contrat'], ['nombre']));
+            $nombre = $this->firstNonEmptyValue($row, [
+                'nombre',
+                'name',
+                'first_name',
+            ], $nombreCompletoContratante ?: $this->findValueByKeyPatterns($row, ['nombre']));
+            $apellido = $this->firstNonEmptyValue($row, [
+                'apellido',
+                'last_name',
+                'surname',
+                'apellido_del_contratante',
+                'apellido_contratante',
+            ], $this->findValueByKeyPatterns($row, ['apellido']));
+            $identificador = $this->firstNonEmptyValue($row, [
+                'identificador',
+                'documento',
+                'numero_documento',
+                'dni',
+                'pasaporte',
+                'passport',
+                'id_del_contratante',
+                'identificacion_del_contratante',
+                'dni_del_contratante',
+            ], $this->findValueByKeyPatterns(
+                $row,
+                ['id', 'ident', 'doc', 'dni', 'pasaport', 'cedula'],
+                ['contrat']
+            ) ?: $this->findValueByKeyPatterns($row, ['id', 'ident', 'doc', 'dni', 'pasaport', 'cedula']));
+            $email = mb_strtolower($this->firstNonEmptyValue($row, [
+                'email',
+                'correo',
+                'e_mail',
+                'correo_del_contratante',
+                'email_del_contratante',
+                'mail_del_contratante',
+            ], $this->findValueByKeyPatterns(
+                $row,
+                ['email', 'correo', 'mail'],
+                ['contrat']
+            ) ?: $this->findValueByKeyPatterns($row, ['email', 'correo', 'mail'])));
+            $numeroVoucher = $this->firstNonEmptyValue($row, [
+                'numero_voucher',
+                'voucher',
+                'num_voucher',
+                'n_de_voucher',
+            ], $this->findValueByKeyPatterns($row, ['voucher']));
+            $numeroPersonas = $this->firstPositiveInteger($row, [
+                'numero_personas',
+                'personas',
+                'num_personas',
+                'cant_de_pasajeros',
+                'cantidad_de_pasajeros',
+                'cantidad_pasajeros',
+                'pasajeros',
+            ], $this->findPositiveIntegerByKeyPatterns(
+                $row,
+                ['pasaj', 'viajer', 'persona', 'pax'],
+                ['cant', 'cantidad', 'num', 'nro', 'no']
+            ));
             $rowPayload = [
                 'nombre' => $nombre,
                 'apellido' => $apellido,
@@ -107,10 +268,6 @@ class ClienteImport implements ToCollection, WithHeadingRow
 
             // --- LÓGICA ORIGINAL ---
             $missingFields = [];
-
-            if (empty($nombre)) {
-                $missingFields[] = 'nombre';
-            }
 
             if (empty($identificador)) {
                 $missingFields[] = 'identificador';
@@ -130,7 +287,7 @@ class ClienteImport implements ToCollection, WithHeadingRow
             }
 
             try {
-                $cliente = DB::transaction(function () use ($nombre, $apellido, $identificador, $email) {
+                $cliente = DB::transaction(function () use ($nombre, $apellido, $identificador, $email, $numeroVoucher, $numeroPersonas) {
                     $password = $this->clienteAccessMailService->buildPasswordFromIdentifier($identificador);
 
                     // Reuse the auth user if the email already exists there, but always create the cliente row.

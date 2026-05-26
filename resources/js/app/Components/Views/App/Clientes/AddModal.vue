@@ -17,8 +17,8 @@
                                class="col-sm-9"
                                type="text"
                                v-model="inputs.nombre"
-                               :placeholder="$t('nombre')"
-                               :required="true"/>
+                               :placeholder="`${$t('nombre')} (opcional)`"
+                               :required="false"/>
 
                 </div>
                 <div class="form-group row align-items-center">
@@ -29,8 +29,8 @@
                                class="col-sm-9"
                                type="text"
                                v-model="inputs.apellido"
-                               placeholder="Apellido"
-                               :required="true"/>
+                               placeholder="Apellido (opcional)"
+                               :required="false"/>
                 </div>
                 <div class="form-group row align-items-center mb-0">
                     <label for="inputs_identificador" class="col-sm-3 mb-0">

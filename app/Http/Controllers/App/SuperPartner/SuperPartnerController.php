@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\App\SuperPartner;
 
+use App\Helpers\CountryTariffHelper;
 use App\Filters\App\SuperPartner\SuperPartnerFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\SuperPartnerRequest as Request;
@@ -98,8 +99,7 @@ class SuperPartnerController extends Controller
             'margins' => $marginService->getFormattedMargins($super_partner->id),
             'plan_prices' => $priceService->getFormattedPlanPrices($super_partner->id),
             'country_prices' => $priceService->getCountryPrices($super_partner->id),
-            'sale_commission_latam_pct' => $super_partner->sale_commission_latam_pct !== null ? (float) $super_partner->sale_commission_latam_pct : null,
-            'sale_commission_usa_ca_eu_pct' => $super_partner->sale_commission_usa_ca_eu_pct !== null ? (float) $super_partner->sale_commission_usa_ca_eu_pct : null,
+            'countries' => CountryTariffHelper::getAllCountries(),
         ]);
     }
 
@@ -124,10 +124,7 @@ class SuperPartnerController extends Controller
             'country_prices' => 'sometimes|array',
             'country_prices.*.country_code' => 'required_with:country_prices|string|size:2',
             'country_prices.*.plan_capacity' => 'required_with:country_prices|string',
-            'country_prices.*.percentage' => 'nullable|numeric|min:0|max:100',
-            'country_prices.*.price' => 'nullable|numeric|min:0',
-            'sale_commission_latam_pct' => 'nullable|numeric|min:0|max:100',
-            'sale_commission_usa_ca_eu_pct' => 'nullable|numeric|min:0|max:100',
+            'country_prices.*.price' => 'required_with:country_prices|numeric|min:0',
         ]);
 
         if (array_key_exists('commission_percentage', $validated)) {
@@ -136,17 +133,6 @@ class SuperPartnerController extends Controller
 
         if (array_key_exists('free_esim_rate', $validated)) {
             $super_partner->free_esim_rate = $validated['free_esim_rate'];
-        }
-
-        // Only admins can update sale commission percentages
-        if (auth()->check() && auth()->user()->user_type === 'admin') {
-            if (array_key_exists('sale_commission_latam_pct', $validated)) {
-                $super_partner->sale_commission_latam_pct = $validated['sale_commission_latam_pct'];
-            }
-
-            if (array_key_exists('sale_commission_usa_ca_eu_pct', $validated)) {
-                $super_partner->sale_commission_usa_ca_eu_pct = $validated['sale_commission_usa_ca_eu_pct'];
-            }
         }
 
         $super_partner->save();
@@ -168,8 +154,7 @@ class SuperPartnerController extends Controller
             'margins' => $marginService->getFormattedMargins($super_partner->id),
             'plan_prices' => $priceService->getFormattedPlanPrices($super_partner->id),
             'country_prices' => $priceService->getCountryPrices($super_partner->id),
-            'sale_commission_latam_pct' => $super_partner->sale_commission_latam_pct !== null ? (float) $super_partner->sale_commission_latam_pct : null,
-            'sale_commission_usa_ca_eu_pct' => $super_partner->sale_commission_usa_ca_eu_pct !== null ? (float) $super_partner->sale_commission_usa_ca_eu_pct : null,
+            'countries' => CountryTariffHelper::getAllCountries(),
         ]);
     }
 

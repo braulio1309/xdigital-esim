@@ -4,6 +4,10 @@ namespace Tests\Feature\App\Cliente;
 
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Cliente\ClienteVoucher;
+use App\Models\Core\Auth\Role;
+use App\Models\Core\Auth\Type;
+use App\Models\Core\Auth\User;
+use App\Models\Core\Status;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -71,6 +75,65 @@ class ClienteControllerTest extends TestCase
             'numero_personas' => 5,
         ]);
         $this->assertSame(1, ClienteVoucher::count());
+    }
+
+    /** @test */
+    public function it_allows_creating_a_cliente_without_nombre_y_apellido(): void
+    {
+        $this->loginAsAdmin();
+        $this->createClienteRoleAndStatus();
+
+        $response = $this->postJson(route('clientes.store'), [
+            'nombre' => '',
+            'apellido' => '',
+            'identificador' => 'ABC999',
+            'email' => 'sin-nombre@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('clientes', [
+            'identificador' => 'ABC999',
+            'email' => 'sin-nombre@example.com',
+            'nombre' => '',
+            'apellido' => '',
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'sin-nombre@example.com',
+            'first_name' => '',
+            'last_name' => '',
+            'user_type' => 'cliente',
+        ]);
+    }
+
+    private function createClienteRoleAndStatus(): void
+    {
+        if (!Type::query()->where('alias', 'app')->exists()) {
+            Type::create([
+                'name' => 'App',
+                'alias' => 'app',
+            ]);
+        }
+
+        if (!Status::query()->where('name', 'status_active')->where('type', 'user')->exists()) {
+            Status::create([
+                'name' => 'status_active',
+                'type' => 'user',
+                'class' => 'success',
+            ]);
+        }
+
+        if (!Role::query()->where('name', 'cliente')->exists()) {
+            Role::create([
+                'name' => 'cliente',
+                'type_id' => Type::findByAlias('app')->id,
+                'is_admin' => false,
+                'is_default' => false,
+                'created_by' => User::query()->value('id'),
+            ]);
+        }
     }
 
     private function createCliente(): Cliente

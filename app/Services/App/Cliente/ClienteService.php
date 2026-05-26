@@ -41,12 +41,15 @@ class ClienteService extends AppService
             if (isset($attributes['email'])) {
                 $attributes['email'] = mb_strtolower(trim((string) $attributes['email']));
             }
+
+            $attributes['nombre'] = trim((string) ($attributes['nombre'] ?? ''));
+            $attributes['apellido'] = trim((string) ($attributes['apellido'] ?? ''));
             
             // Create the cliente
             $cliente = parent::save($attributes);
             
             // Create user if not already associated
-            if (!$cliente->user_id && isset($attributes['nombre'])) {
+            if (!$cliente->user_id && !empty($cliente->email)) {
                 $user = $this->createUserForCliente($cliente, $attributes);
                 $cliente->user_id = $user->id;
                 $cliente->save();
