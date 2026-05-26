@@ -12,12 +12,38 @@
                         <p class="text-muted mb-2">Bienvenido, {{ $superPartner->nombre }}</p>
                         <div class="input-group mb-3" style="max-width: 560px;">
                             <div class="input-group-prepend">
-                                <span class="input-group-text bg-primary text-white">Tu Link:</span>
+                                <span class="input-group-text bg-primary text-white">Link registro:</span>
                             </div>
                             <input type="text" class="form-control bg-white" id="superPartnerReferralLink"
                                    value="{{ $superPartner->referral_link }}" readonly>
                             <div class="input-group-append">
-                                <button class="btn btn-outline-primary" type="button" onclick="copySuperPartnerLink()">
+                                <button class="btn btn-outline-primary" type="button" onclick="copySuperPartnerLink('superPartnerReferralLink', 'Link de registro copiado al portapapeles.')">
+                                    <i class="mdi mdi-content-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="input-group mb-3" style="max-width: 560px;">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-info text-white">Link planes:</span>
+                            </div>
+                            <input type="text" class="form-control bg-white" id="superPartnerPlanesLink"
+                                   value="{{ $superPartner->planes_link }}" readonly>
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-info" type="button" onclick="copySuperPartnerLink('superPartnerPlanesLink', 'Link de planes copiado al portapapeles.')">
+                                    <i class="mdi mdi-content-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="input-group mb-3" style="max-width: 560px;">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-dark text-white">Código:</span>
+                            </div>
+                            <input type="text" class="form-control bg-white" id="superPartnerReferralCode"
+                                   value="{{ $superPartner->referral_code }}" readonly>
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-dark" type="button" onclick="copySuperPartnerLink('superPartnerReferralCode', 'Código copiado al portapapeles.')">
                                     <i class="mdi mdi-content-copy"></i> Copiar
                                 </button>
                             </div>
@@ -268,8 +294,8 @@
 
 @push('after-scripts')
 <script>
-function copySuperPartnerLink() {
-    const input = document.getElementById('superPartnerReferralLink');
+function copySuperPartnerLink(elementId, successMessage) {
+    const input = document.getElementById(elementId);
 
     if (!input) {
         return;
@@ -281,7 +307,7 @@ function copySuperPartnerLink() {
         navigator.clipboard.writeText(linkValue)
             .then(function () {
                 if (typeof toastr !== 'undefined') {
-                    toastr.success('Link copiado al portapapeles.');
+                    toastr.success(successMessage || 'Valor copiado al portapapeles.');
                 }
             })
             .catch(function () {
@@ -290,7 +316,7 @@ function copySuperPartnerLink() {
                 document.execCommand('copy');
 
                 if (typeof toastr !== 'undefined') {
-                    toastr.success('Link copiado al portapapeles.');
+                    toastr.success(successMessage || 'Valor copiado al portapapeles.');
                 }
             });
 
@@ -302,7 +328,7 @@ function copySuperPartnerLink() {
     document.execCommand('copy');
 
     if (typeof toastr !== 'undefined') {
-        toastr.success('Link copiado al portapapeles.');
+        toastr.success(successMessage || 'Valor copiado al portapapeles.');
     }
 }
 </script>

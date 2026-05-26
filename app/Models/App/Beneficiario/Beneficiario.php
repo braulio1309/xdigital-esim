@@ -137,7 +137,27 @@ class Beneficiario extends AppModel
      */
     public function getReferralLinkAttribute()
     {
-        return url('/registro/esim/' . Str::slug($this->nombre) . '-' . $this->codigo);
+        return url('/registro/esim/' . $this->referral_code);
+    }
+
+    /**
+     * Get the referral code attribute.
+     *
+     * @return string
+     */
+    public function getReferralCodeAttribute()
+    {
+        return Str::slug($this->nombre) . '-' . $this->codigo;
+    }
+
+    /**
+     * Get the planes disponibles link attribute.
+     *
+     * @return string
+     */
+    public function getPlanesLinkAttribute()
+    {
+        return url('/planes-disponibles/' . $this->referral_code);
     }
 
     /**

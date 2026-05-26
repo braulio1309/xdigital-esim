@@ -13,12 +13,38 @@
                         
                         <div class="input-group mb-3" style="max-width: 500px;">
                             <div class="input-group-prepend">
-                                <span class="input-group-text bg-primary text-white">Tu Link:</span>
+                                <span class="input-group-text bg-primary text-white">Link registro:</span>
                             </div>
                             <input type="text" class="form-control bg-white" id="referralLink" 
                                    value="{{ $beneficiario->referral_link }}" readonly>
                             <div class="input-group-append">
-                                <button class="btn btn-outline-primary" type="button" onclick="copyLink()">
+                                <button class="btn btn-outline-primary" type="button" onclick="copyLink('referralLink', 'Enlace de registro copiado al portapapeles!')">
+                                    <i class="mdi mdi-content-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="input-group mb-3" style="max-width: 500px;">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-info text-white">Link planes:</span>
+                            </div>
+                            <input type="text" class="form-control bg-white" id="planesLink"
+                                   value="{{ $beneficiario->planes_link }}" readonly>
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-info" type="button" onclick="copyLink('planesLink', 'Enlace de planes copiado al portapapeles!')">
+                                    <i class="mdi mdi-content-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="input-group mb-3" style="max-width: 500px;">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-dark text-white">Código:</span>
+                            </div>
+                            <input type="text" class="form-control bg-white" id="referralCode"
+                                   value="{{ $beneficiario->referral_code }}" readonly>
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-dark" type="button" onclick="copyLink('referralCode', 'Código copiado al portapapeles!')">
                                     <i class="mdi mdi-content-copy"></i> Copiar
                                 </button>
                             </div>
@@ -336,32 +362,37 @@
 
 @push('scripts')
 <script>
-    function copyLink() {
-        var copyText = document.getElementById("referralLink");
+    function copyLink(elementId, successMessage) {
+        var copyText = document.getElementById(elementId);
+
+        if (!copyText) {
+            return;
+        }
+
         var textToCopy = copyText.value;
         
         // Use modern Clipboard API if available
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(textToCopy).then(function() {
-                alert("¡Enlace copiado al portapapeles!");
+                alert(successMessage || "¡Valor copiado al portapapeles!");
             }).catch(function() {
                 // Fallback to older method
-                fallbackCopy(copyText);
+                fallbackCopy(copyText, successMessage);
             });
         } else {
             // Fallback for older browsers
-            fallbackCopy(copyText);
+            fallbackCopy(copyText, successMessage);
         }
     }
     
-    function fallbackCopy(element) {
+    function fallbackCopy(element, successMessage) {
         element.select();
         element.setSelectionRange(0, 99999); // Para móviles
         try {
             document.execCommand("copy");
-            alert("¡Enlace copiado al portapapeles!");
+            alert(successMessage || "¡Valor copiado al portapapeles!");
         } catch (err) {
-            alert("Error al copiar el enlace");
+            alert("Error al copiar el valor");
         }
     }
 </script>
