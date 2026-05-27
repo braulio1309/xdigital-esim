@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\App\Cliente;
 
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Cliente\ClienteVoucher;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\Role;
 use App\Models\Core\Auth\Type;
 use App\Models\Core\Auth\User;
@@ -14,6 +16,84 @@ use Tests\TestCase;
 class ClienteControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** @test */
+    public function super_partners_cannot_delete_clientes(): void
+    {
+        $this->actingAs($this->createUserOfType('super_partner'));
+
+        $cliente = $this->createCliente();
+
+        $response = $this->deleteJson(route('clientes.destroy', $cliente));
+
+        $response->assertForbidden();
+        $this->assertDatabaseHas('clientes', [
+            'id' => $cliente->id,
+        ]);
+    }
+
+    /** @test */
+    public function partners_cannot_delete_clientes(): void
+    {
+        $this->actingAs($this->createUserOfType('beneficiario'));
+
+        $cliente = $this->createCliente();
+
+        $response = $this->deleteJson(route('clientes.destroy', $cliente));
+
+        $response->assertForbidden();
+        $this->assertDatabaseHas('clientes', [
+            'id' => $cliente->id,
+        ]);
+    }
+
+    /** @test */
+    public function partners_can_inactivate_their_clientes(): void
+    {
+        $partnerUser = $this->createUserOfType('beneficiario');
+        $beneficiario = Beneficiario::create([
+            'nombre' => 'Partner Uno',
+            'descripcion' => 'Partner de prueba',
+            'user_id' => $partnerUser->id,
+        ]);
+
+        $cliente = $this->createClienteWithUser([
+            'beneficiario_id' => $beneficiario->id,
+        ]);
+
+        $response = $this->actingAs($partnerUser)
+            ->postJson(route('clientes.toggle-status', $cliente));
+
+        $response->assertOk();
+        $this->assertSame('status_inactive', $cliente->user->fresh()->status->name);
+    }
+
+    /** @test */
+    public function super_partners_can_inactivate_clientes_in_their_network(): void
+    {
+        $superPartnerUser = $this->createUserOfType('super_partner');
+        $superPartner = SuperPartner::create([
+            'nombre' => 'Super Partner Uno',
+            'descripcion' => 'SP de prueba',
+            'codigo' => 'SP000001',
+            'user_id' => $superPartnerUser->id,
+        ]);
+        $beneficiario = Beneficiario::create([
+            'nombre' => 'Partner Dos',
+            'descripcion' => 'Partner de red',
+            'super_partner_id' => $superPartner->id,
+        ]);
+
+        $cliente = $this->createClienteWithUser([
+            'beneficiario_id' => $beneficiario->id,
+        ]);
+
+        $response = $this->actingAs($superPartnerUser)
+            ->postJson(route('clientes.toggle-status', $cliente));
+
+        $response->assertOk();
+        $this->assertSame('status_inactive', $cliente->user->fresh()->status->name);
+    }
 
     /** @test */
     public function it_returns_the_latest_voucher_data_when_loading_a_cliente_for_editing(): void
@@ -117,13 +197,7 @@ class ClienteControllerTest extends TestCase
             ]);
         }
 
-        if (!Status::query()->where('name', 'status_active')->where('type', 'user')->exists()) {
-            Status::create([
-                'name' => 'status_active',
-                'type' => 'user',
-                'class' => 'success',
-            ]);
-        }
+        $this->ensureUserStatusesExist();
 
         if (!Role::query()->where('name', 'cliente')->exists()) {
             Role::create([
@@ -146,5 +220,54 @@ class ClienteControllerTest extends TestCase
             'can_activate_free_esim' => true,
             'free_esim_capacity' => 1,
         ]);
+    }
+
+    private function createClienteWithUser(array $clienteAttributes = []): Cliente
+    {
+        $this->createClienteRoleAndStatus();
+
+        $user = User::factory()->create([
+            'user_type' => 'cliente',
+            'status_id' => Status::query()->where('name', 'status_active')->where('type', 'user')->value('id'),
+        ]);
+
+        return Cliente::create(array_merge([
+            'nombre' => 'Cliente',
+            'apellido' => 'Demo',
+            'email' => $user->email,
+            'identificador' => 'ABC123',
+            'user_id' => $user->id,
+            'can_activate_free_esim' => true,
+            'free_esim_capacity' => 1,
+        ], $clienteAttributes));
+    }
+
+    private function createUserOfType(string $userType): User
+    {
+        $this->ensureUserStatusesExist();
+
+        return User::factory()->create([
+            'user_type' => $userType,
+            'status_id' => Status::query()->where('name', 'status_active')->where('type', 'user')->value('id'),
+        ]);
+    }
+
+    private function ensureUserStatusesExist(): void
+    {
+        if (!Status::query()->where('name', 'status_active')->where('type', 'user')->exists()) {
+            Status::create([
+                'name' => 'status_active',
+                'type' => 'user',
+                'class' => 'success',
+            ]);
+        }
+
+        if (!Status::query()->where('name', 'status_inactive')->where('type', 'user')->exists()) {
+            Status::create([
+                'name' => 'status_inactive',
+                'type' => 'user',
+                'class' => 'secondary',
+            ]);
+        }
     }
 }

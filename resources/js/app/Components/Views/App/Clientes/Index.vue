@@ -68,6 +68,11 @@
 
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
+                          :title="clienteStatusModalTitle"
+                          :message="clienteStatusModalMessage"
+                          :icon="clienteStatusModalIcon"
+                          :modal-class="clienteStatusModalClass"
+                          :first-button-name="clienteStatusModalButton"
                           modal-id="cliente-delete"
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
@@ -138,6 +143,18 @@
                             }
                         },
                         {
+                            title: 'Estado',
+                            type: 'custom-html',
+                            key: 'user',
+                            modifier: (value) => {
+                                const isInactive = value && value.status && value.status.name === 'status_inactive';
+                                const badgeClass = isInactive ? 'badge-secondary' : 'badge-success';
+                                const label = isInactive ? 'Inactivo' : 'Activo';
+
+                                return `<span class="badge ${badgeClass}">&#10003; ${label}</span>`;
+                            }
+                        },
+                        {
                             title: 'eSIM Gratuita',
                             type: 'custom-html',
                             key: 'can_activate_free_esim',
@@ -178,11 +195,24 @@
                             modalId: 'dummy-modal-id',
                         },
                         {
-                            title: this.$t('delete'),
-                            icon: 'trash',
+                            title: 'Activar cliente',
+                            icon: 'check-circle',
+                            type: 'none',
+                            component: 'dummy-component',
+                            modalId: 'dummy-modal-id',
+                            modifier: (row) => {
+                                return !this.isClienteInactive(row);
+                            }
+                        },
+                        {
+                            title: 'Inactivar cliente',
+                            icon: 'x-circle',
                             type: 'none',
                             component: 'app-confirmation-modal',
                             modalId: 'cliente-delete',
+                            modifier: (row) => {
+                                return this.isClienteInactive(row);
+                            }
                         }
                     ],
                     showFilter: false,
@@ -201,14 +231,19 @@
                 const u = this.$store.state.user && this.$store.state.user.loggedInUser;
                 return u && u.user_sub_type === 'atencion_cliente';
             },
-            canDeleteClientes() {
+            canManageClienteStatus() {
                 const u = this.$store.state.user && this.$store.state.user.loggedInUser;
 
                 if (!u) {
                     return false;
                 }
 
-                return u.user_type === 'admin' && u.user_sub_type !== 'directivo';
+                if (u.user_sub_type === 'atencion_cliente') {
+                    return false;
+                }
+
+                return ['admin', 'super_partner', 'admin_partner', 'beneficiario', 'admin_beneficiario'].includes(u.user_type)
+                    && !(u.user_type === 'admin' && u.user_sub_type === 'directivo');
             },
             tableOptions() {
                 if (this.isAtencionCliente) {
@@ -222,12 +257,36 @@
                 return {
                     ...this.options,
                     actions: this.options.actions.filter(action => {
-                        return action.title !== this.$t('delete') || this.canDeleteClientes;
+                        if (['Activar cliente', 'Inactivar cliente'].includes(action.title)) {
+                            return this.canManageClienteStatus;
+                        }
+
+                        return true;
                     }),
                 };
             },
+            clienteStatusModalTitle() {
+                return this.isClienteInactive(this.rowData) ? 'Activar cliente' : 'Inactivar cliente';
+            },
+            clienteStatusModalMessage() {
+                return this.isClienteInactive(this.rowData)
+                    ? 'Este cliente volvera a estar activo y podra ingresar nuevamente.'
+                    : 'Este cliente quedara marcado como inactivo y ya no podra ingresar.';
+            },
+            clienteStatusModalIcon() {
+                return this.isClienteInactive(this.rowData) ? 'check-circle' : 'x-circle';
+            },
+            clienteStatusModalClass() {
+                return this.isClienteInactive(this.rowData) ? 'success' : 'warning';
+            },
+            clienteStatusModalButton() {
+                return this.isClienteInactive(this.rowData) ? 'Si, activar' : 'Si, inactivar';
+            },
         },
         methods: {
+            isClienteInactive(rowData) {
+                return rowData && rowData.user && rowData.user.status && rowData.user.status.name === 'status_inactive';
+            },
             submitAtencionClienteSearch() {
                 const query = this.atencionClienteSearchQuery.trim();
                 const params = new URLSearchParams();
@@ -288,7 +347,7 @@
 
                 this.rowData = rowData;
 
-                if (actionObj.title == this.$t('delete')) {
+                if (actionObj.title == 'Inactivar cliente' || actionObj.title == 'Activar cliente') {
                     this.openDeleteModal();
                 } else if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.CLIENTES}/${rowData.id}`;
@@ -348,9 +407,9 @@
              * confirmed $emit Form confirmation modal
              */
             confirmed() {
-                let url = `${actions.CLIENTES}/${this.rowData.id}`;
+                let url = `${actions.CLIENTES}/${this.rowData.id}/toggle-status`;
                 this.deleteLoader=true;
-                this.axiosDelete(url)
+                axios.post(url, {})
                     .then(response => {
                         this.deleteLoader= false;
                         $("#cliente-delete").modal('hide');

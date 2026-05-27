@@ -10,6 +10,7 @@ use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Cliente\Cliente;
 use App\Models\App\Cliente\ClienteVoucher;
 use App\Models\App\SuperPartner\SuperPartner;
+use App\Models\Core\Status;
 use App\Services\App\Cliente\FreeEsimInvitationMailService;
 use App\Services\App\Cliente\ClienteService;
 use Illuminate\Support\Facades\Auth;
@@ -49,7 +50,7 @@ class ClienteController extends Controller
 
         if ($this->isAtencionClienteUser() && !$this->hasAtencionClienteFilters()) {
             return $query->whereRaw('1 = 0')
-                ->with('beneficiario:id,nombre')
+                ->with(['beneficiario:id,nombre', 'user.status:id,name'])
                 ->paginate(request()->get('per_page', 10));
         }
         
@@ -91,7 +92,7 @@ class ClienteController extends Controller
             });
         }
         
-        return $query->with('beneficiario:id,nombre')->paginate(request()->get('per_page', 10));
+        return $query->with(['beneficiario:id,nombre', 'user.status:id,name'])->paginate(request()->get('per_page', 10));
     }
 
     private function isAtencionClienteUser(): bool
@@ -302,6 +303,55 @@ class ClienteController extends Controller
     }
 
     /**
+     * Toggle a client's active/inactive status.
+     */
+    public function toggleStatus(Cliente $cliente)
+    {
+        if (!$this->canManageClienteStatus($cliente)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para cambiar el estado de este cliente.',
+            ], 403);
+        }
+
+        $cliente->loadMissing('user.status');
+
+        if (!$cliente->user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'El cliente no tiene un usuario asociado.',
+            ], 422);
+        }
+
+        $nextStatusName = optional($cliente->user->status)->name === 'status_inactive'
+            ? 'status_active'
+            : 'status_inactive';
+
+        $status = Status::findByNameAndType($nextStatusName, 'user');
+
+        if (!$status) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No se encontró el estado solicitado.',
+            ], 422);
+        }
+
+        $cliente->user->markAs($status);
+        $cliente->user->load('status:id,name');
+
+        $statusText = $nextStatusName === 'status_inactive' ? 'inactivado' : 'activado';
+
+        return response()->json([
+            'status' => true,
+            'message' => "Cliente {$statusText} exitosamente.",
+            'data' => [
+                'cliente_id' => $cliente->id,
+                'user_status' => optional($cliente->user->status)->name,
+            ],
+        ]);
+    }
+
+    /**
      * Toggle the can_activate_free_esim flag for a client.
      * 
      * @param Cliente $cliente
@@ -478,5 +528,62 @@ class ClienteController extends Controller
 
         return $user->user_type === 'admin'
             && ($user->user_sub_type ?? null) !== 'directivo';
+    }
+
+    private function canManageClienteStatus(Cliente $cliente): bool
+    {
+        if (!auth()->check() || $this->isAtencionClienteUser()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'admin' && ($user->user_sub_type ?? null) !== 'directivo') {
+            return true;
+        }
+
+        if ($user->user_type === 'beneficiario') {
+            $beneficiario = Beneficiario::where('user_id', $user->id)->first();
+
+            return $beneficiario
+                ? $this->clienteBelongsToBeneficiario($cliente, (int) $beneficiario->id)
+                : false;
+        }
+
+        if ($user->user_type === 'admin_beneficiario' && $user->beneficiario_id) {
+            return $this->clienteBelongsToBeneficiario($cliente, (int) $user->beneficiario_id);
+        }
+
+        if ($superPartner = $this->resolveScopedSuperPartner()) {
+            return $this->clienteBelongsToSuperPartnerScope($cliente, $superPartner);
+        }
+
+        return false;
+    }
+
+    private function clienteBelongsToBeneficiario(Cliente $cliente, int $beneficiarioId): bool
+    {
+        if ((int) $cliente->beneficiario_id === $beneficiarioId) {
+            return true;
+        }
+
+        return $cliente->partners()->where('beneficiario_id', $beneficiarioId)->exists();
+    }
+
+    private function clienteBelongsToSuperPartnerScope(Cliente $cliente, SuperPartner $superPartner): bool
+    {
+        $partnerIds = $superPartner->beneficiarios()->pluck('id');
+
+        if ($partnerIds->contains((int) $cliente->beneficiario_id)) {
+            return true;
+        }
+
+        if ($cliente->partners()->whereIn('beneficiario_id', $partnerIds)->exists()) {
+            return true;
+        }
+
+        $cliente->loadMissing('user');
+
+        return (int) optional($cliente->user)->super_partner_id === (int) $superPartner->id;
     }
 }

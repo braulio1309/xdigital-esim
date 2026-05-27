@@ -6,6 +6,7 @@ use App\Http\Controllers\App\Cliente\ClienteDashboardController;
 Route::view('/admin/clientes', 'clientes.index')->name('clientes.view');
 Route::post('clientes/import', [ClienteController::class, 'import'])->name('clientes.import');
 Route::resource('clientes', ClienteController::class);
+Route::post('clientes/{cliente}/toggle-status', [ClienteController::class, 'toggleStatus'])->name('clientes.toggle-status');
 Route::post('clientes/{cliente}/toggle-free-esim', [ClienteController::class, 'toggleFreeEsim'])->name('clientes.toggle-free-esim');
 Route::post('clientes/{cliente}/send-access-email', [ClienteController::class, 'sendAccessEmail'])->name('clientes.send-access-email');
 
