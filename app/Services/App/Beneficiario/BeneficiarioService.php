@@ -4,6 +4,13 @@ namespace App\Services\App\Beneficiario;
 
 use App\Helpers\Core\Traits\FileHandler;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\Settings\BeneficiaryCountryPrice;
+use App\Models\App\Settings\BeneficiaryPlanMargin;
+use App\Models\App\Settings\BeneficiaryPlanPrice;
+use App\Models\App\Settings\SuperPartnerCountryPrice;
+use App\Models\App\Settings\SuperPartnerPlanMargin;
+use App\Models\App\Settings\SuperPartnerPlanPrice;
+use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
 use App\Services\App\AppService;
@@ -46,6 +53,11 @@ class BeneficiarioService extends AppService
                 $user = $this->createUserForBeneficiario($beneficiario, $attributes);
                 $beneficiario->user_id = $user->id;
                 $beneficiario->save();
+            }
+
+            // If a super_partner_id is set, inherit all commissions and prices from that super partner
+            if (!empty($attributes['super_partner_id'])) {
+                $this->inheritFromSuperPartner($beneficiario, (int) $attributes['super_partner_id']);
             }
             
             return $beneficiario;
@@ -100,13 +112,85 @@ class BeneficiarioService extends AppService
     }
 
     /**
+     * Copy all commissions, plan margins, plan prices and country prices from a super partner
+     * to this beneficiario. Existing records are replaced.
+     *
+     * @param Beneficiario $beneficiario
+     * @param int          $superPartnerId
+     * @return void
+     */
+    protected function inheritFromSuperPartner(Beneficiario $beneficiario, int $superPartnerId): void
+    {
+        $superPartner = SuperPartner::find($superPartnerId);
+        if (!$superPartner) {
+            return;
+        }
+
+        // Copy scalar commission fields
+        $beneficiario->commission_percentage        = $superPartner->commission_percentage;
+        $beneficiario->free_esim_rate               = $superPartner->free_esim_rate;
+        $beneficiario->sale_commission_latam_pct    = $superPartner->sale_commission_latam_pct;
+        $beneficiario->sale_commission_usa_ca_eu_pct = $superPartner->sale_commission_usa_ca_eu_pct;
+        $beneficiario->save();
+
+        // Copy plan margins
+        $spMargins = SuperPartnerPlanMargin::where('super_partner_id', $superPartnerId)->get();
+        foreach ($spMargins as $spMargin) {
+            BeneficiaryPlanMargin::updateOrCreate(
+                [
+                    'beneficiario_id' => $beneficiario->id,
+                    'plan_capacity'   => $spMargin->plan_capacity,
+                ],
+                [
+                    'margin_percentage' => $spMargin->margin_percentage,
+                    'is_active'         => $spMargin->is_active,
+                ]
+            );
+        }
+
+        // Copy plan prices
+        $spPrices = SuperPartnerPlanPrice::where('super_partner_id', $superPartnerId)->get();
+        foreach ($spPrices as $spPrice) {
+            BeneficiaryPlanPrice::updateOrCreate(
+                [
+                    'beneficiario_id' => $beneficiario->id,
+                    'plan_capacity'   => $spPrice->plan_capacity,
+                ],
+                [
+                    'price'     => $spPrice->price,
+                    'is_active' => $spPrice->is_active,
+                ]
+            );
+        }
+
+        // Copy country prices
+        $spCountryPrices = SuperPartnerCountryPrice::where('super_partner_id', $superPartnerId)->get();
+        foreach ($spCountryPrices as $spCountryPrice) {
+            BeneficiaryCountryPrice::updateOrCreate(
+                [
+                    'beneficiario_id' => $beneficiario->id,
+                    'country_code'    => $spCountryPrice->country_code,
+                    'plan_capacity'   => $spCountryPrice->plan_capacity,
+                ],
+                [
+                    'percentage' => $spCountryPrice->percentage,
+                    'price'      => $spCountryPrice->price,
+                    'is_active'  => $spCountryPrice->is_active,
+                ]
+            );
+        }
+    }
+
+    /**
      * Update Beneficiario service
      * @param Beneficiario $beneficiario
      * @return Beneficiario
      */
     public function update(Beneficiario $beneficiario)
     {
-        $beneficiario->fill(request()->only(['nombre', 'descripcion', 'free_esim_rate']));
+        $previousSuperPartnerId = $beneficiario->super_partner_id;
+
+        $beneficiario->fill(request()->only(['nombre', 'descripcion', 'free_esim_rate', 'super_partner_id']));
 
         // Handle logo upload
         if (request()->hasFile('logo')) {
@@ -120,6 +204,12 @@ class BeneficiarioService extends AppService
         $this->model = $beneficiario;
 
         $beneficiario->save();
+
+        // If a super_partner_id was newly assigned (or changed), inherit commissions and prices
+        $newSuperPartnerId = (int) ($beneficiario->super_partner_id ?? 0);
+        if ($newSuperPartnerId && $newSuperPartnerId !== (int) ($previousSuperPartnerId ?? 0)) {
+            $this->inheritFromSuperPartner($beneficiario, $newSuperPartnerId);
+        }
 
         // Update linked user credentials if provided
         if ($beneficiario->user_id) {

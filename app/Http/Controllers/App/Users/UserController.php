@@ -26,12 +26,19 @@ class UserController extends Controller
         $user = auth()->user();
         if ($user) {
             if ($user->user_type === 'super_partner') {
-                // Solo usuarios de este super partner
-                $query = $query->where('super_partner_id', $user->super_partner->id ?? 0);
-            } elseif ($user->user_type === 'admin_partner' || $user->user_type === 'beneficiario') {
-                // Solo usuarios de este partner/beneficiario
-                $beneficiarioId = $user->beneficiario->id ?? $user->beneficiario_id ?? 0;
+                // Super partner: solo sus propios sub-usuarios (admin_partner)
+                $superPartnerId = $user->superPartner->id ?? 0;
+                $query = $query->where('super_partner_id', $superPartnerId);
+            } elseif ($user->user_type === 'admin_partner') {
+                // Sub-usuario de super partner: muestra compañeros del mismo super partner
+                $query = $query->where('super_partner_id', $user->super_partner_id ?? 0);
+            } elseif ($user->user_type === 'beneficiario') {
+                // Usuario principal de un partner (beneficiario): solo sus sub-usuarios
+                $beneficiarioId = $user->beneficiario->id ?? 0;
                 $query = $query->where('beneficiario_id', $beneficiarioId);
+            } elseif ($user->user_type === 'admin_beneficiario') {
+                // Sub-usuario de un partner (beneficiario): muestra compañeros del mismo partner
+                $query = $query->where('beneficiario_id', $user->beneficiario_id ?? 0);
             }
         }
 
