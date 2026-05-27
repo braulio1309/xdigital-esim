@@ -124,10 +124,10 @@
                     descripcion: '',
                     email: '',
                     password: '',
-                            super_partner_id: '',
+                    super_partner_id: '',
                     logoPreview: null,
                 },
-                        superPartners: [],
+                superPartners: [],
                 logoFile: null,
                 _logoObjectUrl: null,
                 modalId: 'beneficiario-add-edit-modal',
@@ -147,8 +147,19 @@
                 return this.loggedInUser && this.loggedInUser.user_type === 'super_partner';
             },
             showSuperPartnerSelect() {
-                // Solo usuarios que no son beneficiario ni super_partner pueden elegir el super partner
+                if (!this.loggedInUser) {
+                    return false;
+                }
+
+                // Solo usuarios que no son beneficiario ni super_partner pueden elegir el super partner.
                 return !this.isBeneficiarioUser && !this.isSuperPartnerUser;
+            }
+        },
+        watch: {
+            showSuperPartnerSelect(value) {
+                if (value && !this.superPartners.length) {
+                    this.loadSuperPartners();
+                }
             }
         },
         created() {

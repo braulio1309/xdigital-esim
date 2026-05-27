@@ -36,6 +36,11 @@ class BeneficiarioService extends AppService
     {
         return DB::transaction(function () use ($options) {
             $attributes = count($options) ? $options : request()->all();
+
+            if (empty($attributes['super_partner_id']) && auth()->check() && auth()->user()->user_type === 'super_partner') {
+                $attributes['super_partner_id'] = SuperPartner::where('user_id', auth()->id())->value('id');
+            }
+
             // Generate unique codigo if not provided
             if (!isset($attributes['codigo'])) {
                 $attributes['codigo'] = $this->generateUniqueCode();
