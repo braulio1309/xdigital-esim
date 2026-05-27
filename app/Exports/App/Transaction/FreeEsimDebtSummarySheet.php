@@ -139,13 +139,17 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         }
 
         // Alcance por tipo de usuario para exportar solo su propia deuda
-        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
-            $beneficiario = Beneficiario::where('user_id', auth()->id())->first();
+        if (auth()->check() && in_array(auth()->user()->user_type, ['beneficiario', 'admin_beneficiario'], true)) {
+            $beneficiario = auth()->user()->user_type === 'beneficiario'
+                ? Beneficiario::where('user_id', auth()->id())->first()
+                : Beneficiario::find(auth()->user()->beneficiario_id);
             if ($beneficiario) {
                 $baseQuery->where('beneficiario_id', $beneficiario->id);
             }
-        } elseif (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+        } elseif (auth()->check() && in_array(auth()->user()->user_type, ['super_partner', 'admin_partner'], true)) {
+            $superPartner = auth()->user()->user_type === 'super_partner'
+                ? \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first()
+                : \App\Models\App\SuperPartner\SuperPartner::find(auth()->user()->super_partner_id);
             if ($superPartner) {
                 $partnerIds = $superPartner->beneficiarios()->pluck('id');
                 $baseQuery->where(function ($builder) use ($partnerIds, $superPartner) {

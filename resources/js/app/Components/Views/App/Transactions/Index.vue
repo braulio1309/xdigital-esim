@@ -107,7 +107,7 @@
                 </div>
 
                 <!-- Beneficiary indicator for beneficiary users -->
-                <div v-else-if="isBeneficiario" class="d-inline-block mr-2 mb-1">
+                <div v-else-if="isPartnerScopedUser" class="d-inline-block mr-2 mb-1">
                     <span class="badge badge-info p-2" style="font-size: 13px;">
                         <app-icon name="filter" class="pr-1" style="width:14px;height:14px;"/>
                         {{ $t('my_transactions') }}
@@ -497,6 +497,11 @@
                        this.$store.state.user.loggedInUser && 
                        this.$store.state.user.loggedInUser.user_type === 'beneficiario';
             },
+            isPartnerScopedUser() {
+                const user = this.$store.state.user && this.$store.state.user.loggedInUser;
+
+                return !!user && ['beneficiario', 'admin_beneficiario'].includes(user.user_type);
+            },
             canFilterByBeneficiario() {
                 // Admin ve todos los beneficiarios; super_partner solo los suyos.
                 return this.isAdmin || this.isSuperPartner;
@@ -579,6 +584,11 @@
             },
 
             loadBeneficiarios() {
+                if (!this.canFilterByBeneficiario) {
+                    this.beneficiariosList = [];
+                    return;
+                }
+
                 this.axiosGet(actions.BENEFICIARIOS + '?per_page=1000')
                     .then(response => {
                         const beneficiarios = (response.data && response.data.data) ? response.data.data : [];
@@ -593,6 +603,10 @@
                             ...beneficiarioOptions,
                             { id: 'none', value: this.$t('without_beneficiary') },
                         ];
+
+                        if (this.isSuperPartner) {
+                            return null;
+                        }
 
                         return this.axiosGet(actions.SUPER_PARTNERS + '?per_page=1000');
                     })

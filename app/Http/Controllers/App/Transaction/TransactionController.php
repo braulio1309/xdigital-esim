@@ -71,21 +71,11 @@ class TransactionController extends Controller
             return $transactions;
         }
 
+        $beneficiario = $this->resolveScopedBeneficiario();
         $superPartner = $this->resolveScopedSuperPartner();
 
-        // Filter by beneficiario_id if user is a beneficiario or admin_beneficiario sub-user
-        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
-            
-            if ($beneficiario) {
-                $query = $query->where('beneficiario_id', $beneficiario->id);
-            }
-        } elseif (auth()->check() && auth()->user()->user_type === 'admin_beneficiario' && auth()->user()->beneficiario_id) {
-            $beneficiario = Beneficiario::find(auth()->user()->beneficiario_id);
-
-            if ($beneficiario) {
-                $query = $query->where('beneficiario_id', $beneficiario->id);
-            }
+        if ($beneficiario) {
+            $query = $query->where('beneficiario_id', $beneficiario->id);
         } elseif ($superPartner) {
             $partnerIds = $superPartner->beneficiarios()->pluck('id');
 
@@ -133,8 +123,9 @@ class TransactionController extends Controller
             ]);
         }
 
-        $isBeneficiarioUser = auth()->check() && auth()->user()->user_type === 'beneficiario';
+        $beneficiario = $this->resolveScopedBeneficiario();
         $superPartner = $this->resolveScopedSuperPartner();
+        $isBeneficiarioUser = $beneficiario !== null;
         $isSuperPartnerUser = $superPartner !== null;
 
         $query = Transaction::with(['beneficiario', 'cliente.beneficiario'])
@@ -179,11 +170,7 @@ class TransactionController extends Controller
         
         // Filter by beneficiario if not admin
         if ($isBeneficiarioUser) {
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
-            
-            if ($beneficiario) {
-                $query = $query->where('beneficiario_id', $beneficiario->id);
-            }
+            $query = $query->where('beneficiario_id', $beneficiario->id);
         } elseif ($isSuperPartnerUser) {
             $partnerIds = $superPartner->beneficiarios()->pluck('id');
             // Super partner y sus usuarios solo ven transacciones de su red.
@@ -271,11 +258,8 @@ class TransactionController extends Controller
 
         // Alcance por tipo de usuario para evitar que super_partner vean
         // datos de todo el sistema.
-        if (auth()->check() && auth()->user()->user_type === 'beneficiario') {
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
-            if ($beneficiario) {
-                $query->where('beneficiario_id', $beneficiario->id);
-            }
+        if ($beneficiario = $this->resolveScopedBeneficiario()) {
+            $query->where('beneficiario_id', $beneficiario->id);
         } elseif ($superPartner = $this->resolveScopedSuperPartner()) {
             $partnerIds = $superPartner->beneficiarios()->pluck('id');
             // Super partner y sus usuarios solo ven transacciones de su red,
@@ -329,6 +313,25 @@ class TransactionController extends Controller
         return null;
     }
 
+    private function resolveScopedBeneficiario(): ?Beneficiario
+    {
+        if (!auth()->check()) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'beneficiario') {
+            return Beneficiario::where('user_id', $user->id)->first();
+        }
+
+        if ($user->user_type === 'admin_beneficiario' && $user->beneficiario_id) {
+            return Beneficiario::find($user->beneficiario_id);
+        }
+
+        return null;
+    }
+
     /**
      * Calculate the total sale commission earned by the current partner (beneficiario or super_partner)
      * or filtered by partner/date range for admins.
@@ -375,8 +378,8 @@ class TransactionController extends Controller
         $userType = auth()->check() ? auth()->user()->user_type : null;
         $column = 'partner_sale_commission_amount';
 
-        if ($userType === 'beneficiario') {
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
+        if (in_array($userType, ['beneficiario', 'admin_beneficiario'], true)) {
+            $beneficiario = $this->resolveScopedBeneficiario();
             if (!$beneficiario) {
                 return response()->json(['total' => 0]);
             }
