@@ -23,19 +23,6 @@
                             </div>
                         </div>
 
-                        <div class="input-group mb-3" style="max-width: 560px;">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text bg-info text-white">Link planes:</span>
-                            </div>
-                            <input type="text" class="form-control bg-white" id="superPartnerPlanesLink"
-                                   value="{{ $superPartner->planes_link }}" readonly>
-                            <div class="input-group-append">
-                                <button class="btn btn-outline-info" type="button" onclick="copySuperPartnerLink('superPartnerPlanesLink', 'Link de planes copiado al portapapeles.')">
-                                    <i class="mdi mdi-content-copy"></i> Copiar
-                                </button>
-                            </div>
-                        </div>
-
                     </div>
                     <p class="text-muted mb-0">Este panel solo muestra información de tu cuenta y de los partners asociados a tu red.</p>
                 </div>

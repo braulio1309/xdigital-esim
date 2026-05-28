@@ -24,19 +24,6 @@
                             </div>
                         </div>
 
-                        <div class="input-group mb-3" style="max-width: 500px;">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text bg-info text-white">Link planes:</span>
-                            </div>
-                            <input type="text" class="form-control bg-white" id="planesLink"
-                                   value="{{ $beneficiario->planes_link }}" readonly>
-                            <div class="input-group-append">
-                                <button class="btn btn-outline-info" type="button" onclick="copyLink('planesLink', 'Enlace de planes copiado al portapapeles!')">
-                                    <i class="mdi mdi-content-copy"></i> Copiar
-                                </button>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
             </div>
