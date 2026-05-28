@@ -20,7 +20,7 @@
             <div class="table-responsive">
                 <app-table :id="data.tableId"
                            class="remove-datatable-x-padding"
-                           :options="userTableOptions"
+                           :options="scopedUserTableOptions"
                            :filtered-data="filteredData"
                            :search="search"
                            @action="action"/>
@@ -122,6 +122,30 @@
                     {id: 2, name: 'inactive', translated_name: 'Inactive'},
                 ],
             }
+        },
+        computed: {
+            loggedInUser() {
+                return this.$store.state.user && this.$store.state.user.loggedInUser
+                    ? this.$store.state.user.loggedInUser
+                    : null;
+            },
+            isScopedViewer() {
+                const userType = this.loggedInUser ? this.loggedInUser.user_type : null;
+
+                return ['super_partner', 'admin_partner', 'beneficiario', 'admin_beneficiario'].includes(userType);
+            },
+            scopedUserTableOptions() {
+                if (!this.isScopedViewer) {
+                    return this.userTableOptions;
+                }
+
+                return {
+                    ...this.userTableOptions,
+                    columns: this.userTableOptions.columns.filter(column => column.type !== 'action'),
+                    actions: [],
+                    showAction: false,
+                };
+            },
         },
         methods: {
             getFilterValue(item) {
