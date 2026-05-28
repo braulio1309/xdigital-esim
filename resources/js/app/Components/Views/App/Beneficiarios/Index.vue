@@ -31,6 +31,11 @@
 
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
+                          :title="confirmationTitle"
+                          :message="confirmationMessage"
+                          :first-button-name="confirmationButton"
+                          icon="x-circle"
+                          modal-class="warning"
                           modal-id="beneficiario-delete"
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
@@ -62,13 +67,25 @@
                 selectedUrl: '',
                 tableId: 'beneficiarios-table',
                 rowData: {},
+                confirmationMode: 'delete',
             }
         },
         computed: {
             isSuperPartner() {
                 return this.$store.state.user &&
                        this.$store.state.user.loggedInUser &&
-                       this.$store.state.user.loggedInUser.user_type === 'super_partner';
+                       ['super_partner', 'admin_partner'].includes(this.$store.state.user.loggedInUser.user_type);
+            },
+            confirmationTitle() {
+                return this.confirmationMode === 'inactivate' ? 'Inactivar partner' : this.$t('are_you_sure');
+            },
+            confirmationMessage() {
+                return this.confirmationMode === 'inactivate'
+                    ? 'Este partner quedará inactivo y ya no podrá ingresar.'
+                    : this.$t('this_content_will_be_deleted_permanently');
+            },
+            confirmationButton() {
+                return this.confirmationMode === 'inactivate' ? 'Si, inactivar' : this.$t('yes');
             },
             options() {
                 const allActions = [
@@ -88,6 +105,14 @@
                         title: this.$t('download_commissions'),
                         icon: 'download',
                         type: 'none',
+                    },
+                    {
+                        title: 'Inactivar partner',
+                        icon: 'x-circle',
+                        type: 'none',
+                        modifier: (row) => {
+                            return !(row.user && row.user.status && row.user.status.name === 'status_inactive');
+                        }
                     },
                     {
                         title: this.$t('delete'),
@@ -118,6 +143,18 @@
                             title: this.$t('descripcion'),
                             type: 'text',
                             key: 'descripcion',
+                        },
+                        {
+                            title: 'Estado',
+                            type: 'custom-html',
+                            key: 'user',
+                            modifier: (value) => {
+                                const isInactive = value && value.status && value.status.name === 'status_inactive';
+                                const badgeClass = isInactive ? 'badge-secondary' : 'badge-success';
+                                const label = isInactive ? 'Inactivo' : 'Activo';
+
+                                return `<span class="badge ${badgeClass}">${label}</span>`;
+                            }
                         },
                         {
                             title: 'Link de Referencia',
@@ -209,6 +246,7 @@
                 this.rowData = rowData;
 
                 if (actionObj.title == this.$t('delete')) {
+                    this.confirmationMode = 'delete';
                     this.openDeleteModal();
                 } else if (actionObj.title == this.$t('edit')) {
                     this.selectedUrl = `${actions.BENEFICIARIOS}/${rowData.id}`;
@@ -217,6 +255,9 @@
                     this.openMarginModal(rowData);
                 } else if (actionObj.title == this.$t('download_commissions')) {
                     this.downloadCommissions(rowData);
+                } else if (actionObj.title == 'Inactivar partner') {
+                    this.confirmationMode = 'inactivate';
+                    this.openDeleteModal();
                 }
             },
 
@@ -254,17 +295,23 @@
              * confirmed $emit Form confirmation modal
              */
             confirmed() {
-                let url = `${actions.BENEFICIARIOS}/${this.rowData.id}`;
+                let url = this.confirmationMode === 'inactivate'
+                    ? `/${actions.BENEFICIARIOS}/${this.rowData.id}/inactivate`
+                    : `${actions.BENEFICIARIOS}/${this.rowData.id}`;
                 this.deleteLoader=true;
-                this.axiosDelete(url)
+                const request = this.confirmationMode === 'inactivate'
+                    ? this.axiosPost(url)
+                    : this.axiosDelete(url);
+
+                request
                     .then(response => {
                         this.deleteLoader= false;
                         $("#beneficiario-delete").modal('hide');
                         this.cancelled();
                         this.$toastr.s(response.data.message);
-                    }).catch(({error}) => {
-
-                    //trigger after error
+                    }).catch(error => {
+                        this.deleteLoader = false;
+                        this.$toastr.e(error.response?.data?.message || 'No fue posible completar la acción.');
                 }).finally(() => {
 
                     this.$hub.$emit('reload-' + this.tableId);
@@ -276,6 +323,7 @@
              */
             cancelled() {
                 this.deleteConfirmationModalActive = false;
+                this.confirmationMode = 'delete';
                 this.reSetData();
             },
 

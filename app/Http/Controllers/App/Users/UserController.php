@@ -24,6 +24,7 @@ class UserController extends Controller
         $query = $this->service->with('status:id,name,type');
 
         $user = auth()->user();
+        
         if ($user) {
             if ($user->user_type === 'super_partner') {
                 // Super partner: solo sus propios sub-usuarios (admin_partner)

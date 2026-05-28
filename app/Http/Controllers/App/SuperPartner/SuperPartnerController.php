@@ -8,9 +8,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\App\SuperPartnerRequest as Request;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\Transaction;
+use App\Models\Core\Status;
 use App\Services\App\Settings\SuperPartnerPlanMarginService;
 use App\Services\App\Settings\SuperPartnerPriceService;
 use App\Services\App\SuperPartner\SuperPartnerService;
+use Illuminate\Support\Str;
 
 class SuperPartnerController extends Controller
 {
@@ -28,9 +30,52 @@ class SuperPartnerController extends Controller
     public function index()
     {
         return $this->service
+            ->with('user.status:id,name,class')
             ->filters($this->filter)
             ->latest()
             ->paginate(request()->get('per_page', 10));
+    }
+
+    public function inactivate(SuperPartner $super_partner)
+    {
+        if (!auth()->check() || auth()->user()->user_type !== 'admin') {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para inactivar este super partner.',
+            ], 403);
+        }
+
+        $super_partner->loadMissing('user.status');
+
+        if (!$super_partner->user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'El super partner no tiene un usuario asociado.',
+            ], 422);
+        }
+
+        if (optional($super_partner->user->status)->name === 'status_inactive') {
+            return response()->json([
+                'status' => false,
+                'message' => 'El super partner ya está inactivo.',
+            ], 422);
+        }
+
+        $status = Status::findByNameAndType('status_inactive', 'user');
+
+        if (!$status) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No se encontró el estado inactivo.',
+            ], 422);
+        }
+
+        $super_partner->user->markAs($status);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Super partner inactivado exitosamente.',
+        ]);
     }
 
     /**
@@ -202,7 +247,7 @@ class SuperPartnerController extends Controller
 
         $headings = ['Transaction ID', 'Plan', 'Monto', 'Partner', 'Comisión', 'Fecha'];
 
-        $filename = 'comisiones-super-partner-' . \Str::slug($super_partner->nombre) . '.csv';
+        $filename = 'comisiones-super-partner-' . Str::slug($super_partner->nombre) . '.csv';
         $filepath = storage_path('app/' . $filename);
 
         $fp = fopen($filepath, 'w');

@@ -24,6 +24,11 @@
 
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
+                          :title="confirmationTitle"
+                          :message="confirmationMessage"
+                          :first-button-name="confirmationButton"
+                          icon="x-circle"
+                          modal-class="warning"
                           modal-id="super-partner-delete"
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
@@ -59,6 +64,7 @@
                 selectedUrl: '',
                 tableId: 'super-partners-table',
                 rowData: {},
+                confirmationMode: 'delete',
                 options: {
                     url: actions.SUPER_PARTNERS,
                     name: 'Super Partners',
@@ -74,6 +80,18 @@
                             title: this.$t('descripcion'),
                             type: 'text',
                             key: 'descripcion',
+                        },
+                        {
+                            title: 'Estado',
+                            type: 'custom-html',
+                            key: 'user',
+                            modifier: (value) => {
+                                const isInactive = value && value.status && value.status.name === 'status_inactive';
+                                const badgeClass = isInactive ? 'badge-secondary' : 'badge-success';
+                                const label = isInactive ? 'Inactivo' : 'Activo';
+
+                                return `<span class="badge ${badgeClass}">${label}</span>`;
+                            }
                         },
                         {
                             title: 'Código',
@@ -135,6 +153,14 @@
                             type: 'none',
                         },
                         {
+                            title: 'Inactivar super partner',
+                            icon: 'x-circle',
+                            type: 'none',
+                            modifier: (row) => {
+                                return !(row.user && row.user.status && row.user.status.name === 'status_inactive');
+                            }
+                        },
+                        {
                             title: this.$t('delete'),
                             icon: 'trash',
                             type: 'none',
@@ -153,6 +179,19 @@
                 }
             }
         },
+        computed: {
+            confirmationTitle() {
+                return this.confirmationMode === 'inactivate' ? 'Inactivar super partner' : this.$t('are_you_sure');
+            },
+            confirmationMessage() {
+                return this.confirmationMode === 'inactivate'
+                    ? 'Este super partner quedará inactivo y ya no podrá ingresar.'
+                    : this.$t('this_content_will_be_deleted_permanently');
+            },
+            confirmationButton() {
+                return this.confirmationMode === 'inactivate' ? 'Si, inactivar' : this.$t('yes');
+            }
+        },
         methods: {
             openAddEditModal() {
                 this.isAddEditModalActive = true;
@@ -169,9 +208,13 @@
                 } else if (action.title === this.$t('manage_commissions')) {
                     this.isCommissionsModalActive = true;
                 } else if (action.title === this.$t('delete')) {
+                    this.confirmationMode = 'delete';
                     this.deleteConfirmationModalActive = true;
                 } else if (action.title === this.$t('download_commissions')) {
                     this.downloadCommissions(row);
+                } else if (action.title === 'Inactivar super partner') {
+                    this.confirmationMode = 'inactivate';
+                    this.deleteConfirmationModalActive = true;
                 }
             },
             downloadCommissions(row) {
@@ -179,19 +222,25 @@
             },
             confirmed() {
                 this.deleteLoader = true;
-                this.axiosDelete(`super-partners/${this.rowData.id}`)
+                const request = this.confirmationMode === 'inactivate'
+                    ? this.axiosPost(`/super-partners/${this.rowData.id}/inactivate`)
+                    : this.axiosDelete(`super-partners/${this.rowData.id}`);
+
+                request
                     .then(response => {
                         this.$toastr.s(response.data.message);
                         this.$hub.$emit('reload-' + this.tableId);
                     }).catch(error => {
-                        this.$toastr.e(error.response.data.message);
+                        this.$toastr.e(error.response?.data?.message || 'No fue posible completar la acción.');
                     }).finally(() => {
                         this.deleteLoader = false;
                         this.deleteConfirmationModalActive = false;
+                        this.confirmationMode = 'delete';
                     });
             },
             cancelled() {
                 this.deleteConfirmationModalActive = false;
+                this.confirmationMode = 'delete';
             },
             closeCommissionsModal() {
                 this.isCommissionsModalActive = false;

@@ -7,6 +7,8 @@ use App\Filters\App\Beneficiario\BeneficiarioFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\BeneficiarioRequest as Request;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\SuperPartner\SuperPartner;
+use App\Models\Core\Status;
 use App\Services\App\Beneficiario\BeneficiarioService;
 use App\Services\App\Settings\BeneficiaryPlanMarginService;
 use App\Services\App\Settings\PlanMarginService;
@@ -33,7 +35,7 @@ class BeneficiarioController extends Controller
      */
     public function index()
     {
-        $query = $this->service->filters($this->filter)->latest();
+        $query = $this->service->with('user.status:id,name,class')->filters($this->filter)->latest();
 
         // Filter by super_partner_id if user is a super_partner
         if (auth()->check() && auth()->user()->user_type === 'super_partner') {
@@ -61,6 +63,48 @@ class BeneficiarioController extends Controller
         });
         
         return $beneficiarios;
+    }
+
+    public function inactivate(Beneficiario $beneficiario)
+    {
+        if (!$this->canInactivate($beneficiario)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para inactivar este partner.',
+            ], 403);
+        }
+
+        $beneficiario->loadMissing('user.status');
+
+        if (!$beneficiario->user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'El partner no tiene un usuario asociado.',
+            ], 422);
+        }
+
+        if (optional($beneficiario->user->status)->name === 'status_inactive') {
+            return response()->json([
+                'status' => false,
+                'message' => 'El partner ya está inactivo.',
+            ], 422);
+        }
+
+        $status = Status::findByNameAndType('status_inactive', 'user');
+
+        if (!$status) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No se encontró el estado inactivo.',
+            ], 422);
+        }
+
+        $beneficiario->user->markAs($status);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Partner inactivado exitosamente.',
+        ]);
     }
 
     /**
@@ -147,5 +191,32 @@ class BeneficiarioController extends Controller
             return deleted_responses('beneficiario');
         }
         return failed_responses();
+    }
+
+    private function canInactivate(Beneficiario $beneficiario): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'admin') {
+            return true;
+        }
+
+        if ($user->user_type === 'super_partner') {
+            $superPartner = SuperPartner::where('user_id', $user->id)->first();
+
+            return $superPartner
+                ? (int) $beneficiario->super_partner_id === (int) $superPartner->id
+                : false;
+        }
+
+        if ($user->user_type === 'admin_partner' && $user->super_partner_id) {
+            return (int) $beneficiario->super_partner_id === (int) $user->super_partner_id;
+        }
+
+        return false;
     }
 }
