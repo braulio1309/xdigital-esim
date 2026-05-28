@@ -98,9 +98,9 @@
                     }
                 ];
 
-                // Super partners cannot manage commissions/rates/adjustments
+                // Super partners cannot manage commissions/rates/adjustments or delete partners
                 const tableActions = this.isSuperPartner
-                    ? allActions.filter(a => a.title !== this.$t('manage_commissions') && a.title !== this.$t('download_commissions'))
+                    ? allActions.filter(a => a.title !== this.$t('manage_commissions') && a.title !== this.$t('download_commissions') && a.title !== this.$t('delete'))
                     : allActions;
 
                 return {

@@ -56,7 +56,7 @@
       <div class="col-md-12">
         <div class="card card-with-shadow">
           <div class="card-header">
-            <h5>Top 5 Beneficiarios con Más Clientes</h5>
+            <h5>Top 5 Partners con Más Clientes</h5>
           </div>
           <div class="card-body">
             <div class="table-responsive">
@@ -121,7 +121,7 @@
       <div class="col-md-12">
         <div class="card card-with-shadow">
           <div class="card-header">
-            <h5>Beneficiarios Activos vs Inactivos</h5>
+            <h5>Partners Activos vs Inactivos</h5>
           </div>
           <div class="card-body">
             <app-chart

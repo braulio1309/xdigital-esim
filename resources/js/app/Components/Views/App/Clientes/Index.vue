@@ -135,9 +135,7 @@
                             key: 'identificador',
                         },
                         {
-                            title: 'Beneficiario',
-                            type: 'custom-html',
-                            key: 'beneficiario',
+                            title: 'Partner',
                             modifier: (value) => {
                                 return value && value.nombre ? value.nombre : '<span class="text-muted">N/A</span>';
                             }

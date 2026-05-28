@@ -37,18 +37,6 @@
                             </div>
                         </div>
 
-                        <div class="input-group mb-3" style="max-width: 500px;">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text bg-dark text-white">Código:</span>
-                            </div>
-                            <input type="text" class="form-control bg-white" id="referralCode"
-                                   value="{{ $beneficiario->referral_code }}" readonly>
-                            <div class="input-group-append">
-                                <button class="btn btn-outline-dark" type="button" onclick="copyLink('referralCode', 'Código copiado al portapapeles!')">
-                                    <i class="mdi mdi-content-copy"></i> Copiar
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
