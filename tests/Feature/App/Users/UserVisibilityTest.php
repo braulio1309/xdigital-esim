@@ -14,12 +14,12 @@ class UserVisibilityTest extends TestCase
     use RefreshDatabase;
 
     /** @test */
-    public function super_partners_can_see_admin_partner_users_they_created_even_if_the_scope_foreign_key_is_missing(): void
+    public function super_partners_only_see_users_from_their_network(): void
     {
         $this->ensureUserStatusesExist();
 
         $superPartnerUser = $this->createUserOfType('super_partner');
-        SuperPartner::create([
+        $superPartner = SuperPartner::create([
             'nombre' => 'Super Partner Uno',
             'descripcion' => 'SP de prueba',
             'codigo' => 'SP000001',
@@ -27,8 +27,7 @@ class UserVisibilityTest extends TestCase
         ]);
 
         $visibleUser = $this->createUserOfType('admin_partner', [
-            'created_by' => $superPartnerUser->id,
-            'super_partner_id' => null,
+            'super_partner_id' => $superPartner->id,
         ]);
 
         $hiddenUser = $this->createUserOfType('admin_partner');
@@ -37,25 +36,25 @@ class UserVisibilityTest extends TestCase
             ->getJson('/admin/auth/users');
 
         $response->assertOk()
+            ->assertJsonFragment(['email' => $superPartnerUser->email])
             ->assertJsonFragment(['email' => $visibleUser->email])
             ->assertJsonMissing(['email' => $hiddenUser->email]);
     }
 
     /** @test */
-    public function partners_can_see_admin_beneficiario_users_they_created_even_if_the_scope_foreign_key_is_missing(): void
+    public function partners_only_see_users_from_their_network(): void
     {
         $this->ensureUserStatusesExist();
 
         $partnerUser = $this->createUserOfType('beneficiario');
-        Beneficiario::create([
+        $beneficiario = Beneficiario::create([
             'nombre' => 'Partner Uno',
             'descripcion' => 'Partner de prueba',
             'user_id' => $partnerUser->id,
         ]);
 
         $visibleUser = $this->createUserOfType('admin_beneficiario', [
-            'created_by' => $partnerUser->id,
-            'beneficiario_id' => null,
+            'beneficiario_id' => $beneficiario->id,
         ]);
 
         $hiddenUser = $this->createUserOfType('admin_beneficiario');
@@ -64,6 +63,7 @@ class UserVisibilityTest extends TestCase
             ->getJson('/admin/auth/users');
 
         $response->assertOk()
+            ->assertJsonFragment(['email' => $partnerUser->email])
             ->assertJsonFragment(['email' => $visibleUser->email])
             ->assertJsonMissing(['email' => $hiddenUser->email]);
     }

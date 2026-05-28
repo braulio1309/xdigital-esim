@@ -50,28 +50,16 @@ class UserController extends Controller
         $authUser = auth()->user();
 
         if ($superPartner = $this->resolveScopedSuperPartner($authUser)) {
-            $query = $query->where(function ($builder) use ($superPartner, $authUser) {
-                $builder->where(function ($scopedQuery) use ($superPartner) {
-                    $scopedQuery->where('super_partner_id', $superPartner->id)
-                        ->whereIn('user_type', ['admin_partner']);
-                })->orWhere(function ($createdQuery) use ($authUser) {
-                    $createdQuery->where('created_by', $authUser->id)
-                        ->whereIn('user_type', ['admin_partner']);
-                });
+            $query = $query->where(function ($builder) use ($superPartner) {
+                $builder->where('super_partner_id', $superPartner->id);
 
                 if ($superPartner->user_id) {
                     $builder->orWhere('id', $superPartner->user_id);
                 }
             });
         } elseif ($beneficiario = $this->resolveScopedBeneficiario($authUser)) {
-            $query = $query->where(function ($builder) use ($beneficiario, $authUser) {
-                $builder->where(function ($scopedQuery) use ($beneficiario) {
-                    $scopedQuery->where('beneficiario_id', $beneficiario->id)
-                        ->whereIn('user_type', ['admin_beneficiario']);
-                })->orWhere(function ($createdQuery) use ($authUser) {
-                    $createdQuery->where('created_by', $authUser->id)
-                        ->whereIn('user_type', ['admin_beneficiario']);
-                });
+            $query = $query->where(function ($builder) use ($beneficiario) {
+                $builder->where('beneficiario_id', $beneficiario->id);
 
                 if ($beneficiario->user_id) {
                     $builder->orWhere('id', $beneficiario->user_id);
