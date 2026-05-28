@@ -96,6 +96,36 @@ class ClienteControllerTest extends TestCase
     }
 
     /** @test */
+    public function partners_can_reactivate_an_inactive_cliente(): void
+    {
+        $partnerUser = $this->createUserOfType('beneficiario');
+        $beneficiario = Beneficiario::create([
+            'nombre' => 'Partner Uno',
+            'descripcion' => 'Partner de prueba',
+            'user_id' => $partnerUser->id,
+        ]);
+
+        $cliente = $this->createClienteWithUser([
+            'beneficiario_id' => $beneficiario->id,
+        ]);
+
+        $inactiveStatusId = Status::query()
+            ->where('name', 'status_inactive')
+            ->where('type', 'user')
+            ->value('id');
+
+        $cliente->user->update([
+            'status_id' => $inactiveStatusId,
+        ]);
+
+        $response = $this->actingAs($partnerUser)
+            ->postJson(route('clientes.toggle-status', $cliente));
+
+        $response->assertOk();
+        $this->assertSame('status_active', $cliente->user->fresh()->status->name);
+    }
+
+    /** @test */
     public function it_returns_the_latest_voucher_data_when_loading_a_cliente_for_editing(): void
     {
         $this->loginAsAdmin();

@@ -201,7 +201,7 @@
                             component: 'dummy-component',
                             modalId: 'dummy-modal-id',
                             modifier: (row) => {
-                                return !this.isClienteInactive(row);
+                                return this.isClienteInactive(row);
                             }
                         },
                         {
@@ -211,7 +211,7 @@
                             component: 'app-confirmation-modal',
                             modalId: 'cliente-delete',
                             modifier: (row) => {
-                                return this.isClienteInactive(row);
+                                return !this.isClienteInactive(row);
                             }
                         }
                     ],
@@ -415,9 +415,12 @@
                         $("#cliente-delete").modal('hide');
                         this.cancelled();
                         this.$toastr.s(response.data.message);
-                    }).catch(({error}) => {
-
-                    //trigger after error
+                    }).catch(error => {
+                        this.deleteLoader = false;
+                        const message = error.response && error.response.data && error.response.data.message
+                            ? error.response.data.message
+                            : 'No fue posible cambiar el estado del cliente.';
+                        this.$toastr.e(message);
                 }).finally(() => {
 
                     this.$hub.$emit('reload-' + this.tableId);
