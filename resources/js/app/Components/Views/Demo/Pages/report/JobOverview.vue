@@ -5,13 +5,13 @@
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
-                        <label>{{ $t('Filtrar por Beneficiario') }}</label>
+                        <label>{{ $t('Filtrar por Partners') }}</label>
                         <app-input 
                             type="select"
                             v-model="selectedBeneficiario"
                             :list="beneficiarios"
                             list-value-field="value"
-                            placeholder="Todos los Beneficiarios"
+                            placeholder="Todos los Partners"
                             @input="onBeneficiarioChange"/>
                     </div>
                 </div>
@@ -22,7 +22,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Total Beneficiarios') }}({{ $t('all_time') }})</div>
+                                <div class="text-muted">{{ $t('Total Partners') }}({{ $t('all_time') }})</div>
                                 <div class="h1">{{ total_beneficiarios }}</div>
                             </div>
                         </div>
@@ -32,7 +32,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Beneficiarios Activos') }}</div>
+                                <div class="text-muted">{{ $t('Partners Activos') }}</div>
                                 <div class="h1">{{ active_beneficiarios }}</div>
                             </div>
                         </div>
@@ -42,7 +42,7 @@
                     <div class="card card-with-shadow border-0">
                         <div class="card-body d-flex justify-content-center align-items-center">
                             <div class="text-center w-100">
-                                <div class="text-muted">{{ $t('Promedio Ventas por Beneficiario') }}</div>
+                                <div class="text-muted">{{ $t('Promedio Ventas por Partner') }}</div>
                                 <div class="h1">{{ avg_transactions_per_beneficiario }}</div>
                             </div>
                         </div>
@@ -53,7 +53,7 @@
                 <div class="col">
                     <div class="card card-with-shadow border-0">
                         <div class="card-body">
-                            <h4>Ventas por Beneficiario</h4>
+                            <h4>Ventas por Partners</h4>
                             <app-chart class="mb-primary" type="horizontal-line-chart" :height="230"
                                 :labels="transactionsByBeneficiario.labels" :data-sets="transactionsByBeneficiario.dataSet" />
                         </div>

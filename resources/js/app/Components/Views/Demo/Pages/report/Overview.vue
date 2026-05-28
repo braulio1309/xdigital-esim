@@ -5,13 +5,13 @@
             <div class="row mb-4">
                 <div class="col-12 col-md-4">
                     <div class="form-group">
-                        <label>{{ $t('Filtrar por Beneficiario') }}</label>
+                        <label>{{ $t('Filtrar por Partners') }}</label>
                         <app-input 
                             type="select"
                             v-model="selectedBeneficiario"
                             :list="beneficiarios"
                             list-value-field="value"
-                            placeholder="Todos los Beneficiarios"
+                            placeholder="Todos los Partners"
                             @input="onBeneficiarioChange"/>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
                 <div class="col-12 col-md-6">
                     <div class="card card-with-shadow border-0">
                         <div class="card-body">
-                            <h4>Transacciones por Beneficiario</h4>
+                            <h4>Transacciones por Partners</h4>
                             <app-chart class="mb-primary" type="bar-chart" :height="230" :labels="topSources.labels"
                                 :data-sets="topSources.dataSet" />
                         </div>

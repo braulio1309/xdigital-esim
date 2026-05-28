@@ -25,8 +25,8 @@ export default {
                             headerHide: true
                         },
                         {
-                            name: 'Desempeño de Beneficiarios',
-                            title: 'Desempeño de Beneficiarios',
+                            name: 'Desempeño de Partners',
+                            title: 'Desempeño de Partners',
                             component: "job-overview",
                             props: {},
                             headerHide: true

@@ -1,16 +1,16 @@
 <template>
     <div class="--content-wrapper">
-        <!-- Beneficiario Filter -->
+        <!-- Partner Filter -->
         <div class="row mb-4">
             <div class="col-12 col-md-4">
                 <div class="form-group">
-                    <label>{{ $t('Filtrar por Beneficiario') }}</label>
+                    <label>{{ $t('Filtrar por Partners') }}</label>
                     <app-input 
                         type="select"
                         v-model="selectedBeneficiario"
                         :list="beneficiarios"
                         list-value-field="value"
-                        placeholder="Todos los Beneficiarios"
+                        placeholder="Todos los Partners"
                         @input="onBeneficiarioChange"/>
                 </div>
             </div>
