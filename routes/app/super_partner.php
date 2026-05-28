@@ -8,6 +8,7 @@ Route::get('super-partners/{super_partner}/commissions', [SuperPartnerController
 Route::post('super-partners/{super_partner}/commissions', [SuperPartnerController::class, 'updateCommissions'])->name('super-partners.commissions.update');
 Route::resource('super-partners', SuperPartnerController::class);
 Route::post('super-partners/{super_partner}/inactivate', [SuperPartnerController::class, 'inactivate'])->name('super-partners.inactivate');
+Route::post('super-partners/{super_partner}/activate', [SuperPartnerController::class, 'activate'])->name('super-partners.activate');
 Route::get('super-partners/{super_partner}/export-commissions', [SuperPartnerController::class, 'exportCommissions'])->name('super-partners.export-commissions');
 
 // Super Partner dashboard routes

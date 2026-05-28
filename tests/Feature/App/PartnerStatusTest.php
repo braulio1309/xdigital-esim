@@ -41,6 +41,30 @@ class PartnerStatusTest extends TestCase
     }
 
     /** @test */
+    public function admin_can_reactivate_a_super_partner(): void
+    {
+        $admin = $this->createAdmin();
+
+        $user = User::factory()->create([
+            'user_type' => 'super_partner',
+            'status_id' => $this->inactiveStatusId(),
+        ]);
+
+        $superPartner = SuperPartner::create([
+            'nombre' => 'SP Dos',
+            'descripcion' => 'Demo',
+            'codigo' => 'SP000002',
+            'user_id' => $user->id,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->postJson(route('super-partners.activate', $superPartner));
+
+        $response->assertOk();
+        $this->assertSame('status_active', $user->fresh()->status->name);
+    }
+
+    /** @test */
     public function super_partner_can_inactivate_a_partner_in_their_network(): void
     {
         $this->ensureStatusesAndRoles();
@@ -76,6 +100,44 @@ class PartnerStatusTest extends TestCase
 
         $response->assertOk();
         $this->assertSame('status_inactive', $partnerUser->fresh()->status->name);
+    }
+
+    /** @test */
+    public function super_partner_can_reactivate_a_partner_in_their_network(): void
+    {
+        $this->ensureStatusesAndRoles();
+
+        $superPartnerOwner = User::factory()->create([
+            'user_type' => 'super_partner',
+            'status_id' => $this->activeStatusId(),
+        ]);
+        $superPartnerOwner->assignRole('Super Partner');
+
+        $superPartner = SuperPartner::create([
+            'nombre' => 'SP Uno',
+            'descripcion' => 'Demo',
+            'codigo' => 'SP000001',
+            'user_id' => $superPartnerOwner->id,
+        ]);
+
+        $partnerUser = User::factory()->create([
+            'user_type' => 'beneficiario',
+            'status_id' => $this->inactiveStatusId(),
+        ]);
+        $partnerUser->assignRole('beneficiario');
+
+        $beneficiario = Beneficiario::create([
+            'nombre' => 'Partner Uno',
+            'descripcion' => 'Demo',
+            'user_id' => $partnerUser->id,
+            'super_partner_id' => $superPartner->id,
+        ]);
+
+        $response = $this->actingAs($superPartnerOwner)
+            ->postJson(route('beneficiarios.activate', $beneficiario));
+
+        $response->assertOk();
+        $this->assertSame('status_active', $partnerUser->fresh()->status->name);
     }
 
     private function ensureStatusesAndRoles(): void
@@ -116,5 +178,12 @@ class PartnerStatusTest extends TestCase
         $this->ensureStatusesAndRoles();
 
         return (int) Status::query()->where('name', 'status_active')->where('type', 'user')->value('id');
+    }
+
+    private function inactiveStatusId(): int
+    {
+        $this->ensureStatusesAndRoles();
+
+        return (int) Status::query()->where('name', 'status_inactive')->where('type', 'user')->value('id');
     }
 }

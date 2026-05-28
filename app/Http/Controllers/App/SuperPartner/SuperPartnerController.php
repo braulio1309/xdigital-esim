@@ -45,6 +45,24 @@ class SuperPartnerController extends Controller
             ], 403);
         }
 
+        return $this->updateSuperPartnerStatus($super_partner, 'status_inactive', 'inactivo', 'inactivado');
+    }
+
+    public function activate(SuperPartner $super_partner)
+    {
+        if (!auth()->check() || auth()->user()->user_type !== 'admin') {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para activar este super partner.',
+            ], 403);
+        }
+
+        return $this->updateSuperPartnerStatus($super_partner, 'status_active', 'activo', 'activado');
+    }
+
+    private function updateSuperPartnerStatus(SuperPartner $super_partner, string $statusName, string $statusLabel, string $actionLabel)
+    {
+
         $super_partner->loadMissing('user.status');
 
         if (!$super_partner->user) {
@@ -54,19 +72,19 @@ class SuperPartnerController extends Controller
             ], 422);
         }
 
-        if (optional($super_partner->user->status)->name === 'status_inactive') {
+        if (optional($super_partner->user->status)->name === $statusName) {
             return response()->json([
                 'status' => false,
-                'message' => 'El super partner ya está inactivo.',
+                'message' => "El super partner ya está {$statusLabel}.",
             ], 422);
         }
 
-        $status = Status::findByNameAndType('status_inactive', 'user');
+        $status = Status::findByNameAndType($statusName, 'user');
 
         if (!$status) {
             return response()->json([
                 'status' => false,
-                'message' => 'No se encontró el estado inactivo.',
+                'message' => "No se encontró el estado {$statusLabel}.",
             ], 422);
         }
 
@@ -74,7 +92,7 @@ class SuperPartnerController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Super partner inactivado exitosamente.',
+            'message' => "Super partner {$actionLabel} exitosamente.",
         ]);
     }
 

@@ -77,15 +77,37 @@
                        ['super_partner', 'admin_partner'].includes(this.$store.state.user.loggedInUser.user_type);
             },
             confirmationTitle() {
-                return this.confirmationMode === 'inactivate' ? 'Inactivar partner' : this.$t('are_you_sure');
+                if (this.confirmationMode === 'inactivate') {
+                    return 'Inactivar partner';
+                }
+
+                if (this.confirmationMode === 'activate') {
+                    return 'Activar partner';
+                }
+
+                return this.$t('are_you_sure');
             },
             confirmationMessage() {
-                return this.confirmationMode === 'inactivate'
-                    ? 'Este partner quedará inactivo y ya no podrá ingresar.'
-                    : this.$t('this_content_will_be_deleted_permanently');
+                if (this.confirmationMode === 'inactivate') {
+                    return 'Este partner quedará inactivo y ya no podrá ingresar.';
+                }
+
+                if (this.confirmationMode === 'activate') {
+                    return 'Este partner volverá a estar activo y podrá ingresar nuevamente.';
+                }
+
+                return this.$t('this_content_will_be_deleted_permanently');
             },
             confirmationButton() {
-                return this.confirmationMode === 'inactivate' ? 'Si, inactivar' : this.$t('yes');
+                if (this.confirmationMode === 'inactivate') {
+                    return 'Si, inactivar';
+                }
+
+                if (this.confirmationMode === 'activate') {
+                    return 'Si, activar';
+                }
+
+                return this.$t('yes');
             },
             options() {
                 const allActions = [
@@ -112,6 +134,14 @@
                         type: 'none',
                         modifier: (row) => {
                             return !(row.user && row.user.status && row.user.status.name === 'status_inactive');
+                        }
+                    },
+                    {
+                        title: 'Activar partner',
+                        icon: 'check-circle',
+                        type: 'none',
+                        modifier: (row) => {
+                            return !!(row.user && row.user.status && row.user.status.name === 'status_inactive');
                         }
                     },
                     {
@@ -258,6 +288,9 @@
                 } else if (actionObj.title == 'Inactivar partner') {
                     this.confirmationMode = 'inactivate';
                     this.openDeleteModal();
+                } else if (actionObj.title == 'Activar partner') {
+                    this.confirmationMode = 'activate';
+                    this.openDeleteModal();
                 }
             },
 
@@ -295,11 +328,16 @@
              * confirmed $emit Form confirmation modal
              */
             confirmed() {
-                let url = this.confirmationMode === 'inactivate'
-                    ? `/${actions.BENEFICIARIOS}/${this.rowData.id}/inactivate`
-                    : `${actions.BENEFICIARIOS}/${this.rowData.id}`;
+                let url = `${actions.BENEFICIARIOS}/${this.rowData.id}`;
+
+                if (this.confirmationMode === 'inactivate') {
+                    url = `/${actions.BENEFICIARIOS}/${this.rowData.id}/inactivate`;
+                } else if (this.confirmationMode === 'activate') {
+                    url = `/${actions.BENEFICIARIOS}/${this.rowData.id}/activate`;
+                }
+
                 this.deleteLoader=true;
-                const request = this.confirmationMode === 'inactivate'
+                const request = ['inactivate', 'activate'].includes(this.confirmationMode)
                     ? this.axiosPost({ url, data: {} })
                     : this.axiosDelete(url);
 

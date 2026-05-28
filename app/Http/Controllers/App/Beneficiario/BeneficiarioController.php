@@ -67,12 +67,30 @@ class BeneficiarioController extends Controller
 
     public function inactivate(Beneficiario $beneficiario)
     {
-        if (!$this->canInactivate($beneficiario)) {
+        if (!$this->canManageStatus($beneficiario)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No autorizado para inactivar este partner.',
             ], 403);
         }
+
+        return $this->updatePartnerStatus($beneficiario, 'status_inactive', 'inactivo', 'inactivado');
+    }
+
+    public function activate(Beneficiario $beneficiario)
+    {
+        if (!$this->canManageStatus($beneficiario)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para activar este partner.',
+            ], 403);
+        }
+
+        return $this->updatePartnerStatus($beneficiario, 'status_active', 'activo', 'activado');
+    }
+
+    private function updatePartnerStatus(Beneficiario $beneficiario, string $statusName, string $statusLabel, string $actionLabel)
+    {
 
         $beneficiario->loadMissing('user.status');
 
@@ -83,19 +101,19 @@ class BeneficiarioController extends Controller
             ], 422);
         }
 
-        if (optional($beneficiario->user->status)->name === 'status_inactive') {
+        if (optional($beneficiario->user->status)->name === $statusName) {
             return response()->json([
                 'status' => false,
-                'message' => 'El partner ya está inactivo.',
+                'message' => "El partner ya está {$statusLabel}.",
             ], 422);
         }
 
-        $status = Status::findByNameAndType('status_inactive', 'user');
+        $status = Status::findByNameAndType($statusName, 'user');
 
         if (!$status) {
             return response()->json([
                 'status' => false,
-                'message' => 'No se encontró el estado inactivo.',
+                'message' => "No se encontró el estado {$statusLabel}.",
             ], 422);
         }
 
@@ -103,7 +121,7 @@ class BeneficiarioController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Partner inactivado exitosamente.',
+            'message' => "Partner {$actionLabel} exitosamente.",
         ]);
     }
 
@@ -193,7 +211,7 @@ class BeneficiarioController extends Controller
         return failed_responses();
     }
 
-    private function canInactivate(Beneficiario $beneficiario): bool
+    private function canManageStatus(Beneficiario $beneficiario): bool
     {
         if (!auth()->check()) {
             return false;

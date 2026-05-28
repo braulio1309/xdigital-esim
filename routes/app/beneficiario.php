@@ -7,6 +7,7 @@ use App\Http\Controllers\App\Settings\BeneficiaryPlanMarginController;
 Route::view('/admin/beneficiarios', 'beneficiarios.index')->name('beneficiarios.view');
 Route::resource('beneficiarios', BeneficiarioController::class);
 Route::post('beneficiarios/{beneficiario}/inactivate', [BeneficiarioController::class, 'inactivate'])->name('beneficiarios.inactivate');
+Route::post('beneficiarios/{beneficiario}/activate', [BeneficiarioController::class, 'activate'])->name('beneficiarios.activate');
 Route::get('beneficiarios/{beneficiario}/export-commissions', [BeneficiarioController::class, 'exportCommissions'])->name('beneficiarios.export-commissions');
 
 // Beneficiario dashboard routes

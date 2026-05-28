@@ -161,6 +161,14 @@
                             }
                         },
                         {
+                            title: 'Activar super partner',
+                            icon: 'check-circle',
+                            type: 'none',
+                            modifier: (row) => {
+                                return !!(row.user && row.user.status && row.user.status.name === 'status_inactive');
+                            }
+                        },
+                        {
                             title: this.$t('delete'),
                             icon: 'trash',
                             type: 'none',
@@ -181,15 +189,37 @@
         },
         computed: {
             confirmationTitle() {
-                return this.confirmationMode === 'inactivate' ? 'Inactivar super partner' : this.$t('are_you_sure');
+                if (this.confirmationMode === 'inactivate') {
+                    return 'Inactivar super partner';
+                }
+
+                if (this.confirmationMode === 'activate') {
+                    return 'Activar super partner';
+                }
+
+                return this.$t('are_you_sure');
             },
             confirmationMessage() {
-                return this.confirmationMode === 'inactivate'
-                    ? 'Este super partner quedará inactivo y ya no podrá ingresar.'
-                    : this.$t('this_content_will_be_deleted_permanently');
+                if (this.confirmationMode === 'inactivate') {
+                    return 'Este super partner quedará inactivo y ya no podrá ingresar.';
+                }
+
+                if (this.confirmationMode === 'activate') {
+                    return 'Este super partner volverá a estar activo y podrá ingresar nuevamente.';
+                }
+
+                return this.$t('this_content_will_be_deleted_permanently');
             },
             confirmationButton() {
-                return this.confirmationMode === 'inactivate' ? 'Si, inactivar' : this.$t('yes');
+                if (this.confirmationMode === 'inactivate') {
+                    return 'Si, inactivar';
+                }
+
+                if (this.confirmationMode === 'activate') {
+                    return 'Si, activar';
+                }
+
+                return this.$t('yes');
             }
         },
         methods: {
@@ -215,6 +245,9 @@
                 } else if (action.title === 'Inactivar super partner') {
                     this.confirmationMode = 'inactivate';
                     this.deleteConfirmationModalActive = true;
+                } else if (action.title === 'Activar super partner') {
+                    this.confirmationMode = 'activate';
+                    this.deleteConfirmationModalActive = true;
                 }
             },
             downloadCommissions(row) {
@@ -222,12 +255,21 @@
             },
             confirmed() {
                 this.deleteLoader = true;
-                const request = this.confirmationMode === 'inactivate'
-                    ? this.axiosPost({
+                let request;
+
+                if (this.confirmationMode === 'inactivate') {
+                    request = this.axiosPost({
                         url: `/super-partners/${this.rowData.id}/inactivate`,
                         data: {}
-                    })
-                    : this.axiosDelete(`super-partners/${this.rowData.id}`);
+                    });
+                } else if (this.confirmationMode === 'activate') {
+                    request = this.axiosPost({
+                        url: `/super-partners/${this.rowData.id}/activate`,
+                        data: {}
+                    });
+                } else {
+                    request = this.axiosDelete(`super-partners/${this.rowData.id}`);
+                }
 
                 request
                     .then(response => {
