@@ -138,6 +138,7 @@
                             title: 'Partner',
                             type: 'custom-html',
                             key: 'beneficiario',
+                            modifier: (value) => {
                                 return value && value.nombre ? value.nombre : '<span class="text-muted">N/A</span>';
                             }
                         },
