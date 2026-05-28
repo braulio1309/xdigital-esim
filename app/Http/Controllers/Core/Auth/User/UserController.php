@@ -42,40 +42,82 @@ class UserController extends Controller
         $query = (new AppUserFilter(
             $this->service
                 ->filters($this->filter)
-                ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id', 'beneficiario_id', 'user_sub_type'])
+                ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id', 'beneficiario_id', 'user_sub_type', 'user_type'])
                 ->with('roles:id,name,is_admin,is_default,type_id', 'status', 'profilePicture')
                 ->latest()
         ))->filter();
 
         $authUser = auth()->user();
 
-        // Super partner sees their own admin_partner sub-users
-        if ($authUser && $authUser->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', $authUser->id)->first();
-            if ($superPartner) {
-                $query = $query->where('super_partner_id', $superPartner->id)
-                               ->whereIn('user_type', ['admin_partner']);
-            }
-        } elseif ($authUser && $authUser->user_type === 'admin_partner' && $authUser->super_partner_id) {
-            // Directivo admin_partner sees other sub-users of the same super_partner
-            $query = $query->where('super_partner_id', $authUser->super_partner_id)
-                           ->whereIn('user_type', ['admin_partner']);
-        } elseif ($authUser && $authUser->user_type === 'beneficiario') {
-            // Partner sees their own admin_beneficiario sub-users
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', $authUser->id)->first();
-            if ($beneficiario) {
-                $query = $query->where('beneficiario_id', $beneficiario->id)
-                               ->whereIn('user_type', ['admin_beneficiario']);
-            }
-        } elseif ($authUser && $authUser->user_type === 'admin_beneficiario' && $authUser->beneficiario_id) {
-            // Directivo admin_beneficiario sees other sub-users of the same beneficiario
-            $query = $query->where('beneficiario_id', $authUser->beneficiario_id)
-                           ->whereIn('user_type', ['admin_beneficiario']);
+        if ($superPartner = $this->resolveScopedSuperPartner($authUser)) {
+            $query = $query->where(function ($builder) use ($superPartner, $authUser) {
+                $builder->where(function ($scopedQuery) use ($superPartner) {
+                    $scopedQuery->where('super_partner_id', $superPartner->id)
+                        ->whereIn('user_type', ['admin_partner']);
+                })->orWhere(function ($createdQuery) use ($authUser) {
+                    $createdQuery->where('created_by', $authUser->id)
+                        ->whereIn('user_type', ['admin_partner']);
+                });
+
+                if ($superPartner->user_id) {
+                    $builder->orWhere('id', $superPartner->user_id);
+                }
+            });
+        } elseif ($beneficiario = $this->resolveScopedBeneficiario($authUser)) {
+            $query = $query->where(function ($builder) use ($beneficiario, $authUser) {
+                $builder->where(function ($scopedQuery) use ($beneficiario) {
+                    $scopedQuery->where('beneficiario_id', $beneficiario->id)
+                        ->whereIn('user_type', ['admin_beneficiario']);
+                })->orWhere(function ($createdQuery) use ($authUser) {
+                    $createdQuery->where('created_by', $authUser->id)
+                        ->whereIn('user_type', ['admin_beneficiario']);
+                });
+
+                if ($beneficiario->user_id) {
+                    $builder->orWhere('id', $beneficiario->user_id);
+                }
+            });
         } else {
             $query = $query->where('user_type', 'admin');
         }
 
         return $query->paginate(request()->get('per_page', 10));
+    }
+
+    private function resolveScopedSuperPartner(?User $authUser): ?SuperPartner
+    {
+        if (!$authUser) {
+            return null;
+        }
+
+        if ($authUser->user_type === 'super_partner') {
+            return SuperPartner::where('user_id', $authUser->id)->first()
+                ?? ($authUser->super_partner_id ? SuperPartner::find($authUser->super_partner_id) : null);
+        }
+
+        if ($authUser->user_type === 'admin_partner' && $authUser->super_partner_id) {
+            return SuperPartner::find($authUser->super_partner_id);
+        }
+
+        return null;
+    }
+
+    private function resolveScopedBeneficiario(?User $authUser): ?Beneficiario
+    {
+        if (!$authUser) {
+            return null;
+        }
+
+        if ($authUser->user_type === 'beneficiario') {
+            return Beneficiario::where('user_id', $authUser->id)->first()
+                ?? ($authUser->beneficiario_id ? Beneficiario::find($authUser->beneficiario_id) : null);
+        }
+
+        if ($authUser->user_type === 'admin_beneficiario' && $authUser->beneficiario_id) {
+            return Beneficiario::find($authUser->beneficiario_id);
+        }
+
+        return null;
     }
 
 
