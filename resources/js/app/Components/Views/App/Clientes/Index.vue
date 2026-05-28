@@ -407,7 +407,7 @@
              * confirmed $emit Form confirmation modal
              */
             confirmed() {
-                let url = `${actions.CLIENTES}/${this.rowData.id}/toggle-status`;
+                let url = `/${actions.CLIENTES}/${this.rowData.id}/toggle-status`;
                 this.deleteLoader=true;
                 axios.post(url, {})
                     .then(response => {
