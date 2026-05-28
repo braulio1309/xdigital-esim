@@ -223,7 +223,10 @@
             confirmed() {
                 this.deleteLoader = true;
                 const request = this.confirmationMode === 'inactivate'
-                    ? this.axiosPost(`/super-partners/${this.rowData.id}/inactivate`)
+                    ? this.axiosPost({
+                        url: `/super-partners/${this.rowData.id}/inactivate`,
+                        data: {}
+                    })
                     : this.axiosDelete(`super-partners/${this.rowData.id}`);
 
                 request

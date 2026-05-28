@@ -466,12 +466,14 @@
             },
             tableOptions() {
                 if (this.isAtencionCliente) {
-                    const rechargeOnlyActions = this.options.actions.filter(action => action.title === this.$t('recharge_esim'));
+                    const allowedActions = this.options.actions.filter(action => {
+                        return [this.$t('details'), this.$t('send_recharge_email')].includes(action.title);
+                    });
 
                     return {
                         ...this.options,
-                        actions: rechargeOnlyActions,
-                        showAction: rechargeOnlyActions.length > 0,
+                        actions: allowedActions,
+                        showAction: allowedActions.length > 0,
                     };
                 }
 

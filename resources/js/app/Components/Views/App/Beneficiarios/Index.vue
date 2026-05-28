@@ -300,7 +300,7 @@
                     : `${actions.BENEFICIARIOS}/${this.rowData.id}`;
                 this.deleteLoader=true;
                 const request = this.confirmationMode === 'inactivate'
-                    ? this.axiosPost(url)
+                    ? this.axiosPost({ url, data: {} })
                     : this.axiosDelete(url);
 
                 request

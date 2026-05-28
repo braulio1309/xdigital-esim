@@ -16,6 +16,7 @@ use App\Services\App\Transaction\TransactionService;
 use App\Services\EsimFxService;
 use App\Exports\App\Transaction\TransactionExport;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -425,7 +426,7 @@ class TransactionController extends Controller
     public function markAsPaid(\Illuminate\Http\Request $request)
     {
         // Authorization check - only admin users can mark transactions as paid
-        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+        if (!$this->isAdminUser()) {
             return response()->json(['message' => 'Unauthorized. Only administrators can mark transactions as paid.'], 403);
         }
 
@@ -666,7 +667,7 @@ class TransactionController extends Controller
      */
     public function recharge(\Illuminate\Http\Request $request, Transaction $transaction)
     {
-        if (!auth()->check() || (!$this->isAtencionClienteUser() && auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+        if ($this->isAtencionClienteUser() || !$this->isAdminUser()) {
             return response()->json(['message' => 'Unauthorized. Only authorized users can recharge eSIMs.'], 403);
         }
 
@@ -908,7 +909,7 @@ class TransactionController extends Controller
      */
     public function nomadDebtStats(\Illuminate\Http\Request $request)
     {
-        if (!auth()->check() || (auth()->user()->user_type !== 'admin' && !auth()->user()->hasRole('Admin'))) {
+        if (!$this->isAdminUser()) {
             return response()->json(['message' => 'Unauthorized. Only administrators can view Nomad debt stats.'], 403);
         }
 
@@ -984,19 +985,14 @@ class TransactionController extends Controller
 
         $user = auth()->user();
 
-        if ($user->user_type === 'admin' || $user->hasRole('Admin')) {
+        if ($this->isAdminUser()) {
             return true;
         }
 
-        if ($user->user_type === 'beneficiario') {
-            $beneficiario = Beneficiario::where('user_id', $user->id)->first();
+        if ($beneficiario = $this->resolveScopedBeneficiario()) {
+            $transactionBeneficiarioId = (int) ($transaction->beneficiario_id ?: optional($transaction->cliente)->beneficiario_id);
 
-            if (!$beneficiario) {
-                return false;
-            }
-
-            return (int) $transaction->beneficiario_id === (int) $beneficiario->id
-                || (int) optional($transaction->cliente)->beneficiario_id === (int) $beneficiario->id;
+            return $transactionBeneficiarioId === (int) $beneficiario->id;
         }
 
         if ($superPartner = $this->resolveScopedSuperPartner()) {
@@ -1009,6 +1005,25 @@ class TransactionController extends Controller
         }
 
         return false;
+    }
+
+    private function isAdminUser(): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'admin') {
+            return true;
+        }
+
+        return DB::table('role_user')
+            ->join('roles', 'roles.id', '=', 'role_user.role_id')
+            ->where('role_user.user_id', $user->id)
+            ->where('roles.name', 'Admin')
+            ->exists();
     }
 
     protected function buildReferralCodeForTransaction(Transaction $transaction): ?string
