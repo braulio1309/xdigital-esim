@@ -150,7 +150,7 @@ return array_merge([
     'create_user' => 'Crear Usuario',
     'user_type' => 'Tipo de Usuario',
     'admin' => 'Administrador',
-    'beneficiario' => 'Beneficiario',
+    'beneficiario' => 'Partner',
     'cliente' => 'Cliente',
     'nombre' => 'Nombre',
     'descripcion' => 'Descripción',
@@ -451,7 +451,7 @@ return array_merge([
 
     // Beneficiary Plan Margins
     'beneficiary_plan_margins' => 'Comisiones de Plan',
-    'beneficiary_profit_margin_configuration' => 'Configuración de Comisiones del Beneficiario',
+    'beneficiary_profit_margin_configuration' => 'Configuración de Comisiones del Partner',
     'configure_beneficiary_margins_explanation' => 'Configura tus propios márgenes de ganancia sobre los precios establecidos por el administrador.',
     'if_admin_price' => 'Si el precio del administrador es',
     'confirm_reset_beneficiary_margins' => '¿Estás seguro de que deseas restablecer todos los márgenes al 0%?',

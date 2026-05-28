@@ -957,7 +957,7 @@ return [
     'amount_owed' => 'Monto a pagar',
     'transactions_count' => 'Cantidad de transacciones',
     'please_fill_all_required_fields' => 'Por favor completa todos los campos requeridos',
-    'error_loading_beneficiaries' => 'Error al cargar beneficiarios',
+    'error_loading_beneficiaries' => 'Error al cargar partners',
     'error_marking_transactions' => 'Error al marcar transacciones como pagadas',
     'total_owed' => 'Total Adeudado',
     'details' => 'Detalles',
@@ -971,7 +971,7 @@ return [
 
     // Partners (Beneficiarios)
     'beneficiarios' => 'Partners',
-    'beneficiario_id' => 'Beneficiario',
+    'beneficiario_id' => 'Partner',
     'cliente_id' => 'Cliente',
     'created_at' => 'Creado el',
     'creation_time' => 'Fecha de creación',

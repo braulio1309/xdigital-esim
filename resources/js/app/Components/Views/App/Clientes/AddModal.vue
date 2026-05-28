@@ -76,7 +76,7 @@
                                v-model="inputs.beneficiario_id"
                                :list="beneficiarios"
                                list-value-field="value"
-                               :placeholder="'Seleccionar beneficiario (opcional)'"
+                               :placeholder="'Seleccionar partner (opcional)'"
                                :required="false"/>
                 </div>
                 <div class="form-group row align-items-center mb-0">
@@ -230,7 +230,7 @@
                     })
                     .catch(error => {
                         console.error('Error loading beneficiarios:', error);
-                        this.$toastr.e('Error al cargar la lista de beneficiarios');
+                        this.$toastr.e('Error al cargar la lista de partners');
                     });
             },
             loadVouchers(clienteId) {
