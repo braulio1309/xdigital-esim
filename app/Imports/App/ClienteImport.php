@@ -198,12 +198,41 @@ class ClienteImport implements ToCollection, WithHeadingRow
      */
     protected function preGroupRows(Collection $rows): array
     {
-        $emailToCanonical   = [];
-        $voucherToCanonical = [];
-        $canonicalMap       = [];
-        $groupCountMap      = [];
+        // parent[] implements a simple union-find structure.
+        // parent[$i] === $i means $i is a root (canonical).
+        $parent        = [];
+        $groupCountMap = [];
+        // emailToRoot / voucherToRoot hold the root index for the first occurrence
+        $emailToRoot   = [];
+        $voucherToRoot = [];
+
+        // --- Helper: find root with path compression ---
+        $find = function (int $i) use (&$parent, &$find): int {
+            if ($parent[$i] !== $i) {
+                $parent[$i] = $find($parent[$i]);
+            }
+            return $parent[$i];
+        };
+
+        // --- Helper: union two sets (keep the smaller root) ---
+        $union = function (int $a, int $b) use (&$parent, &$groupCountMap, &$find): void {
+            $ra = $find($a);
+            $rb = $find($b);
+            if ($ra === $rb) {
+                return;
+            }
+            // Always attach the larger root to the smaller one (earlier row wins)
+            [$keep, $drop] = $ra < $rb ? [$ra, $rb] : [$rb, $ra];
+            $parent[$drop]        = $keep;
+            $groupCountMap[$keep] = ($groupCountMap[$keep] ?? 0) + ($groupCountMap[$drop] ?? 0);
+            unset($groupCountMap[$drop]);
+        };
+
+        $indexList = [];
 
         foreach ($rows as $index => $row) {
+            $indexList[] = $index;
+
             $normalizedRow = $row->mapWithKeys(function ($value, $key) {
                 return [Str::slug($key, '_') => $value];
             });
@@ -221,48 +250,35 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 'numero_voucher', 'voucher', 'num_voucher', 'n_de_voucher',
             ], $this->findValueByKeyPatterns($normalizedRow, ['voucher'])));
 
-            // Determine the canonical row for this entry
-            $canonical = null;
+            // Register this row as its own root initially
+            $parent[$index]        = $index;
+            $groupCountMap[$index] = 1;
 
-            if ($email !== '' && isset($emailToCanonical[$email])) {
-                $canonical = $emailToCanonical[$email];
+            // Merge with existing group if email already seen
+            if ($email !== '' && isset($emailToRoot[$email])) {
+                $union($index, $emailToRoot[$email]);
             }
 
-            if ($voucher !== '' && isset($voucherToCanonical[$voucher])) {
-                $voucherCanonical = $voucherToCanonical[$voucher];
-                if ($canonical === null) {
-                    $canonical = $voucherCanonical;
-                }
-                // If two different canonicals were found, merge into the smallest (earliest)
-                if ($canonical !== $voucherCanonical) {
-                    $canonical = min($canonical, $voucherCanonical);
-                    // Re-point all entries that were mapped to the larger canonical
-                    $larger = max($canonical, $voucherCanonical);
-                    foreach ($canonicalMap as $idx => $c) {
-                        if ($c === $larger) {
-                            $canonicalMap[$idx] = $canonical;
-                        }
-                    }
-                    $groupCountMap[$canonical] = ($groupCountMap[$canonical] ?? 0) + ($groupCountMap[$larger] ?? 0);
-                    unset($groupCountMap[$larger]);
-                }
+            // Merge with existing group if voucher already seen
+            if ($voucher !== '' && isset($voucherToRoot[$voucher])) {
+                $union($index, $voucherToRoot[$voucher]);
             }
 
-            if ($canonical === null) {
-                // First occurrence – this row is its own canonical
-                $canonical = $index;
+            // Store email/voucher → root for the first time only;
+            // after union the root may have changed, so use find()
+            if ($email !== '' && !isset($emailToRoot[$email])) {
+                $emailToRoot[$email] = $find($index);
             }
 
-            $canonicalMap[$index]       = $canonical;
-            $groupCountMap[$canonical]  = ($groupCountMap[$canonical] ?? 0) + 1;
-
-            if ($email !== '' && !isset($emailToCanonical[$email])) {
-                $emailToCanonical[$email] = $canonical;
+            if ($voucher !== '' && !isset($voucherToRoot[$voucher])) {
+                $voucherToRoot[$voucher] = $find($index);
             }
+        }
 
-            if ($voucher !== '' && !isset($voucherToCanonical[$voucher])) {
-                $voucherToCanonical[$voucher] = $canonical;
-            }
+        // Build canonicalMap: each row index → its root
+        $canonicalMap = [];
+        foreach ($indexList as $index) {
+            $canonicalMap[$index] = $find($index);
         }
 
         return [$canonicalMap, $groupCountMap];
