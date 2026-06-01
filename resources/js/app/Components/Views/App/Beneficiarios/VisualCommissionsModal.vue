@@ -44,14 +44,14 @@
                             </div>
                         </div>
                         <small class="text-muted d-block mt-1">
-                            Porcentaje visible para el partner en transacciones de Latinoamérica y Europa.
+                            Porcentaje visible para el partner en transacciones de LATAM y Europa.
                         </small>
                     </div>
                 </div>
 
                 <div class="form-group row align-items-center">
                     <label for="b_commission_usa_ca" class="col-sm-5 mb-0">
-                        Comisión Canadá y USA (%)
+                        Comisión USA, Canadá y Europa (%)
                     </label>
                     <div class="col-sm-7">
                         <div class="input-group" style="max-width: 220px;">
@@ -68,7 +68,7 @@
                             </div>
                         </div>
                         <small class="text-muted d-block mt-1">
-                            Porcentaje visible para el partner en transacciones de Canadá y USA.
+                            Porcentaje visible para el partner en transacciones de USA, Canadá y Europa.
                         </small>
                     </div>
                 </div>
@@ -140,12 +140,8 @@
             submit() {
                 this.preloader = true;
                 const payload = {
-                    sale_commission_latam_pct: (this.saleCommissionLatamPct !== null && this.saleCommissionLatamPct !== undefined && this.saleCommissionLatamPct !== '')
-                        ? parseFloat(this.saleCommissionLatamPct)
-                        : null,
-                    sale_commission_usa_ca_eu_pct: (this.saleCommissionUsaCaEuPct !== null && this.saleCommissionUsaCaEuPct !== undefined && this.saleCommissionUsaCaEuPct !== '')
-                        ? parseFloat(this.saleCommissionUsaCaEuPct)
-                        : null,
+                    sale_commission_latam_pct: this.parseCommission(this.saleCommissionLatamPct),
+                    sale_commission_usa_ca_eu_pct: this.parseCommission(this.saleCommissionUsaCaEuPct),
                 };
 
                 axios.post(actions.BENEFICIARIOS_VISUAL_COMMISSIONS(this.beneficiarioId), payload)
@@ -172,6 +168,11 @@
             },
             closeModal() {
                 this.$emit('close');
+            },
+            parseCommission(value) {
+                return (value !== null && value !== undefined && value !== '')
+                    ? parseFloat(value)
+                    : null;
             },
         },
     };
