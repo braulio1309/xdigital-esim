@@ -19,6 +19,8 @@ class BeneficiaryPlanMarginRequest extends AppRequest
             'margins.*.margin_percentage' => 'required|numeric|min:0|max:100',
             'margins.*.is_active' => 'sometimes|boolean',
             'free_esim_rate' => 'nullable|numeric|min:0|max:999.99',
+            'sale_commission_latam_pct' => 'sometimes|nullable|numeric|min:0|max:100',
+            'sale_commission_usa_ca_eu_pct' => 'sometimes|nullable|numeric|min:0|max:100',
             'plan_prices' => 'sometimes|array',
             'plan_prices.*.price' => 'nullable|numeric|min:0',
             'plan_prices.*.is_active' => 'sometimes|boolean',
