@@ -105,7 +105,7 @@ class BeneficiaryPlanMarginService extends BaseService
      * @param array $data Array of margins with plan_capacity as key
      * @return bool
      */
-    public function updateMargins($beneficiarioId, array $data, ?float $freeEsimRate = null)
+    public function updateMargins($beneficiarioId, array $data, ?float $freeEsimRate = null, $saleCommissionLatamPct = false, $saleCommissionUsaCaEuPct = false)
     {
         try {
             foreach ($data as $planCapacity => $marginData) {
@@ -126,11 +126,19 @@ class BeneficiaryPlanMarginService extends BaseService
                 ]);
             }
 
-            if ($freeEsimRate !== null) {
+            if ($freeEsimRate !== null || $saleCommissionLatamPct !== false || $saleCommissionUsaCaEuPct !== false) {
                 $beneficiario = Beneficiario::find($beneficiarioId);
 
                 if ($beneficiario) {
-                    $beneficiario->free_esim_rate = $freeEsimRate;
+                    if ($freeEsimRate !== null) {
+                        $beneficiario->free_esim_rate = $freeEsimRate;
+                    }
+                    if ($saleCommissionLatamPct !== false) {
+                        $beneficiario->sale_commission_latam_pct = $saleCommissionLatamPct;
+                    }
+                    if ($saleCommissionUsaCaEuPct !== false) {
+                        $beneficiario->sale_commission_usa_ca_eu_pct = $saleCommissionUsaCaEuPct;
+                    }
                     $beneficiario->save();
                 }
             }

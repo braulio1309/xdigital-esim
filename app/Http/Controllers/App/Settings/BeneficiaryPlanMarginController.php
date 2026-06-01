@@ -41,6 +41,8 @@ class BeneficiaryPlanMarginController extends Controller
         return response()->json([
             'margins' => $this->service->getFormattedMargins($beneficiarioId),
             'free_esim_rate' => (float) $beneficiario->free_esim_rate,
+            'sale_commission_latam_pct' => $beneficiario->sale_commission_latam_pct !== null ? (float) $beneficiario->sale_commission_latam_pct : null,
+            'sale_commission_usa_ca_eu_pct' => $beneficiario->sale_commission_usa_ca_eu_pct !== null ? (float) $beneficiario->sale_commission_usa_ca_eu_pct : null,
             'plan_prices' => $this->priceService->getFormattedPlanPrices($beneficiarioId),
             'country_prices' => $this->priceService->getCountryPrices($beneficiarioId),
             'countries' => CountryTariffHelper::getAllCountries(),
@@ -62,11 +64,15 @@ class BeneficiaryPlanMarginController extends Controller
         $freeEsimRate = $request->input('free_esim_rate');
         $planPrices = $request->input('plan_prices', []);
         $countryPrices = $request->input('country_prices', []);
+        $saleCommissionLatamPct = $request->has('sale_commission_latam_pct') ? $request->input('sale_commission_latam_pct') : false;
+        $saleCommissionUsaCaEuPct = $request->has('sale_commission_usa_ca_eu_pct') ? $request->input('sale_commission_usa_ca_eu_pct') : false;
 
         $success = $this->service->updateMargins(
             $beneficiarioId,
             $margins,
-            $freeEsimRate !== null ? (float) $freeEsimRate : null
+            $freeEsimRate !== null ? (float) $freeEsimRate : null,
+            $saleCommissionLatamPct !== false ? ($saleCommissionLatamPct !== null ? (float) $saleCommissionLatamPct : null) : false,
+            $saleCommissionUsaCaEuPct !== false ? ($saleCommissionUsaCaEuPct !== null ? (float) $saleCommissionUsaCaEuPct : null) : false
         );
 
         if ($success) {
@@ -83,6 +89,8 @@ class BeneficiaryPlanMarginController extends Controller
             return updated_responses('beneficiary_plan_margins', [
                 'margins' => $this->service->getFormattedMargins($beneficiarioId),
                 'free_esim_rate' => (float) $beneficiario->free_esim_rate,
+                'sale_commission_latam_pct' => $beneficiario->sale_commission_latam_pct !== null ? (float) $beneficiario->sale_commission_latam_pct : null,
+                'sale_commission_usa_ca_eu_pct' => $beneficiario->sale_commission_usa_ca_eu_pct !== null ? (float) $beneficiario->sale_commission_usa_ca_eu_pct : null,
                 'plan_prices' => $this->priceService->getFormattedPlanPrices($beneficiarioId),
                 'country_prices' => $this->priceService->getCountryPrices($beneficiarioId),
                 'countries' => CountryTariffHelper::getAllCountries(),
