@@ -183,10 +183,114 @@ class ClienteImport implements ToCollection, WithHeadingRow
         ];
     }
 
+    /**
+     * Pre-process rows to identify duplicate emails and/or vouchers.
+     *
+     * Returns two arrays:
+     *   $canonicalMap  – row_index => canonical_row_index (the first occurrence index)
+     *   $groupCountMap – canonical_row_index => total number of rows in that group
+     *
+     * Two rows belong to the same group when they share the same email OR the same
+     * non-empty voucher number.
+     *
+     * @param  Collection $rows
+     * @return array{0: array<int,int>, 1: array<int,int>}
+     */
+    protected function preGroupRows(Collection $rows): array
+    {
+        $emailToCanonical   = [];
+        $voucherToCanonical = [];
+        $canonicalMap       = [];
+        $groupCountMap      = [];
+
+        foreach ($rows as $index => $row) {
+            $normalizedRow = $row->mapWithKeys(function ($value, $key) {
+                return [Str::slug($key, '_') => $value];
+            });
+
+            $email = mb_strtolower(trim((string) $this->firstNonEmptyValue($normalizedRow, [
+                'email', 'correo', 'e_mail',
+                'correo_del_contratante', 'email_del_contratante', 'mail_del_contratante',
+            ], $this->findValueByKeyPatterns(
+                $normalizedRow,
+                ['email', 'correo', 'mail'],
+                ['contrat']
+            ) ?: $this->findValueByKeyPatterns($normalizedRow, ['email', 'correo', 'mail']))));
+
+            $voucher = trim((string) $this->firstNonEmptyValue($normalizedRow, [
+                'numero_voucher', 'voucher', 'num_voucher', 'n_de_voucher',
+            ], $this->findValueByKeyPatterns($normalizedRow, ['voucher'])));
+
+            // Determine the canonical row for this entry
+            $canonical = null;
+
+            if ($email !== '' && isset($emailToCanonical[$email])) {
+                $canonical = $emailToCanonical[$email];
+            }
+
+            if ($voucher !== '' && isset($voucherToCanonical[$voucher])) {
+                $voucherCanonical = $voucherToCanonical[$voucher];
+                if ($canonical === null) {
+                    $canonical = $voucherCanonical;
+                }
+                // If two different canonicals were found, merge into the smallest (earliest)
+                if ($canonical !== $voucherCanonical) {
+                    $canonical = min($canonical, $voucherCanonical);
+                    // Re-point all entries that were mapped to the larger canonical
+                    $larger = max($canonical, $voucherCanonical);
+                    foreach ($canonicalMap as $idx => $c) {
+                        if ($c === $larger) {
+                            $canonicalMap[$idx] = $canonical;
+                        }
+                    }
+                    $groupCountMap[$canonical] = ($groupCountMap[$canonical] ?? 0) + ($groupCountMap[$larger] ?? 0);
+                    unset($groupCountMap[$larger]);
+                }
+            }
+
+            if ($canonical === null) {
+                // First occurrence – this row is its own canonical
+                $canonical = $index;
+            }
+
+            $canonicalMap[$index]       = $canonical;
+            $groupCountMap[$canonical]  = ($groupCountMap[$canonical] ?? 0) + 1;
+
+            if ($email !== '' && !isset($emailToCanonical[$email])) {
+                $emailToCanonical[$email] = $canonical;
+            }
+
+            if ($voucher !== '' && !isset($voucherToCanonical[$voucher])) {
+                $voucherToCanonical[$voucher] = $canonical;
+            }
+        }
+
+        return [$canonicalMap, $groupCountMap];
+    }
+
     public function collection(Collection $rows)
     {
+        [$canonicalMap, $groupCountMap] = $this->preGroupRows($rows);
+
         foreach ($rows as $index => $row) {
             $rowNumber = (int) $index + 2;
+
+            // --- DEDUPLICACIÓN: sólo procesar la primera fila de cada grupo ---
+            $canonical = $canonicalMap[$index] ?? $index;
+
+            if ($canonical !== $index) {
+                // Fila duplicada (mismo correo o voucher ya procesado). Se omite.
+                $this->skipped++;
+                $this->skippedDetails[] = [
+                    'row'           => $rowNumber,
+                    'nombre'        => '',
+                    'apellido'      => '',
+                    'identificador' => '',
+                    'email'         => '',
+                    'reason'        => 'Fila duplicada (correo o voucher ya procesado en fila ' . ($canonical + 2) . ').',
+                ];
+                continue;
+            }
 
             // --- NORMALIZACIÓN DE LLAVES ---
             // Convertimos todas las llaves a "slug" (ej: "Nombre Completo" -> "nombre_completo")
@@ -246,19 +350,25 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 'num_voucher',
                 'n_de_voucher',
             ], $this->findValueByKeyPatterns($row, ['voucher']));
-            $numeroPersonas = $this->firstPositiveInteger($row, [
-                'numero_personas',
-                'personas',
-                'num_personas',
-                'cant_de_pasajeros',
-                'cantidad_de_pasajeros',
-                'cantidad_pasajeros',
-                'pasajeros',
-            ], $this->findPositiveIntegerByKeyPatterns(
-                $row,
-                ['pasaj', 'viajer', 'persona', 'pax'],
-                ['cant', 'cantidad', 'num', 'nro', 'no']
-            ));
+            // El número de personas se determina por el número de filas del grupo
+            // (cuántas veces aparece el mismo correo o voucher en el archivo).
+            // Si el grupo sólo tiene una fila, se usa el valor de la columna PASAJEROS del Excel.
+            $groupCount = $groupCountMap[$index] ?? 1;
+            $numeroPersonas = $groupCount > 1
+                ? $groupCount
+                : $this->firstPositiveInteger($row, [
+                    'numero_personas',
+                    'personas',
+                    'num_personas',
+                    'cant_de_pasajeros',
+                    'cantidad_de_pasajeros',
+                    'cantidad_pasajeros',
+                    'pasajeros',
+                ], $this->findPositiveIntegerByKeyPatterns(
+                    $row,
+                    ['pasaj', 'viajer', 'persona', 'pax'],
+                    ['cant', 'cantidad', 'num', 'nro', 'no']
+                ));
             $rowPayload = [
                 'nombre' => $nombre,
                 'apellido' => $apellido,
