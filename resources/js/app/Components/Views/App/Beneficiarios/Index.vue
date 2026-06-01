@@ -29,6 +29,12 @@
             :beneficiario-name="selectedBeneficiario.nombre"
             @close="closeMarginModal"/>
 
+        <visual-commissions-modal
+            v-if="isVisualCommissionsModalActive"
+            :beneficiario-id="selectedBeneficiario.id"
+            :beneficiario-name="selectedBeneficiario.nombre"
+            @close="closeVisualCommissionsModal"/>
+
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
                           :title="confirmationTitle"
@@ -49,19 +55,22 @@
     
     // CAMBIO 1: Importamos el modal local desde la misma carpeta
     import AddModal from "./AddModal"; 
+    import VisualCommissionsModal from "./VisualCommissionsModal";
 
     export default {
         extends: CoreLibrary,
         name: "BeneficiariosList",
         // CAMBIO 2: Registramos el componente
         components: {
-            AddModal
+            AddModal,
+            VisualCommissionsModal
         },
         data() {
             return {
                 deleteLoader: false,
                 isAddEditModalActive: false,
                 isMarginModalActive: false,
+                isVisualCommissionsModalActive: false,
                 selectedBeneficiario: {},
                 deleteConfirmationModalActive: false,
                 selectedUrl: '',
@@ -124,6 +133,11 @@
                         type: 'none',
                     },
                     {
+                        title: 'Comisiones Visuales',
+                        icon: 'eye',
+                        type: 'none',
+                    },
+                    {
                         title: this.$t('download_commissions'),
                         icon: 'download',
                         type: 'none',
@@ -153,10 +167,10 @@
                     }
                 ];
 
-                // Super partners cannot manage commissions/rates/adjustments or delete partners
+                // Super partners can only manage visual commissions, activate/inactivate their partners; cannot manage real commissions, download or delete
                 const tableActions = this.isSuperPartner
                     ? allActions.filter(a => a.title !== this.$t('manage_commissions') && a.title !== this.$t('download_commissions') && a.title !== this.$t('delete'))
-                    : allActions;
+                    : allActions.filter(a => a.title !== 'Comisiones Visuales');
 
                 return {
                     url: actions.BENEFICIARIOS,
@@ -283,6 +297,8 @@
                     this.openAddEditModal();
                 } else if (actionObj.title == this.$t('manage_commissions')) {
                     this.openMarginModal(rowData);
+                } else if (actionObj.title == 'Comisiones Visuales') {
+                    this.openVisualCommissionsModal(rowData);
                 } else if (actionObj.title == this.$t('download_commissions')) {
                     this.downloadCommissions(rowData);
                 } else if (actionObj.title == 'Inactivar partner') {
@@ -299,6 +315,22 @@
              */
             downloadCommissions(rowData) {
                 window.location.href = urlGenerator(actions.BENEFICIARIOS_EXPORT_COMMISSIONS(rowData.id));
+            },
+
+            /**
+             * Open visual commissions modal for beneficiary
+             */
+            openVisualCommissionsModal(rowData) {
+                this.selectedBeneficiario = rowData;
+                this.isVisualCommissionsModalActive = true;
+            },
+
+            /**
+             * Close visual commissions modal
+             */
+            closeVisualCommissionsModal() {
+                this.isVisualCommissionsModalActive = false;
+                this.selectedBeneficiario = {};
             },
 
             /**

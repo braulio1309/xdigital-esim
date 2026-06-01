@@ -211,6 +211,90 @@ class BeneficiarioController extends Controller
         return failed_responses();
     }
 
+    /**
+     * Get visual commission configuration for a beneficiario (partner).
+     * Accessible by admin and the super partner who owns this partner.
+     *
+     * @param  Beneficiario $beneficiario
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getVisualCommissions(Beneficiario $beneficiario)
+    {
+        if (!$this->canManageVisualCommissions($beneficiario)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para ver las comisiones de este partner.',
+            ], 403);
+        }
+
+        return response()->json([
+            'sale_commission_latam_pct'     => $beneficiario->sale_commission_latam_pct !== null ? (float) $beneficiario->sale_commission_latam_pct : null,
+            'sale_commission_usa_ca_eu_pct' => $beneficiario->sale_commission_usa_ca_eu_pct !== null ? (float) $beneficiario->sale_commission_usa_ca_eu_pct : null,
+        ]);
+    }
+
+    /**
+     * Update visual commission configuration for a beneficiario (partner).
+     * Accessible by admin and the super partner who owns this partner.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @param  Beneficiario $beneficiario
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateVisualCommissions(\Illuminate\Http\Request $request, Beneficiario $beneficiario)
+    {
+        if (!$this->canManageVisualCommissions($beneficiario)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No autorizado para editar las comisiones de este partner.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'sale_commission_latam_pct'     => 'nullable|numeric|min:0|max:100',
+            'sale_commission_usa_ca_eu_pct' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        if (array_key_exists('sale_commission_latam_pct', $validated)) {
+            $beneficiario->sale_commission_latam_pct = $validated['sale_commission_latam_pct'];
+        }
+
+        if (array_key_exists('sale_commission_usa_ca_eu_pct', $validated)) {
+            $beneficiario->sale_commission_usa_ca_eu_pct = $validated['sale_commission_usa_ca_eu_pct'];
+        }
+
+        $beneficiario->save();
+
+        return response()->json([
+            'message'                       => __('default.updated_response', ['name' => 'Comisiones Visuales']),
+            'sale_commission_latam_pct'     => $beneficiario->sale_commission_latam_pct !== null ? (float) $beneficiario->sale_commission_latam_pct : null,
+            'sale_commission_usa_ca_eu_pct' => $beneficiario->sale_commission_usa_ca_eu_pct !== null ? (float) $beneficiario->sale_commission_usa_ca_eu_pct : null,
+        ]);
+    }
+
+    private function canManageVisualCommissions(Beneficiario $beneficiario): bool
+    {
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'admin') {
+            return true;
+        }
+
+        if ($user->user_type === 'super_partner') {
+            $superPartner = SuperPartner::where('user_id', $user->id)->first();
+
+            return $superPartner
+                ? (int) $beneficiario->super_partner_id === (int) $superPartner->id
+                : false;
+        }
+
+        return false;
+    }
+
     private function canManageStatus(Beneficiario $beneficiario): bool
     {
         if (!auth()->check()) {

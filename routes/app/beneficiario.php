@@ -8,6 +8,8 @@ Route::view('/admin/beneficiarios', 'beneficiarios.index')->name('beneficiarios.
 Route::resource('beneficiarios', BeneficiarioController::class);
 Route::post('beneficiarios/{beneficiario}/inactivate', [BeneficiarioController::class, 'inactivate'])->name('beneficiarios.inactivate');
 Route::post('beneficiarios/{beneficiario}/activate', [BeneficiarioController::class, 'activate'])->name('beneficiarios.activate');
+Route::get('beneficiarios/{beneficiario}/visual-commissions', [BeneficiarioController::class, 'getVisualCommissions'])->name('beneficiarios.visual-commissions.show');
+Route::post('beneficiarios/{beneficiario}/visual-commissions', [BeneficiarioController::class, 'updateVisualCommissions'])->name('beneficiarios.visual-commissions.update');
 Route::get('beneficiarios/{beneficiario}/export-commissions', [BeneficiarioController::class, 'exportCommissions'])->name('beneficiarios.export-commissions');
 
 // Beneficiario dashboard routes
