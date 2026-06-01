@@ -796,7 +796,7 @@
                                         <span class="d-flex align-items-center">
                                             <i class="mdi mdi-account-group mr-2" style="font-size: 1.5rem; color: var(--nomad-blue);"></i>
                                             <span>
-                                                <strong style="font-size: 0.98rem;">¿Viajan más contigo?</strong>
+                                                <strong style="font-size: 0.98rem;">Agregar acompañantes</strong>
                                                 <small class="d-block text-muted" style="font-size: 0.78rem;">Cada acompañante recibirá su propia eSIM gratuita.</small>
                                             </span>
                                         </span>
@@ -830,6 +830,12 @@
                                     <button type="submit" class="btn btn-block btn-brand-gradient btn-lg font-weight-medium">
                                         Obtener eSIM Gratis
                                     </button>
+                                </div>
+
+                                <div class="text-center mt-3">
+                                    <a href="{{ $plansBaseUrl }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 999px; padding: 0.45rem 1rem; font-size: 0.85rem; opacity: 0.9;">
+                                        Compra una nueva eSIM con descuento
+                                    </a>
                                 </div>
 
                             </form>
