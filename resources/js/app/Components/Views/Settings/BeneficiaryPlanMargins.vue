@@ -395,8 +395,8 @@
                     beneficiario_id: this.beneficiarioId,
                     margins: this.margins,
                     free_esim_rate: this.freeEsimRate,
-                    sale_commission_latam_pct: this.saleCommissionLatamPct !== '' ? this.saleCommissionLatamPct : null,
-                    sale_commission_usa_ca_eu_pct: this.saleCommissionUsaCaEuPct !== '' ? this.saleCommissionUsaCaEuPct : null,
+                    sale_commission_latam_pct: (this.saleCommissionLatamPct !== null && this.saleCommissionLatamPct !== undefined && this.saleCommissionLatamPct !== '') ? parseFloat(this.saleCommissionLatamPct) : null,
+                    sale_commission_usa_ca_eu_pct: (this.saleCommissionUsaCaEuPct !== null && this.saleCommissionUsaCaEuPct !== undefined && this.saleCommissionUsaCaEuPct !== '') ? parseFloat(this.saleCommissionUsaCaEuPct) : null,
                     plan_prices: this.planPrices,
                     country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.price !== '' && e.price !== null),
                 };

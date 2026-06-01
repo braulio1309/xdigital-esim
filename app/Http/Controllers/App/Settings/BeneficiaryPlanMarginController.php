@@ -67,12 +67,15 @@ class BeneficiaryPlanMarginController extends Controller
         $saleCommissionLatamPct = $request->has('sale_commission_latam_pct') ? $request->input('sale_commission_latam_pct') : false;
         $saleCommissionUsaCaEuPct = $request->has('sale_commission_usa_ca_eu_pct') ? $request->input('sale_commission_usa_ca_eu_pct') : false;
 
+        $latamValue = $saleCommissionLatamPct === false ? false : ($saleCommissionLatamPct !== null ? (float) $saleCommissionLatamPct : null);
+        $usaCaEuValue = $saleCommissionUsaCaEuPct === false ? false : ($saleCommissionUsaCaEuPct !== null ? (float) $saleCommissionUsaCaEuPct : null);
+
         $success = $this->service->updateMargins(
             $beneficiarioId,
             $margins,
             $freeEsimRate !== null ? (float) $freeEsimRate : null,
-            $saleCommissionLatamPct !== false ? ($saleCommissionLatamPct !== null ? (float) $saleCommissionLatamPct : null) : false,
-            $saleCommissionUsaCaEuPct !== false ? ($saleCommissionUsaCaEuPct !== null ? (float) $saleCommissionUsaCaEuPct : null) : false
+            $latamValue,
+            $usaCaEuValue
         );
 
         if ($success) {
