@@ -91,6 +91,7 @@
     import {FormMixin} from '../../../../../core/mixins/form/FormMixin.js';
     import {ModalMixin} from "../../../../Mixins/ModalMixin";
     import * as actions from "../../../../Config/ApiUrl";
+    import {urlGenerator} from '../../../../Helpers/AxiosHelper';
 
     export default {
         name: 'BeneficiaryVisualCommissionsModal',
@@ -118,7 +119,7 @@
         methods: {
             fetchData() {
                 this.preloader = true;
-                axios.get(actions.BENEFICIARIOS_VISUAL_COMMISSIONS(this.beneficiarioId))
+                axios.get(urlGenerator(actions.BENEFICIARIOS_VISUAL_COMMISSIONS(this.beneficiarioId)))
                     .then(response => {
                         if (response.data) {
                             this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null
@@ -144,7 +145,7 @@
                     sale_commission_usa_ca_eu_pct: this.parseCommission(this.saleCommissionUsaCaEuPct),
                 };
 
-                axios.post(actions.BENEFICIARIOS_VISUAL_COMMISSIONS(this.beneficiarioId), payload)
+                axios.post(urlGenerator(actions.BENEFICIARIOS_VISUAL_COMMISSIONS(this.beneficiarioId)), payload)
                     .then(response => {
                         const message = response.data?.message || 'Comisiones actualizadas.';
                         this.$toastr.s(message);
