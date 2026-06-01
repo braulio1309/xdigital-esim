@@ -157,12 +157,14 @@ class SuperPartnerController extends Controller
     public function getCommissions(SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService, SuperPartnerPriceService $priceService)
     {
         return response()->json([
-            'commission_percentage' => (float) ($super_partner->commission_percentage ?? 0),
-            'free_esim_rate' => (float) $super_partner->free_esim_rate,
-            'margins' => $marginService->getFormattedMargins($super_partner->id),
-            'plan_prices' => $priceService->getFormattedPlanPrices($super_partner->id),
-            'country_prices' => $priceService->getCountryPrices($super_partner->id),
-            'countries' => CountryTariffHelper::getAllCountries(),
+            'commission_percentage'       => (float) ($super_partner->commission_percentage ?? 0),
+            'free_esim_rate'              => (float) $super_partner->free_esim_rate,
+            'sale_commission_latam_pct'   => $super_partner->sale_commission_latam_pct !== null ? (float) $super_partner->sale_commission_latam_pct : null,
+            'sale_commission_usa_ca_eu_pct' => $super_partner->sale_commission_usa_ca_eu_pct !== null ? (float) $super_partner->sale_commission_usa_ca_eu_pct : null,
+            'margins'                     => $marginService->getFormattedMargins($super_partner->id),
+            'plan_prices'                 => $priceService->getFormattedPlanPrices($super_partner->id),
+            'country_prices'              => $priceService->getCountryPrices($super_partner->id),
+            'countries'                   => CountryTariffHelper::getAllCountries(),
         ]);
     }
 
@@ -176,18 +178,20 @@ class SuperPartnerController extends Controller
     public function updateCommissions(\Illuminate\Http\Request $request, SuperPartner $super_partner, SuperPartnerPlanMarginService $marginService, SuperPartnerPriceService $priceService)
     {
         $validated = $request->validate([
-            'commission_percentage' => 'nullable|numeric|min:0|max:100',
-            'free_esim_rate' => 'nullable|numeric|min:0|max:999.99',
-            'margins' => 'sometimes|array',
-            'margins.*.margin_percentage' => 'required_with:margins|numeric|min:0|max:100',
-            'margins.*.is_active' => 'sometimes|boolean',
-            'plan_prices' => 'sometimes|array',
-            'plan_prices.*.price' => 'nullable|numeric|min:0',
-            'plan_prices.*.is_active' => 'sometimes|boolean',
-            'country_prices' => 'sometimes|array',
+            'commission_percentage'         => 'nullable|numeric|min:0|max:100',
+            'free_esim_rate'                => 'nullable|numeric|min:0|max:999.99',
+            'sale_commission_latam_pct'     => 'nullable|numeric|min:0|max:100',
+            'sale_commission_usa_ca_eu_pct' => 'nullable|numeric|min:0|max:100',
+            'margins'                       => 'sometimes|array',
+            'margins.*.margin_percentage'   => 'required_with:margins|numeric|min:0|max:100',
+            'margins.*.is_active'           => 'sometimes|boolean',
+            'plan_prices'                   => 'sometimes|array',
+            'plan_prices.*.price'           => 'nullable|numeric|min:0',
+            'plan_prices.*.is_active'       => 'sometimes|boolean',
+            'country_prices'                => 'sometimes|array',
             'country_prices.*.country_code' => 'required_with:country_prices|string|size:2',
             'country_prices.*.plan_capacity' => 'required_with:country_prices|string',
-            'country_prices.*.price' => 'required_with:country_prices|numeric|min:0',
+            'country_prices.*.price'        => 'required_with:country_prices|numeric|min:0',
         ]);
 
         if (array_key_exists('commission_percentage', $validated)) {
@@ -196,6 +200,14 @@ class SuperPartnerController extends Controller
 
         if (array_key_exists('free_esim_rate', $validated)) {
             $super_partner->free_esim_rate = $validated['free_esim_rate'];
+        }
+
+        if (array_key_exists('sale_commission_latam_pct', $validated)) {
+            $super_partner->sale_commission_latam_pct = $validated['sale_commission_latam_pct'];
+        }
+
+        if (array_key_exists('sale_commission_usa_ca_eu_pct', $validated)) {
+            $super_partner->sale_commission_usa_ca_eu_pct = $validated['sale_commission_usa_ca_eu_pct'];
         }
 
         $super_partner->save();
@@ -211,13 +223,15 @@ class SuperPartnerController extends Controller
         $priceService->updateCountryPrices($super_partner->id, $validated['country_prices'] ?? []);
 
         return response()->json([
-            'message' => __('default.updated_response', ['name' => 'Comisiones de Super Partner']),
-            'commission_percentage' => (float) ($super_partner->commission_percentage ?? 0),
-            'free_esim_rate' => (float) $super_partner->free_esim_rate,
-            'margins' => $marginService->getFormattedMargins($super_partner->id),
-            'plan_prices' => $priceService->getFormattedPlanPrices($super_partner->id),
-            'country_prices' => $priceService->getCountryPrices($super_partner->id),
-            'countries' => CountryTariffHelper::getAllCountries(),
+            'message'                       => __('default.updated_response', ['name' => 'Comisiones de Super Partner']),
+            'commission_percentage'         => (float) ($super_partner->commission_percentage ?? 0),
+            'free_esim_rate'                => (float) $super_partner->free_esim_rate,
+            'sale_commission_latam_pct'     => $super_partner->sale_commission_latam_pct !== null ? (float) $super_partner->sale_commission_latam_pct : null,
+            'sale_commission_usa_ca_eu_pct' => $super_partner->sale_commission_usa_ca_eu_pct !== null ? (float) $super_partner->sale_commission_usa_ca_eu_pct : null,
+            'margins'                       => $marginService->getFormattedMargins($super_partner->id),
+            'plan_prices'                   => $priceService->getFormattedPlanPrices($super_partner->id),
+            'country_prices'                => $priceService->getCountryPrices($super_partner->id),
+            'countries'                     => CountryTariffHelper::getAllCountries(),
         ]);
     }
 

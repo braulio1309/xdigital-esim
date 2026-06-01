@@ -23,6 +23,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" :class="{active: activeTab === 'partner'}" href="#" @click.prevent="activeTab = 'partner'">
+                            Comisiones de Partner
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" :class="{active: activeTab === 'prices'}" href="#" @click.prevent="activeTab = 'prices'">
                             Precios Fijos (USD)
                         </a>
@@ -93,6 +98,68 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Partner Commissions (visual only – shown to partners, not real commissions) -->
+                <div v-show="activeTab === 'partner'">
+                    <div class="form-group mb-4">
+                        <div class="alert alert-warning">
+                            <strong>Comisiones de Partner (Visual)</strong>
+                            <p class="mb-0 mt-2">
+                                Estas comisiones son <strong>únicamente visuales</strong> para los partners. No afectan el precio de las eSIMs
+                                ni el cálculo real de comisiones del super partner. El partner verá estos porcentajes en su panel,
+                                sin conocer la comisión real configurada en la pestaña <em>Comisiones (%)</em>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="form-group row align-items-center mb-3">
+                        <label for="sp_commission_latam" class="col-sm-5 mb-0">
+                            Comisión Latam y Europa (%)
+                        </label>
+                        <div class="col-sm-7">
+                            <div class="input-group" style="max-width: 220px;">
+                                <app-input
+                                    id="sp_commission_latam"
+                                    type="number"
+                                    v-model="saleCommissionLatamPct"
+                                    :min="0"
+                                    :max="100"
+                                    step="0.01"
+                                    :placeholder="'Sin configurar'"/>
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                Porcentaje de comisión visible para el partner en transacciones de Latinoamérica y Europa.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row align-items-center">
+                        <label for="sp_commission_usa_ca" class="col-sm-5 mb-0">
+                            Comisión Canadá y USA (%)
+                        </label>
+                        <div class="col-sm-7">
+                            <div class="input-group" style="max-width: 220px;">
+                                <app-input
+                                    id="sp_commission_usa_ca"
+                                    type="number"
+                                    v-model="saleCommissionUsaCaEuPct"
+                                    :min="0"
+                                    :max="100"
+                                    step="0.01"
+                                    :placeholder="'Sin configurar'"/>
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                Porcentaje de comisión visible para el partner en transacciones de Canadá y USA.
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -246,6 +313,8 @@
                 activeTab: 'margins',
                 commissionPercentage: 0.00,
                 freeEsimRate: 0.85,
+                saleCommissionLatamPct: null,
+                saleCommissionUsaCaEuPct: null,
                 allCapacities: ['1', '3', '5', '10'],
                 marginCapacities: ['3', '5', '10'],
                 margins: {
@@ -277,6 +346,16 @@
                             }
                             if (typeof response.data.free_esim_rate !== 'undefined' && response.data.free_esim_rate !== null) {
                                 this.freeEsimRate = parseFloat(response.data.free_esim_rate) || 0.85;
+                            }
+                            if (typeof response.data.sale_commission_latam_pct !== 'undefined') {
+                                this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null
+                                    ? parseFloat(response.data.sale_commission_latam_pct)
+                                    : null;
+                            }
+                            if (typeof response.data.sale_commission_usa_ca_eu_pct !== 'undefined') {
+                                this.saleCommissionUsaCaEuPct = response.data.sale_commission_usa_ca_eu_pct !== null
+                                    ? parseFloat(response.data.sale_commission_usa_ca_eu_pct)
+                                    : null;
                             }
                             if (response.data.margins) {
                                 Object.keys(response.data.margins).forEach(plan => {
@@ -315,6 +394,8 @@
                 const payload = {
                     commission_percentage: this.commissionPercentage,
                     free_esim_rate: this.freeEsimRate,
+                    sale_commission_latam_pct: this.saleCommissionLatamPct !== '' ? this.saleCommissionLatamPct : null,
+                    sale_commission_usa_ca_eu_pct: this.saleCommissionUsaCaEuPct !== '' ? this.saleCommissionUsaCaEuPct : null,
                     margins: this.margins,
                     plan_prices: this.planPrices,
                     country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.price !== '' && e.price !== null),
@@ -330,6 +411,16 @@
                             }
                             if (typeof response.data.free_esim_rate !== 'undefined' && response.data.free_esim_rate !== null) {
                                 this.freeEsimRate = parseFloat(response.data.free_esim_rate) || this.freeEsimRate;
+                            }
+                            if (typeof response.data.sale_commission_latam_pct !== 'undefined') {
+                                this.saleCommissionLatamPct = response.data.sale_commission_latam_pct !== null
+                                    ? parseFloat(response.data.sale_commission_latam_pct)
+                                    : null;
+                            }
+                            if (typeof response.data.sale_commission_usa_ca_eu_pct !== 'undefined') {
+                                this.saleCommissionUsaCaEuPct = response.data.sale_commission_usa_ca_eu_pct !== null
+                                    ? parseFloat(response.data.sale_commission_usa_ca_eu_pct)
+                                    : null;
                             }
                             if (response.data.margins) {
                                 Object.keys(response.data.margins).forEach(plan => {

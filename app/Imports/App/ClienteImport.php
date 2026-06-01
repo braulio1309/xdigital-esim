@@ -183,10 +183,130 @@ class ClienteImport implements ToCollection, WithHeadingRow
         ];
     }
 
+    /**
+     * Pre-process rows to identify duplicate emails and/or vouchers.
+     *
+     * Returns two arrays:
+     *   $canonicalMap  – row_index => canonical_row_index (the first occurrence index)
+     *   $groupCountMap – canonical_row_index => total number of rows in that group
+     *
+     * Two rows belong to the same group when they share the same email OR the same
+     * non-empty voucher number.
+     *
+     * @param  Collection $rows
+     * @return array{0: array<int,int>, 1: array<int,int>}
+     */
+    protected function preGroupRows(Collection $rows): array
+    {
+        // parent[] implements a simple union-find structure.
+        // parent[$i] === $i means $i is a root (canonical).
+        $parent        = [];
+        $groupCountMap = [];
+        // emailToRoot / voucherToRoot hold the root index for the first occurrence
+        $emailToRoot   = [];
+        $voucherToRoot = [];
+
+        // --- Helper: find root with path compression ---
+        $find = function (int $i) use (&$parent, &$find): int {
+            if ($parent[$i] !== $i) {
+                $parent[$i] = $find($parent[$i]);
+            }
+            return $parent[$i];
+        };
+
+        // --- Helper: union two sets (keep the smaller root) ---
+        $union = function (int $a, int $b) use (&$parent, &$groupCountMap, &$find): void {
+            $ra = $find($a);
+            $rb = $find($b);
+            if ($ra === $rb) {
+                return;
+            }
+            // Always attach the larger root to the smaller one (earlier row wins)
+            [$keep, $drop] = $ra < $rb ? [$ra, $rb] : [$rb, $ra];
+            $parent[$drop]        = $keep;
+            $groupCountMap[$keep] = ($groupCountMap[$keep] ?? 0) + ($groupCountMap[$drop] ?? 0);
+            unset($groupCountMap[$drop]);
+        };
+
+        $indexList = [];
+
+        foreach ($rows as $index => $row) {
+            $indexList[] = $index;
+
+            $normalizedRow = $row->mapWithKeys(function ($value, $key) {
+                return [Str::slug($key, '_') => $value];
+            });
+
+            $email = mb_strtolower(trim((string) $this->firstNonEmptyValue($normalizedRow, [
+                'email', 'correo', 'e_mail',
+                'correo_del_contratante', 'email_del_contratante', 'mail_del_contratante',
+            ], $this->findValueByKeyPatterns(
+                $normalizedRow,
+                ['email', 'correo', 'mail'],
+                ['contrat']
+            ) ?: $this->findValueByKeyPatterns($normalizedRow, ['email', 'correo', 'mail']))));
+
+            $voucher = trim((string) $this->firstNonEmptyValue($normalizedRow, [
+                'numero_voucher', 'voucher', 'num_voucher', 'n_de_voucher',
+            ], $this->findValueByKeyPatterns($normalizedRow, ['voucher'])));
+
+            // Register this row as its own root initially
+            $parent[$index]        = $index;
+            $groupCountMap[$index] = 1;
+
+            // Merge with existing group if email already seen
+            if ($email !== '' && isset($emailToRoot[$email])) {
+                $union($index, $emailToRoot[$email]);
+            }
+
+            // Merge with existing group if voucher already seen
+            if ($voucher !== '' && isset($voucherToRoot[$voucher])) {
+                $union($index, $voucherToRoot[$voucher]);
+            }
+
+            // Store email/voucher → root for the first time only;
+            // after union the root may have changed, so use find()
+            if ($email !== '' && !isset($emailToRoot[$email])) {
+                $emailToRoot[$email] = $find($index);
+            }
+
+            if ($voucher !== '' && !isset($voucherToRoot[$voucher])) {
+                $voucherToRoot[$voucher] = $find($index);
+            }
+        }
+
+        // Build canonicalMap: each row index → its root
+        $canonicalMap = [];
+        foreach ($indexList as $index) {
+            $canonicalMap[$index] = $find($index);
+        }
+
+        return [$canonicalMap, $groupCountMap];
+    }
+
     public function collection(Collection $rows)
     {
+        [$canonicalMap, $groupCountMap] = $this->preGroupRows($rows);
+
         foreach ($rows as $index => $row) {
             $rowNumber = (int) $index + 2;
+
+            // --- DEDUPLICACIÓN: sólo procesar la primera fila de cada grupo ---
+            $canonical = $canonicalMap[$index] ?? $index;
+
+            if ($canonical !== $index) {
+                // Fila duplicada (mismo correo o voucher ya procesado). Se omite.
+                $this->skipped++;
+                $this->skippedDetails[] = [
+                    'row'           => $rowNumber,
+                    'nombre'        => '',
+                    'apellido'      => '',
+                    'identificador' => '',
+                    'email'         => '',
+                    'reason'        => 'Fila duplicada (correo o voucher ya procesado en fila ' . ($canonical + 2) . ').',
+                ];
+                continue;
+            }
 
             // --- NORMALIZACIÓN DE LLAVES ---
             // Convertimos todas las llaves a "slug" (ej: "Nombre Completo" -> "nombre_completo")
@@ -246,19 +366,25 @@ class ClienteImport implements ToCollection, WithHeadingRow
                 'num_voucher',
                 'n_de_voucher',
             ], $this->findValueByKeyPatterns($row, ['voucher']));
-            $numeroPersonas = $this->firstPositiveInteger($row, [
-                'numero_personas',
-                'personas',
-                'num_personas',
-                'cant_de_pasajeros',
-                'cantidad_de_pasajeros',
-                'cantidad_pasajeros',
-                'pasajeros',
-            ], $this->findPositiveIntegerByKeyPatterns(
-                $row,
-                ['pasaj', 'viajer', 'persona', 'pax'],
-                ['cant', 'cantidad', 'num', 'nro', 'no']
-            ));
+            // El número de personas se determina por el número de filas del grupo
+            // (cuántas veces aparece el mismo correo o voucher en el archivo).
+            // Si el grupo sólo tiene una fila, se usa el valor de la columna PASAJEROS del Excel.
+            $groupCount = $groupCountMap[$index] ?? 1;
+            $numeroPersonas = $groupCount > 1
+                ? $groupCount
+                : $this->firstPositiveInteger($row, [
+                    'numero_personas',
+                    'personas',
+                    'num_personas',
+                    'cant_de_pasajeros',
+                    'cantidad_de_pasajeros',
+                    'cantidad_pasajeros',
+                    'pasajeros',
+                ], $this->findPositiveIntegerByKeyPatterns(
+                    $row,
+                    ['pasaj', 'viajer', 'persona', 'pax'],
+                    ['cant', 'cantidad', 'num', 'nro', 'no']
+                ));
             $rowPayload = [
                 'nombre' => $nombre,
                 'apellido' => $apellido,
