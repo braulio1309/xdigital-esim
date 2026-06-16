@@ -124,7 +124,11 @@ class Transaction extends AppModel
      */
     public function isFreeEsim()
     {
-        return $this->purchase_amount === 0 || $this->purchase_amount === 0.0 || $this->purchase_amount === '0';
+        if ($this->purchase_amount === null) {
+            return false;
+        }
+
+        return (float) $this->purchase_amount <= 0.0;
     }
 
     /**

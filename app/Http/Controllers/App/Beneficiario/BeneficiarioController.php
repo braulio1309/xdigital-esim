@@ -37,9 +37,13 @@ class BeneficiarioController extends Controller
     {
         $query = $this->service->with('user.status:id,name,class')->filters($this->filter)->latest();
 
-        // Filter by super_partner_id if user is a super_partner
-        if (auth()->check() && auth()->user()->user_type === 'super_partner') {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
+        // Scope by super partner network for super_partner and admin_partner users
+        if (auth()->check() && in_array(auth()->user()->user_type, ['super_partner', 'admin_partner'], true)) {
+            $user = auth()->user();
+            $superPartner = $user->user_type === 'super_partner'
+                ? \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first()
+                : \App\Models\App\SuperPartner\SuperPartner::find($user->super_partner_id);
+
             if ($superPartner) {
                 $query = $query->where('super_partner_id', $superPartner->id);
             }

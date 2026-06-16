@@ -50,8 +50,8 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
         // ── Free eSIMs section ───────────────────────────────────────────────
         $rows[] = ['── eSIMs Gratuitas Otorgadas ──', ''];
-        $rows[] = ['Cantidad de eSIMs gratuitas', $stats['free_count']];
-        $rows[] = ['Cargo promedio por eSIM gratuita', '$' . number_format($stats['free_avg_rate'], 4)];
+        $rows[] = ['Cantidad de eSIMs gratuitas (pendientes)', $stats['free_debt_count']];
+        $rows[] = ['Precio actual por eSIM gratuita', '$' . number_format($stats['free_current_rate'], 4)];
         $rows[] = ['Subtotal eSIMs gratuitas (nos deben)', '$' . number_format($stats['free_total'], 2)];
         $rows[] = ['', ''];
 
@@ -213,12 +213,26 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
             if ($id === 'none') {
                 $query->whereNull('beneficiario_id');
             } else {
-                $query->where('beneficiario_id', $id);
+                $query->where(function ($builder) use ($id) {
+                    $builder->where('beneficiario_id', $id)
+                        ->orWhereHas('cliente', function ($clienteQuery) use ($id) {
+                            $clienteQuery->where('beneficiario_id', $id);
+                        });
+                });
             }
         }
 
         if (!empty($this->filters['super_partner_id'])) {
-            $query->where('super_partner_id', $this->filters['super_partner_id']);
+            $superPartnerId = $this->filters['super_partner_id'];
+            $query->where(function ($builder) use ($superPartnerId) {
+                $builder->where('super_partner_id', $superPartnerId)
+                    ->orWhereHas('beneficiario', function ($beneficiarioQuery) use ($superPartnerId) {
+                        $beneficiarioQuery->where('super_partner_id', $superPartnerId);
+                    })
+                    ->orWhereHas('cliente.beneficiario', function ($beneficiarioQuery) use ($superPartnerId) {
+                        $beneficiarioQuery->where('super_partner_id', $superPartnerId);
+                    });
+            });
         }
 
         if (!empty($this->filters['start_date'])) {
@@ -270,11 +284,14 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         $totalTransactions = $allTransactions->count();
 
         $freeTransactions = $allTransactions->filter(fn (Transaction $t) => $t->isFreeEsim());
+        $unpaidFreeTransactions = $freeTransactions->filter(function (Transaction $t) {
+            return !$t->is_paid;
+        });
         $paidTransactions = $allTransactions->filter(fn (Transaction $t) => !$t->isFreeEsim());
 
-        $freeCount = $freeTransactions->count();
-        $freeTotal = $freeTransactions->sum(fn (Transaction $t) => $t->getCommissionAmount());
-        $freeAvgRate = $freeCount > 0 ? ($freeTotal / $freeCount) : 0;
+        $freeDebtCount = $unpaidFreeTransactions->count();
+        $freeCurrentRate = $this->resolveCurrentFreeEsimRate();
+        $freeTotal = $freeDebtCount * $freeCurrentRate;
 
         $paidCount = $paidTransactions->count();
         $paidCommissionTotal = $paidTransactions->sum(function (Transaction $t) {
@@ -285,11 +302,69 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
         return [
             'total_transactions'    => $totalTransactions,
-            'free_count'            => $freeCount,
+            'free_debt_count'       => $freeDebtCount,
             'free_total'            => $freeTotal,
-            'free_avg_rate'         => $freeAvgRate,
+            'free_current_rate'     => $freeCurrentRate,
             'paid_count'            => $paidCount,
             'paid_commission_total' => $paidCommissionTotal,
         ];
+    }
+
+    protected function resolveCurrentFreeEsimRate(): float
+    {
+        if (!empty($this->filters['beneficiario_id']) && $this->filters['beneficiario_id'] !== 'none') {
+            $beneficiario = Beneficiario::find($this->filters['beneficiario_id']);
+
+            if ($beneficiario) {
+                return $this->resolveOwnerFreeEsimRate($beneficiario, (float) $beneficiario->free_esim_rate);
+            }
+        }
+
+        if (!empty($this->filters['super_partner_id'])) {
+            $superPartner = SuperPartner::find($this->filters['super_partner_id']);
+
+            if ($superPartner) {
+                return $this->resolveOwnerFreeEsimRate($superPartner, (float) $superPartner->free_esim_rate);
+            }
+        }
+
+        if (auth()->check()) {
+            $user = auth()->user();
+
+            if (in_array($user->user_type, ['beneficiario', 'admin_beneficiario'], true)) {
+                $beneficiario = $user->user_type === 'beneficiario'
+                    ? Beneficiario::where('user_id', auth()->id())->first()
+                    : Beneficiario::find($user->beneficiario_id);
+
+                if ($beneficiario) {
+                    return $this->resolveOwnerFreeEsimRate($beneficiario, (float) $beneficiario->free_esim_rate);
+                }
+            }
+
+            if (in_array($user->user_type, ['super_partner', 'admin_partner'], true)) {
+                $superPartner = $user->user_type === 'super_partner'
+                    ? SuperPartner::where('user_id', auth()->id())->first()
+                    : SuperPartner::find($user->super_partner_id);
+
+                if ($superPartner) {
+                    return $this->resolveOwnerFreeEsimRate($superPartner, (float) $superPartner->free_esim_rate);
+                }
+            }
+        }
+
+        return Beneficiario::DEFAULT_FREE_ESIM_RATE;
+    }
+
+    protected function resolveOwnerFreeEsimRate($owner, float $fallback): float
+    {
+        if (method_exists($owner, 'getAttribute')) {
+            $legacyPrice = $owner->getAttribute('free_esim_price');
+
+            if ($legacyPrice !== null && $legacyPrice !== '') {
+                return (float) $legacyPrice;
+            }
+        }
+
+        return $fallback;
     }
 }

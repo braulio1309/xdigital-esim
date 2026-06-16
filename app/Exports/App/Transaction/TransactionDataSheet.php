@@ -31,20 +31,33 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
     {
         $query = Transaction::with('cliente.beneficiario.planMargins', 'beneficiario.planMargins');
 
-        // Filter by beneficiario
+        // Filter by beneficiario (direct or inherited from cliente)
         if (!empty($this->filters['beneficiario_id'])) {
             $beneficiarioId = $this->filters['beneficiario_id'];
             if ($beneficiarioId === 'none') {
                 $query->whereNull('beneficiario_id');
             } else {
-                $query->where('beneficiario_id', $beneficiarioId);
+                $query->where(function ($builder) use ($beneficiarioId) {
+                    $builder->where('beneficiario_id', $beneficiarioId)
+                        ->orWhereHas('cliente', function ($clienteQuery) use ($beneficiarioId) {
+                            $clienteQuery->where('beneficiario_id', $beneficiarioId);
+                        });
+                });
             }
         }
 
-        // Filter by super partner directly on the transaction
+        // Filter by super partner directly or through related partner
         if (!empty($this->filters['super_partner_id'])) {
             $superPartnerId = $this->filters['super_partner_id'];
-            $query->where('super_partner_id', $superPartnerId);
+            $query->where(function ($builder) use ($superPartnerId) {
+                $builder->where('super_partner_id', $superPartnerId)
+                    ->orWhereHas('beneficiario', function ($beneficiarioQuery) use ($superPartnerId) {
+                        $beneficiarioQuery->where('super_partner_id', $superPartnerId);
+                    })
+                    ->orWhereHas('cliente.beneficiario', function ($beneficiarioQuery) use ($superPartnerId) {
+                        $beneficiarioQuery->where('super_partner_id', $superPartnerId);
+                    });
+            });
         }
 
         // Filter by type (free / paid plans)

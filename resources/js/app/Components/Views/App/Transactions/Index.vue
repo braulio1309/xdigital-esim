@@ -193,8 +193,8 @@
         <app-table :id="tableId" :options="tableOptions" :search="search" @action="getListAction"/>
 
         <add-modal v-if="isAddEditModalActive"
-                   :table-id="tableId"
-                   :selected-url="selectedUrl"
+               :table-id="tableId"
+               :selected-url="modalSelectedUrl"
                    @close-modal="closeAddEditModal"/>
 
         <detail-modal v-if="isDetailModalActive"
@@ -251,7 +251,7 @@
                 isMarkAsPaidModalActive: false,
                 isRechargeModalActive: false,
                 terminateConfirmationModalActive: false,
-                selectedUrl: '',
+                modalSelectedUrl: '',
                 tableId: 'transactions-table',
                 rowData: {},
                 // Search-first mode for atencion_cliente users
@@ -462,6 +462,11 @@
                        this.$store.state.user.loggedInUser &&
                        this.$store.state.user.loggedInUser.user_type === 'super_partner';
             },
+            isSuperPartnerScopedUser() {
+                const user = this.$store.state.user && this.$store.state.user.loggedInUser;
+
+                return !!user && ['super_partner', 'admin_partner'].includes(user.user_type);
+            },
             isAtencionCliente() {
                 const u = this.$store.state.user && this.$store.state.user.loggedInUser;
                 return u && u.user_sub_type === 'atencion_cliente';
@@ -517,7 +522,7 @@
             },
             canFilterByBeneficiario() {
                 // Admin ve todos los beneficiarios; super_partner solo los suyos.
-                return this.isAdmin || this.isSuperPartner;
+                return this.isAdmin || this.isSuperPartnerScopedUser;
             },
             // Partners list filtered by selected super partner (admin only)
             filteredBeneficiariosList() {
@@ -594,6 +599,13 @@
             this.loadBeneficiarios();
             this.loadSaleCommissionTotal();
         },
+        watch: {
+            canFilterByBeneficiario(newValue, oldValue) {
+                if (newValue && !oldValue) {
+                    this.loadBeneficiarios();
+                }
+            },
+        },
         methods: {
             loadPaymentStats() {
                 const params = new URLSearchParams();
@@ -621,7 +633,10 @@
 
                 this.axiosGet(actions.BENEFICIARIOS + '?per_page=1000')
                     .then(response => {
-                        const beneficiarios = (response.data && response.data.data) ? response.data.data : [];
+                        const payload = response && response.data ? response.data : {};
+                        const beneficiarios = Array.isArray(payload.data)
+                            ? payload.data
+                            : (payload.data && Array.isArray(payload.data.data) ? payload.data.data : []);
 
                         const beneficiarioOptions = beneficiarios.map(beneficiario => ({
                             id: `beneficiario:${beneficiario.id}`,
@@ -635,7 +650,7 @@
                             { id: 'none', value: this.$t('without_partner') || 'Sin Partner' },
                         ];
 
-                        if (this.isSuperPartner) {
+                        if (this.isSuperPartnerScopedUser) {
                             this.superPartnersList = [];
                             return null;
                         }
@@ -643,8 +658,12 @@
                         return this.axiosGet(actions.SUPER_PARTNERS + '?per_page=1000');
                     })
                     .then(response => {
-                        if (response && response.data && response.data.data) {
-                            const superPartners = response.data.data;
+                        if (response && response.data) {
+                            const payload = response.data;
+                            const superPartners = Array.isArray(payload.data)
+                                ? payload.data
+                                : (payload.data && Array.isArray(payload.data.data) ? payload.data.data : []);
+
                             this.superPartnersList = [
                                 { id: '', value: this.$t('all_super_partners') || 'Todos los Super Partners' },
                                 ...superPartners.map(sp => ({
@@ -840,7 +859,7 @@
                 this.rowData = rowData;
 
                 if (actionObj.title == this.$t('edit')) {
-                    this.selectedUrl = `${actions.TRANSACTIONS}/${rowData.id}`;
+                    this.modalSelectedUrl = `${actions.TRANSACTIONS}/${rowData.id}`;
                     this.openAddEditModal();
                 } else if (actionObj.title == this.$t('details')) {
                     this.openDetailModal();
@@ -913,7 +932,7 @@
 
             reSetData() {
                 this.rowData = {};
-                this.selectedUrl = '';
+                this.modalSelectedUrl = '';
             },
 
             submitAtencionClienteSearch() {
