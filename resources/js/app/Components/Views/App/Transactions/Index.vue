@@ -528,7 +528,7 @@
                 const spId = parseInt(this.superPartnerFilter, 10);
                 return this.beneficiariosList.filter(option => {
                     if (!option.id || option.id === 'none') return true;
-                    if (option.id && option.id.toString().startsWith('beneficiario:')) {
+                    if (option.id.toString().startsWith('beneficiario:')) {
                         return option.super_partner_id === spId;
                     }
                     return true;
