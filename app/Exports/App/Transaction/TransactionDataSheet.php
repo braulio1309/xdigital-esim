@@ -109,7 +109,8 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             'Datos (GB)',
             'Duración (días)',
             'Monto de Compra',
-            'Comisión',
+            'Cargo / Comisión',
+            'Super Partner',
             'Partner',
             'Cliente',
             'Estado eSIM',
@@ -126,9 +127,10 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
         $cliente = $transaction->cliente;
         $isPaid = $transaction->is_paid;
         $purchaseAmountLabel = ($transaction->purchase_amount == 0)
-            ? 'Gratis' . ($transaction->reference_purchase_amount !== null ? ' ($' . number_format((float) $transaction->reference_purchase_amount, 2) . ' referencia)' : '')
+            ? 'Gratuita' . ($transaction->reference_purchase_amount !== null ? ' (ref. $' . number_format((float) $transaction->reference_purchase_amount, 2) . ')' : '')
             : ('$' . number_format((float) $transaction->purchase_amount, 2));
-        $partnerName = $beneficiario ? $beneficiario->nombre : ($superPartner ? 'SP: ' . $superPartner->nombre : '');
+        $partnerName = $beneficiario ? $beneficiario->nombre : '';
+        $superPartnerName = $superPartner ? $superPartner->nombre : '';
 
         return [
             $transaction->transaction_id ?? '',
@@ -138,6 +140,7 @@ class TransactionDataSheet implements FromQuery, WithHeadings, WithMapping, With
             $transaction->duration_days ?? '',
             $purchaseAmountLabel,
             '$' . $commission,
+            $superPartnerName,
             $partnerName,
             $cliente ? trim($cliente->nombre . ' ' . $cliente->apellido) : '',
             $transaction->status ?? '',
