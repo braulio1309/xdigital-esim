@@ -24,7 +24,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" :class="{active: activeTab === 'partner'}" href="#" @click.prevent="activeTab = 'partner'">
-                            Comisiones de Partner
+                            Comisiones por Venta
                         </a>
                     </li>
                     <li class="nav-item">
@@ -102,15 +102,15 @@
                     </div>
                 </div>
 
-                <!-- Tab: Partner Commissions (visual only – shown to partners, not real commissions) -->
+                <!-- Tab: Sale Commissions (real – what we pay the super partner per paid eSIM) -->
                 <div v-show="activeTab === 'partner'">
                     <div class="form-group mb-4">
-                        <div class="alert alert-warning">
-                            <strong>Comisiones de Partner (Visual)</strong>
+                        <div class="alert alert-info">
+                            <strong>Comisiones por Venta de eSIMs de Pago (Solo Admin)</strong>
                             <p class="mb-0 mt-2">
-                                Estas comisiones son <strong>únicamente visuales</strong> para los partners. No afectan el precio de las eSIMs
-                                ni el cálculo real de comisiones del super partner. El partner verá estos porcentajes en su panel,
-                                sin conocer la comisión real configurada en la pestaña <em>Comisiones (%)</em>.
+                                Define qué porcentaje de comisión se le paga a este super partner por cada eSIM de plan de pago vendida.
+                                <strong>No afecta el precio final al cliente.</strong>
+                                Estos valores se usan en el Estado de Cuenta para calcular cuánto les debemos por ventas.
                             </p>
                         </div>
                     </div>
@@ -134,7 +134,7 @@
                                 </div>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                Porcentaje de comisión visible para el partner en transacciones de Latinoamérica y Europa.
+                                % de comisión a pagar por ventas en Latinoamérica y Europa. Se refleja en el Estado de Cuenta.
                             </small>
                         </div>
                     </div>
@@ -158,7 +158,7 @@
                                 </div>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                Porcentaje de comisión visible para el partner en transacciones de Canadá y USA.
+                                % de comisión a pagar por ventas en Canadá y USA. Se refleja en el Estado de Cuenta.
                             </small>
                         </div>
                     </div>

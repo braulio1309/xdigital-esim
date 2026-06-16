@@ -97,12 +97,21 @@
                     </button>
                 </div>
 
-                <!-- Beneficiary / Super Partner filter for admin and super partners -->
+                <!-- Super Partner filter: admin only (separate from Partner filter) -->
+                <div v-if="isAdmin" class="mr-2 mb-1" style="min-width: 260px;">
+                    <app-input type="search-select"
+                               v-model="superPartnerFilter"
+                               :list="superPartnersList"
+                               :placeholder="$t('filter_by_super_partner') || 'Filtrar por Super Partner'"
+                               @input="onSuperPartnerChange"/>
+                </div>
+
+                <!-- Partner filter: admin (all or filtered by SP) and super_partner (their own) -->
                 <div v-if="canFilterByBeneficiario" class="mr-2 mb-1" style="min-width: 260px;">
                     <app-input type="search-select"
                                v-model="beneficiarioFilter"
-                               :list="beneficiariosList"
-                               :placeholder="$t('filter_by_beneficiary')"
+                               :list="filteredBeneficiariosList"
+                               :placeholder="$t('filter_by_partner') || 'Filtrar por Partner'"
                                @input="onBeneficiarioChange"/>
                 </div>
 
@@ -259,11 +268,13 @@
                     end_date: '',
                 },
                 beneficiarioFilter: '',
+                superPartnerFilter: '',
                 filterAmountResult: null,
                 filterAmountLoading: false,
                 filterAmountTimer: null,
                 saleCommissionTotal: null,
                 beneficiariosList: [],
+                superPartnersList: [],
                 paymentStats: {
                     unpaid_count: 0,
                     total_owed: 0
@@ -508,12 +519,28 @@
                 // Admin ve todos los beneficiarios; super_partner solo los suyos.
                 return this.isAdmin || this.isSuperPartner;
             },
+            // Partners list filtered by selected super partner (admin only)
+            filteredBeneficiariosList() {
+                if (!this.isAdmin || !this.superPartnerFilter) {
+                    return this.beneficiariosList;
+                }
+                // Keep only the "all" option plus partners that belong to the selected super partner
+                const spId = parseInt(this.superPartnerFilter, 10);
+                return this.beneficiariosList.filter(option => {
+                    if (!option.id || option.id === 'none') return true;
+                    if (option.id.toString().startsWith('beneficiario:')) {
+                        return option.super_partner_id === spId;
+                    }
+                    return true;
+                });
+            },
             showPaymentStats() {
                 return this.paymentStats.unpaid_count > 0;
             },
             hasActiveFilters() {
                   return this.search ||
                       this.beneficiarioFilter ||
+                      this.superPartnerFilter ||
                        this.activeFilters.type !== null ||
                        this.activeFilters.payment_status !== null ||
                        this.activeFilters.start_date ||
@@ -588,6 +615,7 @@
             loadBeneficiarios() {
                 if (!this.canFilterByBeneficiario) {
                     this.beneficiariosList = [];
+                    this.superPartnersList = [];
                     return;
                 }
 
@@ -598,15 +626,17 @@
                         const beneficiarioOptions = beneficiarios.map(beneficiario => ({
                             id: `beneficiario:${beneficiario.id}`,
                             value: beneficiario.nombre,
+                            super_partner_id: beneficiario.super_partner_id,
                         }));
 
                         this.beneficiariosList = [
-                            { id: '', value: this.$t('all_beneficiaries') },
+                            { id: '', value: this.$t('all_partners') || 'Todos los Partners' },
                             ...beneficiarioOptions,
-                            { id: 'none', value: this.$t('without_beneficiary') },
+                            { id: 'none', value: this.$t('without_partner') || 'Sin Partner' },
                         ];
 
                         if (this.isSuperPartner) {
+                            this.superPartnersList = [];
                             return null;
                         }
 
@@ -615,18 +645,12 @@
                     .then(response => {
                         if (response && response.data && response.data.data) {
                             const superPartners = response.data.data;
-                            const superPartnerOptions = superPartners.map(sp => ({
-                                id: `super_partner:${sp.id}`,
-                                value: `${sp.nombre} (${this.$t('super_partner')})`,
-                            }));
-
-                            const baseOptions = this.beneficiariosList.filter(option => option.id !== 'none');
-                            const noneOption = this.beneficiariosList.find(option => option.id === 'none');
-
-                            this.beneficiariosList = [
-                                ...baseOptions,
-                                ...superPartnerOptions,
-                                ...(noneOption ? [noneOption] : []),
+                            this.superPartnersList = [
+                                { id: '', value: this.$t('all_super_partners') || 'Todos los Super Partners' },
+                                ...superPartners.map(sp => ({
+                                    id: sp.id.toString(),
+                                    value: sp.nombre,
+                                })),
                             ];
                         }
                     })
@@ -647,9 +671,8 @@
             },
 
             onBeneficiarioChange() {
-                // Reset both filters
+                // Only reset beneficiario_id; keep super_partner_id from the SP dropdown
                 this.activeFilters.beneficiario_id = '';
-                this.activeFilters.super_partner_id = '';
 
                 const value = this.beneficiarioFilter;
 
@@ -657,10 +680,16 @@
                     this.activeFilters.beneficiario_id = 'none';
                 } else if (value && value.startsWith('beneficiario:')) {
                     this.activeFilters.beneficiario_id = value.split(':')[1];
-                } else if (value && value.startsWith('super_partner:')) {
-                    this.activeFilters.super_partner_id = value.split(':')[1];
                 }
 
+                this.applyFilters();
+            },
+
+            onSuperPartnerChange() {
+                // Update super_partner_id filter and reset partner filter
+                this.activeFilters.super_partner_id = this.superPartnerFilter || '';
+                this.beneficiarioFilter = '';
+                this.activeFilters.beneficiario_id = '';
                 this.applyFilters();
             },
 
@@ -763,6 +792,7 @@
             clearAllFilters() {
                 this.search = '';
                 this.beneficiarioFilter = '';
+                this.superPartnerFilter = '';
                 this.activeFilters = {
                     type: null,
                     beneficiario_id: '',
