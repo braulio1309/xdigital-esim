@@ -218,6 +218,32 @@ class ClienteControllerTest extends TestCase
         ]);
     }
 
+    /** @test */
+    public function it_does_not_convert_partner_or_super_partner_accounts_into_clientes(): void
+    {
+        $this->loginAsAdmin();
+        $this->createClienteRoleAndStatus();
+
+        foreach (['beneficiario', 'super_partner'] as $userType) {
+            $existingUser = $this->createUserOfType($userType);
+
+            $response = $this->postJson(route('clientes.store'), [
+                'nombre' => 'Nuevo',
+                'apellido' => 'Cliente',
+                'identificador' => 'ID-' . strtoupper($userType),
+                'email' => $existingUser->email,
+                'password' => 'password123',
+            ]);
+
+            $response->assertStatus(422);
+            $response->assertJsonValidationErrors('email');
+
+            $this->assertDatabaseMissing('clientes', [
+                'email' => $existingUser->email,
+            ]);
+        }
+    }
+
     private function createClienteRoleAndStatus(): void
     {
         if (!Type::query()->where('alias', 'app')->exists()) {

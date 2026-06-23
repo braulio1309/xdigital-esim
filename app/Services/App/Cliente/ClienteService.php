@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class ClienteService extends AppService
 {
@@ -74,6 +75,8 @@ class ClienteService extends AppService
         $existingUser = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if ($existingUser) {
+            $this->ensureExistingUserCanRegisterAsCliente($existingUser);
+
             if (!$existingUser->roles()->where('name', 'cliente')->exists()) {
                 $existingUser->assignRole('cliente');
             }
@@ -104,6 +107,15 @@ class ClienteService extends AppService
         $user->assignRole('cliente');
         
         return $user;
+    }
+
+    protected function ensureExistingUserCanRegisterAsCliente(User $existingUser): void
+    {
+        if (in_array($existingUser->user_type, ['beneficiario', 'admin_beneficiario', 'super_partner', 'admin_partner'], true)) {
+            throw ValidationException::withMessages([
+                'email' => 'Este correo ya pertenece a una cuenta de partner o super partner y no puede registrarse como cliente.',
+            ]);
+        }
     }
 
     /**
