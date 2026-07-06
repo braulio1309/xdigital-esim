@@ -17,6 +17,7 @@ use App\Services\App\AppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class BeneficiarioService extends AppService
 {
@@ -94,14 +95,40 @@ class BeneficiarioService extends AppService
      */
     protected function createUserForBeneficiario(Beneficiario $beneficiario, array $attributes)
     {
-        // Use provided email from request
-        $email = $attributes['email'];
+        $email = mb_strtolower(trim((string) $attributes['email']));
         
         // Use provided password from request
         $password = $attributes['password'];
         
         // Get active status
         $status = Status::findByNameAndType('status_active', 'user');
+
+        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($existingUser) {
+            if (!$existingUser->hasRole('cliente')) {
+                throw ValidationException::withMessages([
+                    'email' => 'Este correo ya pertenece a otro usuario.',
+                ]);
+            }
+
+            $existingUser->fill([
+                'first_name' => $beneficiario->nombre,
+                'last_name' => $attributes['apellido'] ?? '',
+                'password' => $password,
+                'user_type' => 'beneficiario',
+                'status_id' => $status->id,
+                'beneficiario_id' => null,
+                'super_partner_id' => null,
+            ]);
+            $existingUser->save();
+
+            if (!$existingUser->hasRole('beneficiario')) {
+                $existingUser->assignRole('beneficiario');
+            }
+
+            return $existingUser;
+        }
         
         $user = User::create([
             'first_name' => $beneficiario->nombre,

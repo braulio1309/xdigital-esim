@@ -66,6 +66,29 @@
                             type: 'text',
                             key: 'user_type_display',
                             isVisible: true,
+                            modifier: (value) => {
+                                const text = (value || '').toString();
+                                const roleText = (text || 'N/A')
+                                    .replace(/admin_partner/gi, 'Directivo Super Partner')
+                                    .replace(/admin_beneficiario/gi, 'admin_partner')
+                                    .replace(/super_partner/gi, 'Super Partner')
+                                    .replace(/partner/gi, 'Partner')
+                                    .replace(/atencion_cliente/gi, 'Atencion al cliente')
+                                    .replace(/directivo/gi, 'Directivo');
+
+                                const partner = row.affiliated_beneficiario && row.affiliated_beneficiario.nombre
+                                    ? `Partner: ${row.affiliated_beneficiario.nombre}`
+                                    : '';
+                                const superPartner = row.affiliated_super_partner && row.affiliated_super_partner.nombre
+                                    ? `Super Partner: ${row.affiliated_super_partner.nombre}`
+                                    : '';
+
+                                const belongsTo = partner && superPartner
+                                    ? `${partner} | ${superPartner}`
+                                    : (partner || superPartner || 'N/A');
+
+                                return `${roleText} - ${belongsTo}`;
+                            }
                         },
                         {
                             title: this.$t('status'),

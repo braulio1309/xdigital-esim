@@ -111,4 +111,24 @@ trait UserRelationship
     {
         return $this->hasOne(SuperPartner::class);
     }
+
+    /**
+     * Super partner this user belongs to (via users.super_partner_id).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function affiliatedSuperPartner()
+    {
+        return $this->belongsTo(SuperPartner::class, 'super_partner_id');
+    }
+
+    /**
+     * Partner (beneficiario) this user belongs to (via users.beneficiario_id).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function affiliatedBeneficiario()
+    {
+        return $this->belongsTo(Beneficiario::class, 'beneficiario_id');
+    }
 }

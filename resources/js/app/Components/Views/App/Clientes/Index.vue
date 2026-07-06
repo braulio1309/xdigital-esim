@@ -9,12 +9,12 @@
                         <app-icon name="search" class="mr-2" style="width:20px;height:20px;"/>
                         Buscar cliente
                     </h5>
-                    <p class="text-muted mb-4">Ingresa el correo del cliente o una fecha para poder ver resultados.</p>
+                    <p class="text-muted mb-4">Ingresa el nombre o correo del cliente, o una fecha para ver resultados.</p>
                     <div class="input-group mb-3">
                         <input type="text"
                                class="form-control form-control-lg"
                                v-model="atencionClienteSearchQuery"
-                               placeholder="Correo del cliente"
+                               placeholder="Nombre o correo del cliente"
                                @keyup.enter="submitAtencionClienteSearch"/>
                         <div class="input-group-append">
                             <button class="btn btn-primary" type="button" @click="submitAtencionClienteSearch">
@@ -48,16 +48,35 @@
                     <button type="button"
                             class="btn btn-primary btn-with-shadow"
                             data-toggle="modal"
-                            @click="openAddEditModal">
+                            @click="openCreateModal">
                         {{ $t('add') }}
                     </button>
                 </div>
             </div>
         </div>
 
+        <div class="row mb-3">
+            <div class="col-sm-12 col-md-8 col-lg-6">
+                <div class="input-group">
+                    <input type="text"
+                           class="form-control"
+                           v-model="clientesSearchQuery"
+                           placeholder="Buscar por nombre o correo"
+                           @keyup.enter="applyClientesSearch"/>
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="button" @click="applyClientesSearch">
+                            Buscar
+                        </button>
+                    </div>
+                </div>
+                <small class="text-muted">Filtra el listado por nombre o correo del cliente.</small>
+            </div>
+        </div>
+
         <app-table :id="tableId" :options="tableOptions" :search="search" @action="getListAction"/>
 
         <add-modal v-if="isAddEditModalActive"
+               :key="addModalRenderKey"
                    :table-id="tableId"
                    :selected-url="selectedUrl"
                    @close-modal="closeAddEditModal"/>
@@ -101,12 +120,14 @@
                 isImportModalActive: false,
                 deleteConfirmationModalActive: false,
                 selectedUrl: '',
+                addModalRenderKey: 0,
                 tableId: 'clientes-table',
                 rowData: {},
                 // Search-first mode for atencion_cliente users
                 atencionClienteSearchQuery: '',
                 atencionClienteSearchDate: '',
                 atencionClienteSearchSubmitted: false,
+                clientesSearchQuery: '',
                 search: '',
                 options: {
                     url: actions.CLIENTES,
@@ -128,6 +149,14 @@
                             title: 'Email',
                             type: 'text',
                             key: 'email',
+                        },
+                        {
+                            title: 'Fecha de creacion',
+                            type: 'custom-html',
+                            key: 'created_at',
+                            modifier: (value) => {
+                                return this.formatCreatedAt(value);
+                            }
                         },
                         {
                             title: 'DNI / Pasaporte',
@@ -284,6 +313,48 @@
             },
         },
         methods: {
+            formatCreatedAt(value) {
+                if (!value) {
+                    return 'N/A';
+                }
+
+                const iso = String(value)
+                    .trim()
+                    .replace(/\.(\d{3})\d+Z$/, '.$1Z');
+
+                const date = new Date(iso);
+
+                if (Number.isNaN(date.getTime())) {
+                    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (!match) {
+                        return 'N/A';
+                    }
+
+                    const [, year, month, day] = match;
+                    const monthNames = [
+                        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                    ];
+                    const monthIndex = Number(month) - 1;
+                    const monthLabel = monthNames[monthIndex] || month;
+
+                    return `${day}/${monthLabel}/${year}`;
+                }
+
+                const day = String(date.getDate()).padStart(2, '0');
+                const monthNames = [
+                    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                ];
+                const month = monthNames[date.getMonth()] || '';
+                const year = date.getFullYear();
+
+                return `${day}/${month}/${year}`;
+            },
+            applyClientesSearch() {
+                this.search = this.clientesSearchQuery.trim();
+                this.$hub.$emit('reload-' + this.tableId);
+            },
             isClienteInactive(rowData) {
                 return rowData && rowData.user && rowData.user.status && rowData.user.status.name === 'status_inactive';
             },
@@ -330,6 +401,18 @@
             openAddEditModal() {
                 this.isAddEditModalActive = true;
             },
+            openCreateModal() {
+                this.selectedUrl = '';
+                this.rowData = {};
+                this.addModalRenderKey += 1;
+                this.isAddEditModalActive = true;
+            },
+            openEditModal(rowData) {
+                this.selectedUrl = `${actions.CLIENTES}/${rowData.id}`;
+                this.rowData = rowData;
+                this.addModalRenderKey += 1;
+                this.isAddEditModalActive = true;
+            },
 
             /**
              * for close add edit modal
@@ -350,8 +433,7 @@
                 if (actionObj.title == 'Inactivar cliente' || actionObj.title == 'Activar cliente') {
                     this.openDeleteModal();
                 } else if (actionObj.title == this.$t('edit')) {
-                    this.selectedUrl = `${actions.CLIENTES}/${rowData.id}`;
-                    this.openAddEditModal();
+                    this.openEditModal(rowData);
                 } else if (actionObj.title == 'eSIM Gratis') {
                     this.toggleFreeEsim(rowData);
                 } else if (actionObj.title == 'Enviar correo') {

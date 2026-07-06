@@ -3,6 +3,8 @@
 
 namespace App\Models\Core\Auth\Traits\Rules;
 
+use App\Models\Core\Auth\User;
+
 
 trait UserRules
 {
@@ -10,9 +12,21 @@ trait UserRules
     {
         return [
             'first_name' => 'required',
-            'email' => 'required|email|unique:users',
+            'email' => [
+                'required',
+                'email',
+                function ($attribute, $value, $fail) {
+                    $email = mb_strtolower(trim((string) $value));
+                    $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+                    if ($existingUser && !$existingUser->hasRole('cliente')) {
+                        $fail('El correo ya está en uso por otro tipo de usuario.');
+                    }
+                },
+            ],
             'password' => ['required', 'min:8', 'regex:/^(?=[^\d]*\d)(?=[A-Z\d ]*[^A-Z\d ]).{8,}$/i'],
             'roles' => ['nullable', 'array'],
+            'user_sub_type' => ['nullable', 'in:directivo,atencion_cliente'],
         ];
     }
 

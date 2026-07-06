@@ -10,6 +10,7 @@ use App\Services\App\AppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class SuperPartnerService extends AppService
 {
@@ -75,12 +76,41 @@ class SuperPartnerService extends AppService
      */
     protected function createUserForSuperPartner(SuperPartner $superPartner, array $attributes)
     {
+        $email = mb_strtolower(trim((string) $attributes['email']));
         $status = Status::findByNameAndType('status_active', 'user');
+
+        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($existingUser) {
+            if (!$existingUser->hasRole('cliente')) {
+                throw ValidationException::withMessages([
+                    'email' => 'Este correo ya pertenece a otro usuario.',
+                ]);
+            }
+
+            $existingUser->fill([
+                'first_name' => $superPartner->nombre,
+                'last_name' => $attributes['apellido'] ?? '',
+                'email' => $email,
+                'password' => $attributes['password'],
+                'user_type' => 'super_partner',
+                'status_id' => $status->id,
+                'beneficiario_id' => null,
+                'super_partner_id' => null,
+            ]);
+            $existingUser->save();
+
+            if (!$existingUser->hasRole('Super Partner')) {
+                $existingUser->assignRole('Super Partner');
+            }
+
+            return $existingUser;
+        }
 
         $user = User::create([
             'first_name' => $superPartner->nombre,
             'last_name'  => $attributes['apellido'] ?? '',
-            'email'      => $attributes['email'],
+            'email'      => $email,
             'password'   => Hash::make($attributes['password']),
             'user_type'  => 'super_partner',
             'status_id'  => $status->id,

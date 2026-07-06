@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class UserService extends BaseService
 {
@@ -41,13 +42,36 @@ class UserService extends BaseService
         $status = Status::findByNameAndType('status_active', 'user')->id;
         $attributes = array_merge(['status_id' => $status], $attributes);
 
-        parent::save($this->getFillAble(array_merge(request()->only(
+        $payload = $this->getFillAble(array_merge(request()->only(
             'first_name',
             'last_name',
             'email',
             'password',
-            'user_type'
-        ), $attributes)));
+            'user_type',
+            'user_sub_type'
+        ), $attributes));
+
+        $email = mb_strtolower(trim((string) data_get($payload, 'email')));
+        $payload['email'] = $email;
+
+        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($existingUser) {
+            if (!$existingUser->hasRole('cliente')) {
+                throw ValidationException::withMessages([
+                    'email' => 'Este correo ya pertenece a otro usuario.',
+                ]);
+            }
+
+            $existingUser->fill($payload);
+            $existingUser->save();
+
+            $this->setModel($existingUser);
+
+            return $this;
+        }
+
+        parent::save($payload);
 
         return $this;
     }

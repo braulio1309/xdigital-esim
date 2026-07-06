@@ -43,9 +43,15 @@ class UserController extends Controller
             $this->service
                 ->filters($this->filter)
                 ->select(['id', 'first_name', 'last_name', 'email', 'created_by', 'status_id', 'created_at', 'super_partner_id', 'beneficiario_id', 'user_sub_type', 'user_type'])
-                ->with('roles:id,name,is_admin,is_default,type_id', 'status', 'profilePicture')
+                ->with(
+                    'roles:id,name,is_admin,is_default,type_id',
+                    'status',
+                    'profilePicture',
+                    'affiliatedSuperPartner:id,nombre',
+                    'affiliatedBeneficiario:id,nombre'
+                )
                 ->latest()
-        ))->filter();
+        ))->filter()->where('user_type', '!=', 'cliente');
 
         $authUser = auth()->user();
 
@@ -65,7 +71,7 @@ class UserController extends Controller
                     $builder->orWhere('id', $beneficiario->user_id);
                 }
             });
-        } else {
+        } elseif (!$authUser || $authUser->user_type !== 'admin') {
             $query = $query->where('user_type', 'admin');
         }
 
@@ -116,6 +122,7 @@ class UserController extends Controller
     public function store(UserRequest $request)
     {
         $attributes = [];
+        $userSubType = $request->get('user_sub_type');
 
         if (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = SuperPartner::where('user_id', auth()->id())->first();
@@ -131,6 +138,10 @@ class UserController extends Controller
         } else {
             $attributes = ['user_type' => 'admin'];
             $request->merge(['roles' => $request->get('roles', 'App admin')]);
+        }
+
+        if ($userSubType) {
+            $attributes['user_sub_type'] = $userSubType;
         }
 
         $this->service

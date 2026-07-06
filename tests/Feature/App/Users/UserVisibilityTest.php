@@ -100,6 +100,50 @@ class UserVisibilityTest extends TestCase
         $this->assertTrue($clienteUser->hasRole('App admin'));
     }
 
+    /** @test */
+    public function app_admin_can_see_directivo_and_atencion_users_from_other_networks(): void
+    {
+        $this->ensureUserStatusesExist();
+
+        $adminUser = $this->createUserOfType('admin');
+
+        $directivo = $this->createUserOfType('admin_partner', [
+            'user_sub_type' => 'directivo',
+        ]);
+
+        $atencion = $this->createUserOfType('admin_beneficiario', [
+            'user_sub_type' => 'atencion_cliente',
+        ]);
+
+        $response = $this->actingAs($adminUser)
+            ->getJson('/admin/auth/users');
+
+        $response->assertOk()
+            ->assertJsonFragment(['email' => $adminUser->email])
+            ->assertJsonFragment(['email' => $directivo->email])
+            ->assertJsonFragment(['email' => $atencion->email]);
+    }
+
+    /** @test */
+    public function users_listing_does_not_show_pure_cliente_users(): void
+    {
+        $this->ensureUserStatusesExist();
+
+        $adminUser = $this->createUserOfType('admin');
+        $clienteUser = $this->createUserOfType('cliente');
+        $directivo = $this->createUserOfType('admin_partner', [
+            'user_sub_type' => 'directivo',
+        ]);
+
+        $response = $this->actingAs($adminUser)
+            ->getJson('/admin/auth/users');
+
+        $response->assertOk()
+            ->assertJsonFragment(['email' => $adminUser->email])
+            ->assertJsonFragment(['email' => $directivo->email])
+            ->assertJsonMissing(['email' => $clienteUser->email]);
+    }
+
     private function createUserOfType(string $userType, array $attributes = []): User
     {
         return User::factory()->create(array_merge([

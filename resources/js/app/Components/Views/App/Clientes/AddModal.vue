@@ -220,6 +220,27 @@
             }
         },
         methods: {
+            defaultInputs() {
+                return {
+                    nombre: '',
+                    apellido: '',
+                    identificador: '',
+                    email: '',
+                    password: '',
+                    beneficiario_id: null,
+                    can_activate_free_esim: false,
+                    free_esim_capacity: 1,
+                    numero_voucher: '',
+                    numero_personas: 1,
+                    voucher_edit_id: null,
+                };
+            },
+            resetCreateFormState() {
+                this.inputs = this.defaultInputs();
+                this.voucherList = [];
+                this.modalTitle = this.$t('add');
+                this.preloader = false;
+            },
             loadBeneficiarios() {
                 this.axiosGet('/beneficiarios')
                     .then(response => {
@@ -288,5 +309,15 @@
                 this.preloader = false;
             },
         },
+        watch: {
+            selectedUrl: {
+                immediate: true,
+                handler(value) {
+                    if (!value) {
+                        this.resetCreateFormState();
+                    }
+                }
+            }
+        }
     }
 </script>

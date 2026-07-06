@@ -46,7 +46,13 @@ trait UserAttribute
         $primaryType = $this->getRawOriginal('user_type') ?? $this->user_type ?? '';
         $primaryType = trim((string) $primaryType);
 
-        $types = $primaryType !== '' ? [$primaryType] : [];
+        $labels = [
+            'beneficiario' => 'partner',
+        ];
+
+        $primaryDisplay = $labels[$primaryType] ?? $primaryType;
+
+        $types = $primaryDisplay !== '' ? [$primaryDisplay] : [];
 
         if (method_exists($this, 'hasRole') && $this->hasRole('cliente') && !in_array('cliente', $types, true)) {
             $types[] = 'cliente';
