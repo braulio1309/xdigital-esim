@@ -68,14 +68,15 @@
                 </div>
                 <div class="form-group row align-items-center mb-0" v-if="showBeneficiarioSelect">
                     <label for="inputs_beneficiario_id" class="col-sm-3 mb-0">
-                        Beneficiario
+                        Partner
                     </label>
                     <app-input id="inputs_beneficiario_id"
                                class="col-sm-9"
-                               type="select"
+                               type="search-select"
                                v-model="inputs.beneficiario_id"
                                :list="beneficiarios"
                                list-value-field="value"
+                               list-class="partner-select-dropdown"
                                :placeholder="'Seleccionar partner (opcional)'"
                                :required="false"/>
                 </div>
@@ -321,3 +322,10 @@
         }
     }
 </script>
+
+<style>
+.partner-select-dropdown .dropdown-search-result-wrapper {
+    max-height: 220px;
+    overflow-y: auto;
+}
+</style>

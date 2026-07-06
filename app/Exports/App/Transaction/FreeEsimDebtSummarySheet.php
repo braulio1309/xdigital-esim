@@ -52,14 +52,14 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         $rows[] = ['── eSIMs Gratuitas Otorgadas ──', ''];
         $rows[] = ['Cantidad de eSIMs gratuitas (pendientes)', $stats['free_debt_count']];
         $rows[] = ['Precio actual por eSIM gratuita', '$' . number_format($stats['free_current_rate'], 4)];
-        $rows[] = ['Subtotal eSIMs gratuitas (nos deben)', '$' . number_format($stats['free_total'], 2)];
+        $rows[] = ['Cuentas por cobrar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
         $rows[] = ['', ''];
 
         // ── Paid eSIMs section ───────────────────────────────────────────────
         $rows[] = ['── eSIMs de Planes de Pago ──', ''];
         $rows[] = ['Cantidad de eSIMs de pago', $stats['paid_count']];
         $rows[] = ['Comisión total generada por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
-        $rows[] = ['Subtotal comisiones a pagar (les debemos)', '$' . number_format($stats['paid_commission_total'], 2)];
+        $rows[] = ['Cuentas por pagar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
         $rows[] = ['', ''];
 
         // ── Summary section ──────────────────────────────────────────────────
@@ -69,16 +69,16 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
         // ── Balance ──────────────────────────────────────────────────────────
         $rows[] = ['── Balance Final ──', ''];
-        $rows[] = ['Cargo eSIMs gratuitas (nos deben)', '$' . number_format($stats['free_total'], 2)];
-        $rows[] = ['Comisiones por ventas (les debemos)', '$' . number_format($stats['paid_commission_total'], 2)];
+        $rows[] = ['Cuentas por cobrar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
+        $rows[] = ['Cuentas por pagar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
 
         $balance = $stats['free_total'] - $stats['paid_commission_total'];
         if ($balance > 0) {
-            $rows[] = ['SALDO A NUESTRO FAVOR (nos deben pagar)', '$' . number_format($balance, 2)];
+            $rows[] = ['SALDO NETO A COBRAR', '$' . number_format($balance, 2)];
         } elseif ($balance < 0) {
-            $rows[] = ['SALDO A PAGAR (les debemos pagar)', '$' . number_format(abs($balance), 2)];
+            $rows[] = ['SALDO NETO A PAGAR', '$' . number_format(abs($balance), 2)];
         } else {
-            $rows[] = ['SALDO EQUILIBRADO (sin pagos pendientes)', '$0.00'];
+            $rows[] = ['SALDO NETO', '$0.00'];
         }
 
         return $rows;
