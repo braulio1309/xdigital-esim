@@ -8,8 +8,10 @@
             </div>
             <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-4 pl-md-0">
                 <div class="login-form d-flex align-items-center">
-                    <form class="sign-in-sign-up-form w-100"
-                          ref="form" data-url="/admin/users/login" action="store">
+                      <form class="sign-in-sign-up-form w-100"
+                          ref="form"
+                          :data-url="formUrl"
+                          action="store">
 
                         <div class="text-center mb-4">
                             <img :src="urlGenerator(configData.company_logo)" alt=""
@@ -26,7 +28,7 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group col-12 px-0">
+                            <div v-if="!isTwoFactorStep" class="form-group col-12 px-0">
                                 <label for="login_email">{{ $t('email') }}</label>
                                 <app-input type="email"
                                            v-model="login.email"
@@ -35,7 +37,7 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group col-12 px-0">
+                            <div v-if="!isTwoFactorStep" class="form-group col-12 px-0">
                                 <label for="login_password">{{ $t('password') }}</label>
                                 <app-input type="password"
                                            v-model="login.password"
@@ -44,18 +46,42 @@
                                            :required="true"/>
                             </div>
                         </div>
-                        <div class="form-row" v-if="recaptchaEnable == 1">
+                        <div class="form-row" v-if="isTwoFactorStep">
                             <div class="form-group col-12 px-0">
+                                <div class="alert alert-info mb-3" role="alert">
+                                    {{ twoFactorMessage }}
+                                </div>
+                                <label for="login_code">{{ $t('verification_code') }}</label>
+                                <app-input type="text"
+                                           v-model="login.code"
+                                           :placeholder="$t('enter_verification_code')"
+                                           :required="true"
+                                           :max-length="4"
+                                           :alphanumeric="true"
+                                           :autocomplete="'one-time-code'"/>
+                            </div>
+                        </div>
+                        <div class="form-row" v-if="recaptchaEnable == 1">
+                            <div v-if="!isTwoFactorStep" class="form-group col-12 px-0">
                                 <re-captcha :site-key="siteKey"></re-captcha>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group col-12 px-0">
                                 <app-load-more :preloader="preloader"
-                                               :label="$t('login')"
+                                               :label="isTwoFactorStep ? $t('verify_code') : $t('login')"
                                                type="submit"
                                                class-name="btn btn-primary btn-block text-center"
                                                @submit="submit"/>
+                            </div>
+                        </div>
+                        <div class="form-row" v-if="isTwoFactorStep">
+                            <div class="form-group col-12 px-0 text-center">
+                                <button type="button"
+                                        class="btn btn-link p-0 text-decoration-none"
+                                        @click="backToLogin">
+                                    {{ $t('back_to_login') }}
+                                </button>
                             </div>
                         </div>
                         <div
@@ -99,15 +125,35 @@
         data() {
             return {
                 urlGenerator,
-                login: {email: '', password: ''},
+                login: {email: '', password: '', code: ''},
+                isTwoFactorStep: false,
+                twoFactorMessage: '',
             };
+        },
+        computed: {
+            formUrl() {
+                return this.isTwoFactorStep ? '/admin/users/login/verify' : '/admin/users/login';
+            }
         },
         methods: {
             submit() {
-                this.save(this.login);
+                this.save(this.isTwoFactorStep ? {code: this.login.code} : this.login);
             },
             afterSuccess(res) {
+                if (res.data && res.data.two_factor_required) {
+                    this.isTwoFactorStep = true;
+                    this.twoFactorMessage = res.data.message;
+                    this.login.code = '';
+                    this.$toastr.s(res.data.message);
+                    return;
+                }
+
                 window.location = res.data;
+            },
+            backToLogin() {
+                this.isTwoFactorStep = false;
+                this.twoFactorMessage = '';
+                this.login.code = '';
             }
         }
     }

@@ -10,6 +10,7 @@ use App\Models\App\Beneficiario\Beneficiario;
 use App\Notifications\Core\User\UserNotification;
 use App\Services\Core\Auth\UserService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -61,10 +62,13 @@ class UserController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',
-            'email' => 'required|email|unique:users',
+            'email' => 'required|email',
             'password' => 'required|string|min:8',
             'user_sub_type' => 'nullable|in:directivo,atencion_cliente',
         ]);
+
+        $normalizedEmail = mb_strtolower(trim((string) $request->input('email')));
+        $request->merge(['email' => $normalizedEmail]);
 
         // Get active status
         $status = \App\Models\Core\Status::findByNameAndType('status_active', 'user');
@@ -74,51 +78,85 @@ class UserController extends Controller
         }
 
         $userSubType = $request->input('user_sub_type') ?: 'directivo';
+        $attributes = [];
+        $roleName = null;
         
         if (auth()->check() && auth()->user()->user_type === 'super_partner') {
             $superPartner = \App\Models\App\SuperPartner\SuperPartner::where('user_id', auth()->id())->first();
             if ($superPartner) {
-                $request->merge([
+                $attributes = [
                     'super_partner_id' => $superPartner->id,
                     'user_type' => 'admin_partner',
                     'user_sub_type' => $userSubType,
-                    'roles' => 'Super Partner',
-                ]);
+                ];
+                $roleName = 'Super Partner';
             }
         } elseif (auth()->check() && auth()->user()->user_type === 'beneficiario') {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::where('user_id', auth()->id())->first();
             if ($beneficiario) {
-                $request->merge([
+                $attributes = [
                     'beneficiario_id' => $beneficiario->id,
                     'user_type' => 'admin_beneficiario',
                     'user_sub_type' => $userSubType,
-                    'roles' => 'App admin',
-                ]);
+                ];
+                $roleName = 'App admin';
             }
         } elseif (auth()->check() && in_array(auth()->user()->user_type, ['admin_partner', 'admin_beneficiario'])) {
             // Sub-users created by directivo admin_partner or admin_beneficiario
             $creator = auth()->user();
             if ($creator->user_type === 'admin_partner' && $creator->super_partner_id) {
-                $request->merge([
+                $attributes = [
                     'super_partner_id' => $creator->super_partner_id,
                     'user_type' => 'admin_partner',
                     'user_sub_type' => $userSubType,
-                    'roles' => 'Super Partner',
-                ]);
+                ];
+                $roleName = 'Super Partner';
             } elseif ($creator->user_type === 'admin_beneficiario' && $creator->beneficiario_id) {
-                $request->merge([
+                $attributes = [
                     'beneficiario_id' => $creator->beneficiario_id,
                     'user_type' => 'admin_beneficiario',
                     'user_sub_type' => $userSubType,
-                    'roles' => 'App admin',
-                ]);
+                ];
+                $roleName = 'App admin';
             }
         } else if (auth()->check() && auth()->user()->user_type === 'admin') {
-            $request->merge([
-                'roles' => 'App admin',
+            $attributes = [
                 'user_type' => 'admin',
                 'user_sub_type' => $userSubType,
+            ];
+            $roleName = 'App admin';
+        }
+
+        $request->merge(array_merge($attributes, [
+            'roles' => $roleName,
+        ]));
+
+        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
+
+        if ($existingUser) {
+            if (!$existingUser->hasRole('cliente')) {
+                throw ValidationException::withMessages([
+                    'email' => 'Este correo ya pertenece a otro usuario.',
+                ]);
+            }
+
+            $existingUser->fill([
+                'first_name' => $request->input('first_name'),
+                'last_name' => $request->input('last_name'),
+                'password' => $request->input('password'),
+                'status_id' => $status->id,
+                'user_type' => $request->input('user_type', $existingUser->user_type),
+                'user_sub_type' => $request->input('user_sub_type', $existingUser->user_sub_type),
+                'super_partner_id' => $request->input('super_partner_id', $existingUser->super_partner_id),
+                'beneficiario_id' => $request->input('beneficiario_id', $existingUser->beneficiario_id),
             ]);
+            $existingUser->save();
+
+            if ($roleName && !$existingUser->hasRole($roleName)) {
+                $existingUser->assignRole($roleName);
+            }
+
+            return created_responses('user');
         }
 
        $this->service

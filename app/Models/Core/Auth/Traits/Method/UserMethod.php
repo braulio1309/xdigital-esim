@@ -12,6 +12,18 @@ use Mail;
  */
 trait UserMethod
 {
+    public function getUserTypes(): array
+    {
+        $userType = $this->getRawOriginal('user_type') ?? $this->attributes['user_type'] ?? '';
+
+        return array_values(array_filter(array_map('trim', explode(',', (string) $userType))));
+    }
+
+    public function hasUserType(string $type): bool
+    {
+        return in_array($type, $this->getUserTypes(), true);
+    }
+
     /**
      * @return mixed
      */

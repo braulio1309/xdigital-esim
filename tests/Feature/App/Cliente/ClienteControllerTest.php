@@ -219,12 +219,12 @@ class ClienteControllerTest extends TestCase
     }
 
     /** @test */
-    public function it_does_not_convert_partner_or_super_partner_accounts_into_clientes(): void
+    public function it_links_existing_operational_users_as_cliente_without_changing_user_type(): void
     {
         $this->loginAsAdmin();
         $this->createClienteRoleAndStatus();
 
-        foreach (['beneficiario', 'super_partner'] as $userType) {
+        foreach (['admin', 'beneficiario', 'super_partner', 'admin_partner', 'admin_beneficiario'] as $userType) {
             $existingUser = $this->createUserOfType($userType);
 
             $response = $this->postJson(route('clientes.store'), [
@@ -235,13 +235,67 @@ class ClienteControllerTest extends TestCase
                 'password' => 'password123',
             ]);
 
-            $response->assertStatus(422);
-            $response->assertJsonValidationErrors('email');
+            $response->assertOk();
 
-            $this->assertDatabaseMissing('clientes', [
+            $existingUser->refresh();
+
+            $this->assertSame($userType, $existingUser->user_type);
+            $this->assertTrue($existingUser->roles()->where('name', 'cliente')->exists());
+
+            $this->assertDatabaseHas('clientes', [
                 'email' => $existingUser->email,
             ]);
         }
+    }
+
+    /** @test */
+    public function it_allows_a_non_cliente_user_with_cliente_role_to_open_the_cliente_dashboard(): void
+    {
+        $this->createClienteRoleAndStatus();
+
+        $user = $this->createUserOfType('admin_partner');
+        $user->assignRole('cliente');
+
+        $cliente = Cliente::create([
+            'nombre' => 'Cliente',
+            'apellido' => 'Demo',
+            'email' => $user->email,
+            'identificador' => 'DASH-001',
+            'user_id' => $user->id,
+            'can_activate_free_esim' => true,
+            'free_esim_capacity' => 1,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('cliente.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Panel de Cliente');
+        $this->assertSame($cliente->id, $user->fresh()->cliente->id);
+    }
+
+    /** @test */
+    public function it_resolves_cliente_dashboard_by_email_for_mixed_role_users(): void
+    {
+        $this->createClienteRoleAndStatus();
+
+        $user = $this->createUserOfType('admin_partner');
+        $user->assignRole('cliente');
+
+        $cliente = Cliente::create([
+            'nombre' => 'Cliente',
+            'apellido' => 'Email Match',
+            'email' => $user->email,
+            'identificador' => 'DASH-EMAIL-001',
+            'user_id' => null,
+            'can_activate_free_esim' => true,
+            'free_esim_capacity' => 1,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('cliente.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Panel de Cliente');
+        $this->assertSame($user->id, $cliente->fresh()->user_id);
     }
 
     private function createClienteRoleAndStatus(): void

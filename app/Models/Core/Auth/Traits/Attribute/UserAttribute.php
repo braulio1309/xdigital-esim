@@ -41,4 +41,24 @@ trait UserAttribute
         return $this->full_name;
     }
 
+    public function getUserTypeDisplayAttribute(): string
+    {
+        $primaryType = $this->getRawOriginal('user_type') ?? $this->user_type ?? '';
+        $primaryType = trim((string) $primaryType);
+
+        $types = $primaryType !== '' ? [$primaryType] : [];
+
+        if (method_exists($this, 'hasRole') && $this->hasRole('cliente') && !in_array('cliente', $types, true)) {
+            $types[] = 'cliente';
+        }
+
+        $display = implode(', ', $types);
+
+        if ($this->user_sub_type) {
+            $display .= ' (' . $this->user_sub_type . ')';
+        }
+
+        return $display;
+    }
+
 }

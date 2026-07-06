@@ -7,3 +7,6 @@ Route::get('login', [LoginController::class, 'show'])
 
 Route::post('login', [LoginController::class, 'login'])
     ->name('users.login');
+
+Route::post('login/verify', [LoginController::class, 'verifyLoginCode'])
+    ->name('users.login.verify');

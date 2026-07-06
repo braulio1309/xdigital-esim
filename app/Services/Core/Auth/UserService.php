@@ -9,6 +9,7 @@ use App\Helpers\Core\Traits\HasWhen;
 use App\Helpers\Core\Traits\Helpers;
 use App\Hooks\User\AfterLogin;
 use App\Hooks\User\BeforeLogin;
+use App\Mail\Core\User\LoginVerificationCodeMail;
 use App\Models\Core\Auth\Role;
 use App\Models\Core\Auth\User;
 use App\Models\Core\Status;
@@ -18,12 +19,16 @@ use App\Services\Core\BaseService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class UserService extends BaseService
 {
     use FileHandler, Helpers, HasWhen, HasUserActions;
 
     public $role;
+
+    protected $twoFactorSessionKey = 'core.auth.user.two_factor_login';
 
     public function __construct(User $user, Role $role)
     {
@@ -172,8 +177,8 @@ class UserService extends BaseService
 
     public function login()
     {
-        /**@var $user User*/
-        $user = $this->model::findByEmail( request()->get('email') );
+        /** @var User $user */
+        $user = $this->model::findByEmail(request()->get('email'));
 
         BeforeLogin::new(true)
             ->setModel($user)
@@ -183,15 +188,6 @@ class UserService extends BaseService
             throw new AuthenticationException(trans('default.no_roles_found'));
 
         if (Hash::check(request()->get('password'), optional($user)->password)) {
-            auth()->login(
-                $user,
-                request()->get('remember_me',false)
-            );
-
-            AfterLogin::new(true)
-                ->setModel($user)
-                ->handle();
-
             return $user;
         }
 
@@ -203,6 +199,95 @@ class UserService extends BaseService
         );
     }
 
+    public function completeLogin(User $user, $remember = false)
+    {
+        auth()->login($user, $remember);
+
+        AfterLogin::new(true)
+            ->setModel($user)
+            ->handle();
+
+        return $user;
+    }
+
+    public function generateTwoFactorCode()
+    {
+        return Str::upper(Str::random(4));
+    }
+
+    public function createTwoFactorChallenge(User $user, $remember = false)
+    {
+        $code = $this->generateTwoFactorCode();
+
+        session()->put($this->twoFactorSessionKey, [
+            'user_id' => $user->id,
+            'code_hash' => Hash::make($code),
+            'remember' => $remember,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+            'attempts' => 0,
+        ]);
+
+        return $code;
+    }
+
+    public function sendTwoFactorCode(User $user, $code)
+    {
+        Mail::to($user->email)->send(new LoginVerificationCodeMail($user, $code));
+    }
+
+    public function verifyTwoFactorCode($code)
+    {
+        $challenge = $this->getTwoFactorChallenge();
+
+        throw_if(
+            !$challenge,
+            new AuthenticationException(trans('default.two_factor_code_expired'))
+        );
+
+        throw_if(
+            now()->timestamp > data_get($challenge, 'expires_at'),
+            new AuthenticationException(trans('default.two_factor_code_expired'))
+        );
+
+        /** @var User $user */
+        $user = $this->model::find(data_get($challenge, 'user_id'));
+
+        throw_if(
+            !$user,
+            new AuthenticationException(trans('default.two_factor_code_expired'))
+        );
+
+        if (!Hash::check(Str::upper(trim($code)), data_get($challenge, 'code_hash'))) {
+            $attempts = ((int) data_get($challenge, 'attempts', 0)) + 1;
+
+            if ($attempts >= 5) {
+                $this->clearTwoFactorChallenge();
+            } else {
+                $challenge['attempts'] = $attempts;
+                session()->put($this->twoFactorSessionKey, $challenge);
+            }
+
+            throw new AuthenticationException(trans('default.invalid_two_factor_code'));
+        }
+
+        $this->clearTwoFactorChallenge();
+        $this->completeLogin($user, (bool) data_get($challenge, 'remember', false));
+        session()->regenerate();
+
+        return $user;
+    }
+
+    public function getTwoFactorChallenge()
+    {
+        return session()->get($this->twoFactorSessionKey);
+    }
+
+    public function clearTwoFactorChallenge()
+    {
+        session()->forget($this->twoFactorSessionKey);
+
+        return true;
+    }
 
     public function getFormattedSettings()
     {

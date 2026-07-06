@@ -62,6 +62,12 @@
                             }
                         },
                         {
+                            title: 'Tipo',
+                            type: 'text',
+                            key: 'user_type_display',
+                            isVisible: true,
+                        },
+                        {
                             title: this.$t('status'),
                             type: 'custom-html',
                             key: 'status',

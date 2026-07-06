@@ -221,6 +221,29 @@ class SidebarComposer
             $menu = [];
         }
 
+        $hasClienteRole = false;
+
+        if ($user) {
+            $hasClienteRole = (method_exists($user, 'hasRole') && $user->hasRole('cliente'))
+                || $user->user_type === 'cliente'
+                || (method_exists($user, 'roles') && $user->roles()->whereRaw('LOWER(name) = ?', ['cliente'])->exists());
+        }
+
+        $clientsUrl = route('cliente.dashboard');
+        $alreadyHasClientsMenu = collect($menu)->contains(function ($item) use ($clientsUrl) {
+            return ($item['url'] ?? null) === $clientsUrl
+                || (($item['name'] ?? null) === 'Mis eSIMs');
+        });
+
+        if ($hasClienteRole && !$alreadyHasClientsMenu) {
+            $menu[] = [
+                'icon' => 'smartphone',
+                'name' => 'Mis eSIMs',
+                'url' => $clientsUrl,
+                'permission' => true,
+            ];
+        }
+
         $view->with(['data' => $menu]);
     }
 }

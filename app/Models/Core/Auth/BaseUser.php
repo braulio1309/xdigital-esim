@@ -46,6 +46,7 @@ abstract class BaseUser extends Authenticatable
      */
     protected $appends = [
         'full_name',
+        'user_type_display',
     ];
 
     /**

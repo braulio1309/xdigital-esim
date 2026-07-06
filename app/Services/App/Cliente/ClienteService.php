@@ -4,13 +4,14 @@ namespace App\Services\App\Cliente;
 
 use App\Models\App\Cliente\Cliente;
 use App\Models\Core\Auth\User;
+use App\Models\Core\Auth\Role;
+use App\Models\Core\Auth\Type;
 use App\Models\Core\Status;
 use App\Services\App\AppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class ClienteService extends AppService
 {
@@ -71,18 +72,17 @@ class ClienteService extends AppService
         // Use the cliente's email
         $email = mb_strtolower(trim((string) $cliente->email));
         $superPartnerId = !empty($attributes['super_partner_id']) ? (int) $attributes['super_partner_id'] : null;
+        $clienteRole = $this->ensureClienteRole();
 
         $existingUser = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if ($existingUser) {
-            $this->ensureExistingUserCanRegisterAsCliente($existingUser);
-
-            if (!$existingUser->roles()->where('name', 'cliente')->exists()) {
-                $existingUser->assignRole('cliente');
+            if ($clienteRole && !$existingUser->roles()->where('name', $clienteRole->name)->exists()) {
+                $existingUser->assignRole($clienteRole);
             }
 
-            if ($existingUser->user_type !== 'cliente') {
-                $existingUser->user_type = 'cliente';
+            if ($superPartnerId && !$existingUser->super_partner_id) {
+                $existingUser->super_partner_id = $superPartnerId;
                 $existingUser->save();
             }
 
@@ -104,18 +104,34 @@ class ClienteService extends AppService
             'status_id'  => $status->id,
             'super_partner_id' => $superPartnerId,
         ]);
-        $user->assignRole('cliente');
+        if ($clienteRole) {
+            $user->assignRole($clienteRole);
+        }
         
         return $user;
     }
 
-    protected function ensureExistingUserCanRegisterAsCliente(User $existingUser): void
+    protected function ensureClienteRole(): ?Role
     {
-        if (in_array($existingUser->user_type, ['beneficiario', 'admin_beneficiario', 'super_partner', 'admin_partner'], true)) {
-            throw ValidationException::withMessages([
-                'email' => 'Este correo ya pertenece a una cuenta de partner o super partner y no puede registrarse como cliente.',
-            ]);
+        $role = Role::query()->where('name', 'cliente')->first();
+
+        if ($role) {
+            return $role;
         }
+
+        $type = Type::query()->where('alias', 'app')->first();
+
+        if (!$type) {
+            return null;
+        }
+
+        return Role::create([
+            'name' => 'cliente',
+            'type_id' => $type->id,
+            'is_admin' => false,
+            'is_default' => false,
+            'created_by' => auth()->id() ?? 1,
+        ]);
     }
 
     /**

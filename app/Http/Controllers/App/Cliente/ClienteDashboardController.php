@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\App\Cliente;
 
 use App\Http\Controllers\Controller;
+use App\Models\App\Cliente\Cliente;
 use App\Mail\App\Cliente\EsimRechargeReminderMail;
 use App\Models\App\Transaction\Transaction;
 use App\Services\EsimFxService;
@@ -17,6 +18,95 @@ class ClienteDashboardController extends Controller
 {
     private const MANUAL_RECHARGE_LINK_TTL_HOURS = 24;
 
+    private function resolveClienteEmail($user): string
+    {
+        return mb_strtolower(trim((string) ($user->email ?? '')));
+    }
+
+    private function resolveClienteProfile($user): ?Cliente
+    {
+        if (!$user) {
+            return null;
+        }
+
+        $cliente = $user->cliente;
+
+        if ($cliente) {
+            return $cliente;
+        }
+
+        $email = $this->resolveClienteEmail($user);
+
+        if ($email === '') {
+            return null;
+        }
+
+        $cliente = Cliente::query()
+            ->withCount('transactions')
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->orderByDesc('transactions_count')
+            ->latest('id')
+            ->first();
+
+        if ($cliente && (int) ($cliente->user_id ?? 0) !== (int) $user->id) {
+            $cliente->user_id = $user->id;
+            $cliente->save();
+        }
+
+        return $cliente;
+    }
+
+    private function resolveClienteTransactions($user)
+    {
+        $email = $this->resolveClienteEmail($user);
+
+        if ($email === '') {
+            return collect();
+        }
+
+        return Transaction::query()
+            ->with('cliente')
+            ->whereHas('cliente', function ($query) use ($email) {
+                $query->whereRaw('LOWER(email) = ?', [$email]);
+            })
+            ->orderBy('creation_time', 'desc')
+            ->get();
+    }
+
+    private function resolveActivePlanFromTransactions($transactions): ?Transaction
+    {
+        return $transactions
+            ->where('status', 'completed')
+            ->sortByDesc(function ($transaction) {
+                return optional($transaction->creation_time)->timestamp ?? 0;
+            })
+            ->first();
+    }
+
+    private function canAccessTransactionForClienteEmail($user, Transaction $transaction): bool
+    {
+        $email = $this->resolveClienteEmail($user);
+
+        if ($email === '') {
+            return false;
+        }
+
+        return $transaction->cliente()
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->exists();
+    }
+
+    private function canAccessClienteArea($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $user->user_type === 'cliente'
+            || (method_exists($user, 'hasRole') && $user->hasRole('cliente'))
+            || (method_exists($user, 'roles') && $user->roles()->whereRaw('LOWER(name) = ?', ['cliente'])->exists());
+    }
+
     /**
      * Show the cliente dashboard
      *
@@ -26,24 +116,19 @@ class ClienteDashboardController extends Controller
     {
         $user = $request->user();
         
-        // Ensure user is a cliente
-        if ($user->user_type !== 'cliente') {
+        // Ensure user can access the cliente area
+        if (!$this->canAccessClienteArea($user)) {
             abort(403, 'Unauthorized access');
         }
         
-        $cliente = $user->cliente;
+        $cliente = $this->resolveClienteProfile($user);
         
         if (!$cliente) {
             abort(404, 'Cliente not found');
         }
         
-        // Get active plan (latest transaction)
-        $activePlan = $cliente->active_plan;
-        
-        // Get all transactions
-        $transactions = $cliente->transactions()
-            ->orderBy('creation_time', 'desc')
-            ->get();
+        $transactions = $this->resolveClienteTransactions($user);
+        $activePlan = $this->resolveActivePlanFromTransactions($transactions);
         
         $data = [
             'cliente' => $cliente,
@@ -65,8 +150,9 @@ class ClienteDashboardController extends Controller
     public function transactionDetail(Request $request, Transaction $transaction, EsimFxService $esimFxService)
     {
         $user = $request->user();
+        $cliente = $this->resolveClienteProfile($user);
 
-        if ($user->user_type !== 'cliente' || !$user->cliente || (int) $transaction->cliente_id !== (int) $user->cliente->id) {
+        if (!$this->canAccessClienteArea($user) || !$cliente || !$this->canAccessTransactionForClienteEmail($user, $transaction)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -93,16 +179,17 @@ class ClienteDashboardController extends Controller
     public function sendRechargeEmail(Request $request, Transaction $transaction)
     {
         $user = $request->user();
+        $cliente = $this->resolveClienteProfile($user);
 
-        if ($user->user_type !== 'cliente') {
+        if (!$this->canAccessClienteArea($user)) {
             return redirect()->back()->with('error', 'Solo los clientes pueden enviar este correo.');
         }
 
-        if (!$user->cliente) {
+        if (!$cliente) {
             return redirect()->back()->with('error', 'No se encontró el perfil del cliente.');
         }
 
-        if ((int) $transaction->cliente_id !== (int) $user->cliente->id) {
+        if (!$this->canAccessTransactionForClienteEmail($user, $transaction)) {
             return redirect()->back()->with('error', 'No autorizado para enviar correo de esta transacción.');
         }
 
@@ -177,20 +264,18 @@ class ClienteDashboardController extends Controller
     {
         $user = $request->user();
         
-        if ($user->user_type !== 'cliente') {
+        if (!$this->canAccessClienteArea($user)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
         
-        $cliente = $user->cliente;
+        $cliente = $this->resolveClienteProfile($user);
         
         if (!$cliente) {
             return response()->json(['error' => 'Cliente not found'], 404);
         }
         
-        $activePlan = $cliente->active_plan;
-        $transactions = $cliente->transactions()
-            ->orderBy('creation_time', 'desc')
-            ->get();
+        $transactions = $this->resolveClienteTransactions($user);
+        $activePlan = $this->resolveActivePlanFromTransactions($transactions);
         
         return response()->json([
             'cliente' => [
