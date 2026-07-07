@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\App\Beneficiario;
 
 use App\Http\Controllers\Controller;
+use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\Transaction\Transaction;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,13 +19,12 @@ class BeneficiarioDashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        
-        // Ensure user is a beneficiario
-        if ($user->user_type !== 'beneficiario') {
+
+        if (!$this->canAccessBeneficiarioArea($user)) {
             abort(403, 'Unauthorized access');
         }
-        
-        $beneficiario = $user->beneficiario;
+
+        $beneficiario = $this->resolveBeneficiarioProfile($request, $user);
         
         if (!$beneficiario) {
             abort(404, 'Beneficiario not found');
@@ -70,12 +70,12 @@ class BeneficiarioDashboardController extends Controller
     public function data(Request $request)
     {
         $user = $request->user();
-        
-        if ($user->user_type !== 'beneficiario') {
+
+        if (!$this->canAccessBeneficiarioArea($user)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-        
-        $beneficiario = $user->beneficiario;
+
+        $beneficiario = $this->resolveBeneficiarioProfile($request, $user);
         
         if (!$beneficiario) {
             return response()->json(['error' => 'Beneficiario not found'], 404);
@@ -102,6 +102,54 @@ class BeneficiarioDashboardController extends Controller
             'sale_commissions' => $this->getSaleCommissions($beneficiario),
             'debt_data' => $debt_data,
         ]);
+    }
+
+    private function canAccessBeneficiarioArea($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return in_array($user->user_type, ['beneficiario', 'admin_beneficiario', 'admin_partner'], true);
+    }
+
+    private function resolveBeneficiarioProfile(Request $request, $user): ?Beneficiario
+    {
+        if (!$user) {
+            return null;
+        }
+
+        if ($user->user_type === 'beneficiario') {
+            return $user->beneficiario
+                ?? ($user->beneficiario_id ? Beneficiario::find($user->beneficiario_id) : null);
+        }
+
+        if ($user->user_type === 'admin_beneficiario') {
+            return $user->affiliatedBeneficiario
+                ?? ($user->beneficiario_id ? Beneficiario::find($user->beneficiario_id) : null);
+        }
+
+        if ($user->user_type === 'admin_partner') {
+            $requestedBeneficiarioId = (int) $request->get('beneficiario_id', 0);
+
+            $query = Beneficiario::query();
+
+            if (!empty($user->super_partner_id)) {
+                $query->where('super_partner_id', $user->super_partner_id);
+            }
+
+            if ($requestedBeneficiarioId > 0) {
+                return (clone $query)->whereKey($requestedBeneficiarioId)->first();
+            }
+
+            if (!empty($user->beneficiario_id)) {
+                return (clone $query)->whereKey($user->beneficiario_id)->first();
+            }
+
+            return $query->orderBy('id')->first();
+        }
+
+        return null;
     }
 
     /**
