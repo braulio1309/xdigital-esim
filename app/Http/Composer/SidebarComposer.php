@@ -221,13 +221,7 @@ class SidebarComposer
             $menu = [];
         }
 
-        $hasClienteRole = false;
-
-        if ($user) {
-            $hasClienteRole = (method_exists($user, 'hasRole') && $user->hasRole('cliente'))
-                || $user->user_type === 'cliente'
-                || (method_exists($user, 'roles') && $user->roles()->whereRaw('LOWER(name) = ?', ['cliente'])->exists());
-        }
+        $hasAuthenticatedUser = (bool) $user;
 
         $clientsUrl = route('cliente.dashboard');
         $alreadyHasClientsMenu = collect($menu)->contains(function ($item) use ($clientsUrl) {
@@ -235,7 +229,7 @@ class SidebarComposer
                 || (($item['name'] ?? null) === 'Mis eSIMs');
         });
 
-        if ($hasClienteRole && !$alreadyHasClientsMenu) {
+        if ($hasAuthenticatedUser && !$alreadyHasClientsMenu) {
             $menu[] = [
                 'icon' => 'smartphone',
                 'name' => 'Mis eSIMs',

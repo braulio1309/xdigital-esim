@@ -98,13 +98,24 @@ class ClienteDashboardController extends Controller
 
     private function canAccessClienteArea($user): bool
     {
-        if (!$user) {
-            return false;
+        return (bool) $user;
+    }
+
+    private function buildDashboardIdentity($user, ?Cliente $cliente): array
+    {
+        if ($cliente) {
+            return [
+                'nombre' => $cliente->nombre,
+                'apellido' => $cliente->apellido,
+                'email' => $cliente->email,
+            ];
         }
 
-        return $user->user_type === 'cliente'
-            || (method_exists($user, 'hasRole') && $user->hasRole('cliente'))
-            || (method_exists($user, 'roles') && $user->roles()->whereRaw('LOWER(name) = ?', ['cliente'])->exists());
+        return [
+            'nombre' => (string) ($user->first_name ?? ''),
+            'apellido' => (string) ($user->last_name ?? ''),
+            'email' => (string) ($user->email ?? ''),
+        ];
     }
 
     /**
@@ -122,16 +133,13 @@ class ClienteDashboardController extends Controller
         }
         
         $cliente = $this->resolveClienteProfile($user);
-        
-        if (!$cliente) {
-            abort(404, 'Cliente not found');
-        }
+        $dashboardIdentity = $this->buildDashboardIdentity($user, $cliente);
         
         $transactions = $this->resolveClienteTransactions($user);
         $activePlan = $this->resolveActivePlanFromTransactions($transactions);
         
         $data = [
-            'cliente' => $cliente,
+            'cliente' => $dashboardIdentity,
             'active_plan' => $activePlan,
             'transactions' => $transactions,
         ];
@@ -152,7 +160,7 @@ class ClienteDashboardController extends Controller
         $user = $request->user();
         $cliente = $this->resolveClienteProfile($user);
 
-        if (!$this->canAccessClienteArea($user) || !$cliente || !$this->canAccessTransactionForClienteEmail($user, $transaction)) {
+        if (!$this->canAccessClienteArea($user) || !$this->canAccessTransactionForClienteEmail($user, $transaction)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -179,14 +187,9 @@ class ClienteDashboardController extends Controller
     public function sendRechargeEmail(Request $request, Transaction $transaction)
     {
         $user = $request->user();
-        $cliente = $this->resolveClienteProfile($user);
 
         if (!$this->canAccessClienteArea($user)) {
-            return redirect()->back()->with('error', 'Solo los clientes pueden enviar este correo.');
-        }
-
-        if (!$cliente) {
-            return redirect()->back()->with('error', 'No se encontró el perfil del cliente.');
+            return redirect()->back()->with('error', 'No autorizado.');
         }
 
         if (!$this->canAccessTransactionForClienteEmail($user, $transaction)) {
@@ -269,20 +272,13 @@ class ClienteDashboardController extends Controller
         }
         
         $cliente = $this->resolveClienteProfile($user);
-        
-        if (!$cliente) {
-            return response()->json(['error' => 'Cliente not found'], 404);
-        }
+        $dashboardIdentity = $this->buildDashboardIdentity($user, $cliente);
         
         $transactions = $this->resolveClienteTransactions($user);
         $activePlan = $this->resolveActivePlanFromTransactions($transactions);
         
         return response()->json([
-            'cliente' => [
-                'nombre' => $cliente->nombre,
-                'apellido' => $cliente->apellido,
-                'email' => $cliente->email,
-            ],
+            'cliente' => $dashboardIdentity,
             'active_plan' => $activePlan ? [
                 'transaction_id' => $activePlan->transaction_id,
                 'status' => $activePlan->status,

@@ -15,7 +15,7 @@
                 <div class="page-header dashboard-header-actions">
                     <div>
                         <h3 class="page-title">Panel de Cliente</h3>
-                        <p class="text-muted mb-0">Bienvenido, {{ $cliente->nombre }} {{ $cliente->apellido }}</p>
+                        <p class="text-muted mb-0">Bienvenido, {{ data_get($cliente, 'nombre', '') }} {{ data_get($cliente, 'apellido', '') }}</p>
                     </div>
 
                     @if($rechargeTransaction)
@@ -111,7 +111,7 @@
                             </div>
                         @else
                             <div class="alert alert-info mt-3" role="alert">
-                                <p class="mb-0">No tienes transacciones registradas aún.</p>
+                                <p class="mb-0">No tienes eSIMs activas.</p>
                             </div>
                         @endif
                     </div>
