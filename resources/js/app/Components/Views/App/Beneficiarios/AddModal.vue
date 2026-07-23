@@ -144,7 +144,8 @@
                 return this.loggedInUser && this.loggedInUser.user_type === 'beneficiario';
             },
             isSuperPartnerUser() {
-                return this.loggedInUser && this.loggedInUser.user_type === 'super_partner';
+                return this.loggedInUser
+                    && ['super_partner', 'admin_partner'].includes(this.loggedInUser.user_type);
             },
             showSuperPartnerSelect() {
                 if (!this.loggedInUser) {

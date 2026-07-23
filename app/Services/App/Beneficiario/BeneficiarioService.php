@@ -38,8 +38,9 @@ class BeneficiarioService extends AppService
         return DB::transaction(function () use ($options) {
             $attributes = count($options) ? $options : request()->all();
 
-            if (empty($attributes['super_partner_id']) && auth()->check() && auth()->user()->user_type === 'super_partner') {
-                $attributes['super_partner_id'] = SuperPartner::where('user_id', auth()->id())->value('id');
+            $scopedSuperPartnerId = $this->resolveScopedSuperPartnerId();
+            if ($scopedSuperPartnerId) {
+                $attributes['super_partner_id'] = $scopedSuperPartnerId;
             }
 
             // Generate unique codigo if not provided
@@ -68,6 +69,27 @@ class BeneficiarioService extends AppService
             
             return $beneficiario;
         });
+    }
+
+    private function resolveScopedSuperPartnerId(): ?int
+    {
+        if (!auth()->check()) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'super_partner') {
+            $superPartnerId = SuperPartner::where('user_id', $user->id)->value('id');
+
+            return $superPartnerId ? (int) $superPartnerId : null;
+        }
+
+        if ($user->user_type === 'admin_partner' && $user->super_partner_id) {
+            return (int) $user->super_partner_id;
+        }
+
+        return null;
     }
 
     /**
