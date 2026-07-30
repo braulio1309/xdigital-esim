@@ -8,6 +8,7 @@ use App\Hooks\User\AfterUserPivotAction;
 use App\Hooks\User\AfterUserSaved;
 use App\Hooks\User\WhileUserDeleting;
 use App\Models\Core\Auth\User;
+use App\Models\Core\Auth\UsuarioClaveHistorial;
 
 trait UserBootTrait
 {
@@ -23,6 +24,13 @@ trait UserBootTrait
         }
 
         static::saved(function ($user) {
+            if (($user->wasChanged('password') || $user->wasRecentlyCreated) && $user->password) {
+                UsuarioClaveHistorial::create([
+                    'user_id'  => $user->id,
+                    'password' => $user->password,
+                ]);
+            }
+
             AfterUserSaved::new(true)
                 ->setModel($user)
                 ->handle();
