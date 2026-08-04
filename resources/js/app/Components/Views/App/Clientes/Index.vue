@@ -78,6 +78,7 @@
         <add-modal v-if="isAddEditModalActive"
                :key="addModalRenderKey"
                    :table-id="tableId"
+                   :auth-user="currentUser"
                    :selected-url="selectedUrl"
                    @close-modal="closeAddEditModal"/>
 
@@ -109,6 +110,12 @@
     export default {
         extends: CoreLibrary,
         name: "ClientesList",
+        props: {
+            authUser: {
+                type: [String, Object],
+                default: null,
+            },
+        },
         components: {
             AddModal,
             ImportModal
@@ -129,6 +136,7 @@
                 atencionClienteSearchSubmitted: false,
                 clientesSearchQuery: '',
                 search: '',
+                bladeAuthUser: null,
                 options: {
                     url: actions.CLIENTES,
                     name: 'Clientes',
@@ -256,12 +264,36 @@
             }
         },
         computed: {
+            resolvedAuthUser() {
+                if (this.authUser) {
+                    if (typeof this.authUser === 'object') {
+                        return this.authUser;
+                    }
+
+                    try {
+                        return JSON.parse(this.authUser);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+
+                if (this.bladeAuthUser) {
+                    return this.bladeAuthUser;
+                }
+
+                return null;
+            },
+            currentUser() {
+                return this.resolvedAuthUser
+                    || (this.$store.state.user && this.$store.state.user.loggedInUser)
+                    || null;
+            },
             isAtencionCliente() {
-                const u = this.$store.state.user && this.$store.state.user.loggedInUser;
+                const u = this.currentUser;
                 return u && u.user_sub_type === 'atencion_cliente';
             },
             canManageClienteStatus() {
-                const u = this.$store.state.user && this.$store.state.user.loggedInUser;
+                const u = this.currentUser;
 
                 if (!u) {
                     return false;
@@ -312,7 +344,27 @@
                 return this.isClienteInactive(this.rowData) ? 'Si, activar' : 'Si, inactivar';
             },
         },
+        mounted() {
+            if (!this.bladeAuthUser && this.$el) {
+                this.bladeAuthUser = this.parseAuthUser(this.$el.getAttribute('auth-user'));
+            }
+        },
         methods: {
+            parseAuthUser(value) {
+                if (!value) {
+                    return null;
+                }
+
+                if (typeof value === 'object') {
+                    return value;
+                }
+
+                try {
+                    return JSON.parse(value);
+                } catch (error) {
+                    return null;
+                }
+            },
             formatCreatedAt(value) {
                 if (!value) {
                     return 'N/A';

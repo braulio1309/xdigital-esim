@@ -170,7 +170,11 @@
         name: "ClienteAddModal",
         mixins: [FormMixin, ModalMixin],
         props: {
-            tableId: String
+            tableId: String,
+            authUser: {
+                type: [String, Object],
+                default: null,
+            }
         },
         data() {
             return {
@@ -195,20 +199,35 @@
             }
         },
         computed: {
+            resolvedAuthUser() {
+                if (!this.authUser) {
+                    return (typeof window !== 'undefined' && window.__CLIENTES_AUTH_USER__) ? window.__CLIENTES_AUTH_USER__ : null;
+                }
+
+                if (typeof this.authUser === 'object') {
+                    return this.authUser;
+                }
+
+                try {
+                    return JSON.parse(this.authUser);
+                } catch (error) {
+                    return null;
+                }
+            },
             loggedInUser() {
-                return this.$store.state.user && this.$store.state.user.loggedInUser
-                    ? this.$store.state.user.loggedInUser
-                    : null;
+                return this.resolvedAuthUser
+                    || (this.$store.state.user && this.$store.state.user.loggedInUser)
+                    || null;
             },
             isBeneficiarioUser() {
                 return this.loggedInUser && this.loggedInUser.user_type === 'beneficiario';
             },
-            isSuperPartnerUser() {
-                return this.loggedInUser && this.loggedInUser.user_type === 'super_partner';
-            },
             showBeneficiarioSelect() {
-                // Para crear clientes como beneficiario o super_partner no se pide el select
-                return !this.isBeneficiarioUser && !this.isSuperPartnerUser;
+                if (!this.loggedInUser) {
+                    return false;
+                }
+
+                return ['admin', 'super_partner'].includes(this.loggedInUser.user_type);
             }
         },
         created() {
@@ -216,9 +235,11 @@
                 this.modalTitle = this.$t('edit');
                 this.preloader = true;
             }
-            if (this.showBeneficiarioSelect) {
-                this.loadBeneficiarios();
-            }
+            this.$nextTick(() => {
+                if (this.showBeneficiarioSelect) {
+                    this.loadBeneficiarios();
+                }
+            });
         },
         methods: {
             defaultInputs() {
@@ -311,6 +332,14 @@
             },
         },
         watch: {
+            showBeneficiarioSelect: {
+                immediate: true,
+                handler(value) {
+                    if (value && !this.beneficiarios.length) {
+                        this.loadBeneficiarios();
+                    }
+                }
+            },
             selectedUrl: {
                 immediate: true,
                 handler(value) {
