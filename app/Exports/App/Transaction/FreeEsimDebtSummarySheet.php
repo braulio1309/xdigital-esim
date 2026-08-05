@@ -72,14 +72,13 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         $rows[] = ['Cuentas por cobrar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
         $rows[] = ['Cuentas por pagar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
 
-        $balance = $stats['free_total'] - $stats['paid_commission_total'];
-        if ($balance > 0) {
-            $rows[] = ['SALDO NETO A COBRAR', '$' . number_format($balance, 2)];
-        } elseif ($balance < 0) {
-            $rows[] = ['SALDO NETO A PAGAR', '$' . number_format(abs($balance), 2)];
-        } else {
-            $rows[] = ['SALDO NETO', '$0.00'];
-        }
+        // Company/client perspective: free eSIM debt minus commissions.
+        $netBalance = $stats['free_total'] - $stats['paid_commission_total'];
+        $saldoNetoCobrar = max($netBalance, 0);
+        $saldoAFavor = max(-$netBalance, 0);
+
+        $rows[] = ['SALDO NETO A PAGAR', '$' . number_format($saldoNetoCobrar, 2)];
+        $rows[] = ['SALDO A FAVOR', '$' . number_format($saldoAFavor, 2)];
 
         return $rows;
     }
