@@ -237,6 +237,12 @@
         extends: CoreLibrary,
         name: "TransactionsList",
         mixins: [FormMixin, TableWithoutWrapperMixin],
+        props: {
+            isAdminUser: {
+                type: Boolean,
+                default: null,
+            }
+        },
         components: {
             AddModal,
             DetailModal,
@@ -452,6 +458,10 @@
         },
         computed: {
             isAdmin() {
+                if (typeof this.isAdminUser === 'boolean') {
+                    return this.isAdminUser;
+                }
+
                 return this.$store.state.user && 
                        this.$store.state.user.loggedInUser && 
                        (this.$store.state.user.loggedInUser.role === 'Admin' || 
