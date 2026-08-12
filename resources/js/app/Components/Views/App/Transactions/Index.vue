@@ -478,7 +478,7 @@
                     return false;
                 }
 
-                return u.user_type === 'admin' && u.user_sub_type !== 'directivo';
+                return u.user_type === 'admin';
             },
             tableOptions() {
                 if (this.isAtencionCliente) {

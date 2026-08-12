@@ -667,8 +667,7 @@ class TransactionController extends Controller
 
         $user = auth()->user();
 
-        return $user->user_type === 'admin'
-            && ($user->user_sub_type ?? null) !== 'directivo';
+        return $user->user_type === 'admin';
     }
 
     private function hasAtencionClienteFilters(): bool
