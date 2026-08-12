@@ -52,14 +52,14 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         $rows[] = ['── eSIMs Gratuitas Otorgadas ──', ''];
         $rows[] = ['Cantidad de eSIMs gratuitas (pendientes)', $stats['free_debt_count']];
         $rows[] = ['Precio actual por eSIM gratuita', '$' . number_format($stats['free_current_rate'], 4)];
-        $rows[] = ['Cuentas por cobrar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
+        $rows[] = ['Cuentas por pagar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
         $rows[] = ['', ''];
 
         // ── Paid eSIMs section ───────────────────────────────────────────────
         $rows[] = ['── eSIMs de Planes de Pago ──', ''];
         $rows[] = ['Cantidad de eSIMs de pago', $stats['paid_count']];
         $rows[] = ['Comisión total generada por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
-        $rows[] = ['Cuentas por pagar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
+        $rows[] = ['Cuentas por cobrar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
         $rows[] = ['', ''];
 
         // ── Summary section ──────────────────────────────────────────────────
@@ -69,8 +69,8 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
         // ── Balance ──────────────────────────────────────────────────────────
         $rows[] = ['── Balance Final ──', ''];
-        $rows[] = ['Cuentas por cobrar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
-        $rows[] = ['Cuentas por pagar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
+        $rows[] = ['Cuentas por Pagar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
+        $rows[] = ['Cuentas por cobrar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
 
         // Company/client perspective: free eSIM debt minus commissions.
         $netBalance = $stats['free_total'] - $stats['paid_commission_total'];

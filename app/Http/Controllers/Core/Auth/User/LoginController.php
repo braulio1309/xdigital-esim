@@ -38,19 +38,17 @@ class LoginController extends Controller
     {
         try {
             $user = $this->service->login();
-            $code = $this->service->createTwoFactorChallenge($user, $request->get('remember_me', false));
+            $this->service->completeLogin($user, $request->get('remember_me', false));
+            session()->regenerate();
 
-            try {
-                $this->service->sendTwoFactorCode($user, $code);
-            } catch (\Exception $exception) {
-                $this->service->clearTwoFactorChallenge();
-                throw $exception;
-            }
+            // custom hook
+            $route = CustomRoute::new(true)->handle();
+            $route = count($route) ? $route : home_route();
 
-            return response()->json([
-                'two_factor_required' => true,
-                'message' => trans('default.two_factor_code_sent')
-            ]);
+            return response()->json(route(
+                $route['route_name'],
+                $route['route_params']
+            ));
         } catch (\Exception $exception) {
             return response()->json([
                 'message' => $exception instanceof ModelNotFoundException ? trans('default.resource_not_found', ['resource' => trans('default.user')]) : $exception->getMessage()
