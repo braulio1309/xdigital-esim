@@ -290,7 +290,9 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
         $freeDebtCount = $unpaidFreeTransactions->count();
         $freeCurrentRate = $this->resolveCurrentFreeEsimRate();
-        $freeTotal = $freeDebtCount * $freeCurrentRate;
+        $freeTotal = (float) $unpaidFreeTransactions->sum(function (Transaction $transaction) {
+            return (float) $transaction->getCommissionAmount();
+        });
 
         $paidCount = $paidTransactions->count();
         $paidCommissionTotal = $paidTransactions->sum(function (Transaction $t) {
