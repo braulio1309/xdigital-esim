@@ -78,17 +78,11 @@ class TransactionController extends Controller
         if ($beneficiario) {
             $query = $query->where('beneficiario_id', $beneficiario->id);
         } elseif ($superPartner) {
-            $partnerIds = $superPartner->beneficiarios()->pluck('id');
-
-            // Super partner y sus usuarios solo ven transacciones de su propia red.
-            $query = $query->where(function ($builder) use ($partnerIds, $superPartner) {
-                $builder->whereIn('beneficiario_id', $partnerIds)
-                    ->orWhere('super_partner_id', $superPartner->id);
-            });
+            $this->scopeTransactionsForSelectedSuperPartner($query, $superPartner->id);
         }
-        
+
         $transactions = $query->latest()->paginate(request()->get('per_page', 10));
-        
+
         // Add commission calculations to each transaction
         $transactions->getCollection()->transform(function ($transaction) {
             $transaction->commission_amount = $transaction->getCommissionAmount();
@@ -104,9 +98,10 @@ class TransactionController extends Controller
             $transaction->super_partner_sale_commission_amount = $transaction->super_partner_sale_commission_amount !== null
                 ? (float) $transaction->super_partner_sale_commission_amount
                 : null;
+
             return $transaction;
         });
-        
+
         return $transactions;
     }
 
@@ -148,7 +143,7 @@ class TransactionController extends Controller
         }
 
         if ($requestSuperPartnerId = request()->get('super_partner_id')) {
-            $query->where('super_partner_id', $requestSuperPartnerId);
+            $this->scopeTransactionsForSelectedSuperPartner($query, $requestSuperPartnerId);
         }
 
         if ($startDateRaw = request()->get('start_date')) {
@@ -168,7 +163,7 @@ class TransactionController extends Controller
                 $query->where('purchase_amount', '>', 0);
             }
         }
-        
+
         // Filter by beneficiario if not admin
         if ($isBeneficiarioUser) {
             $query = $query->where('beneficiario_id', $beneficiario->id);
@@ -180,14 +175,14 @@ class TransactionController extends Controller
                     ->orWhere('super_partner_id', $superPartner->id);
             });
         }
-        
+
         $transactions = $query->get();
 
         $unpaidCount = $transactions->count();
         $totalOwed = $transactions->sum(function (Transaction $transaction) {
             return $transaction->getCommissionAmount();
         });
-        
+
         return response()->json([
             'unpaid_count' => $unpaidCount,
             'total_owed' => round($totalOwed, 2)
@@ -214,7 +209,6 @@ class TransactionController extends Controller
         $startDateRaw = $request->get('start_date');
         $endDateRaw = $request->get('end_date');
 
-        
         $startDateClean = preg_replace('/\s\([^)]+\)/', '', $startDateRaw);
         $endDateClean = preg_replace('/\s\([^)]+\)/', '', $endDateRaw);
 
@@ -246,7 +240,7 @@ class TransactionController extends Controller
         }
 
         if ($superPartnerId) {
-            $query->where('super_partner_id', $superPartnerId);
+            $this->scopeTransactionsForSelectedSuperPartner($query, $superPartnerId);
         }
 
         if ($type = $request->get('type')) {
@@ -333,6 +327,32 @@ class TransactionController extends Controller
         return null;
     }
 
+    private function scopeTransactionsForSelectedSuperPartner($query, $superPartnerId)
+    {
+        $superPartner = SuperPartner::with('beneficiarios:id')->find($superPartnerId);
+
+        if (!$superPartner) {
+            $query->whereRaw('1 = 0');
+
+            return $query;
+        }
+
+        $partnerIds = $superPartner->beneficiarios->pluck('id')->all();
+
+        $query->where(function ($builder) use ($partnerIds, $superPartner) {
+            if (!empty($partnerIds)) {
+                $builder->whereIn('beneficiario_id', $partnerIds)
+                    ->orWhere('super_partner_id', $superPartner->id);
+
+                return;
+            }
+
+            $builder->where('super_partner_id', $superPartner->id);
+        });
+
+        return $query;
+    }
+
     /**
      * Calculate the total sale commission earned by the current partner (beneficiario or super_partner)
      * or filtered by partner/date range for admins.
@@ -407,7 +427,7 @@ class TransactionController extends Controller
                     $column = 'partner_sale_commission_amount';
                 }
             } elseif ($superPartnerIdFilter) {
-                $query->where('super_partner_id', $superPartnerIdFilter);
+                $this->scopeTransactionsForSelectedSuperPartner($query, $superPartnerIdFilter);
                 $column = 'super_partner_sale_commission_amount';
             }
         }

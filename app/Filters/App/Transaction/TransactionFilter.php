@@ -5,6 +5,7 @@ namespace App\Filters\App\Transaction;
 use App\Filters\App\Traits\DateRangeFilter;
 use App\Filters\FilterBuilder;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\SuperPartner\SuperPartner;
 
 class TransactionFilter extends FilterBuilder
 {
@@ -113,7 +114,26 @@ class TransactionFilter extends FilterBuilder
     public function superPartnerId($superPartnerId = null)
     {
         $this->builder->when($superPartnerId !== '' && $superPartnerId !== null, function ($query) use ($superPartnerId) {
-            $query->where('super_partner_id', $superPartnerId);
+            $superPartner = SuperPartner::with('beneficiarios:id')->find($superPartnerId);
+
+            if (!$superPartner) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $partnerIds = $superPartner->beneficiarios->pluck('id')->all();
+
+            $query->where(function ($builder) use ($partnerIds, $superPartner) {
+                if (!empty($partnerIds)) {
+                    $builder->whereIn('beneficiario_id', $partnerIds)
+                        ->orWhere('super_partner_id', $superPartner->id);
+
+                    return;
+                }
+
+                $builder->where('super_partner_id', $superPartner->id);
+            });
         });
     }
 
