@@ -212,34 +212,27 @@ class RegistroEsimController extends Controller
             ];
         }
 
-        $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
-
-        // Check for country-specific percentage (highest priority and no admin margin)
-        $countryPercentageApplied = false;
-        $finalPrice = $adminPrice;
-
         if ($beneficiarioId && $countryCode) {
-            $countryPct = app(BeneficiaryPriceService::class)->getCountryPercentage($beneficiarioId, $planCapacity, $countryCode);
-            if ($countryPct !== null) {
-                $finalPrice = $originalPrice / (1 - $countryPct / 100);
-                $countryPercentageApplied = true;
+            $countryFixedPrice = app(BeneficiaryPriceService::class)->getCountryFixedPrice($beneficiarioId, $planCapacity, $countryCode);
+            if ($countryFixedPrice !== null) {
+                return [
+                    'charge_amount' => round($countryFixedPrice, 2),
+                    'commission_amount' => round($countryFixedPrice, 2),
+                ];
             }
         }
 
-        if (!$countryPercentageApplied && $superPartnerId && $countryCode) {
-            $countryPct = app(SuperPartnerPriceService::class)->getCountryPercentage($superPartnerId, $planCapacity, $countryCode);
-            if ($countryPct !== null) {
-                $finalPrice = $originalPrice / (1 - $countryPct / 100);
-                $countryPercentageApplied = true;
+        if (!$beneficiarioId && $superPartnerId && $countryCode) {
+            $countryFixedPrice = app(SuperPartnerPriceService::class)->getCountryFixedPrice($superPartnerId, $planCapacity, $countryCode);
+            if ($countryFixedPrice !== null) {
+                return [
+                    'charge_amount' => round($countryFixedPrice, 2),
+                    'commission_amount' => round($countryFixedPrice, 2),
+                ];
             }
         }
 
-        if ($countryPercentageApplied) {
-            return [
-                'charge_amount' => round((float) $finalPrice, 2),
-                'commission_amount' => round(max(0, (float) $finalPrice - (float) $originalPrice), 2),
-            ];
-        }
+        $adminPrice = app(PlanMarginService::class)->calculateFinalPrice($originalPrice, $planCapacity);
 
         // --- Check manual fixed prices (plan-level, no country) ---
         if ($beneficiarioId) {
@@ -260,13 +253,15 @@ class RegistroEsimController extends Controller
             }
         }
 
-        $priceAfterSuperPartner = $superPartnerId
-            ? app(SuperPartnerPlanMarginService::class)->calculateFinalPrice($adminPrice, $planCapacity, $superPartnerId)
-            : $adminPrice;
+        $priceAfterSuperPartner = $adminPrice;
+        $finalPrice = $adminPrice;
 
-        $finalPrice = $beneficiarioId
-            ? app(BeneficiaryPlanMarginService::class)->calculateFinalPrice($priceAfterSuperPartner, $planCapacity, $beneficiarioId)
-            : $priceAfterSuperPartner;
+        if ($beneficiarioId) {
+            $finalPrice = app(BeneficiaryPlanMarginService::class)->calculateFinalPrice($adminPrice, $planCapacity, $beneficiarioId);
+        } elseif ($superPartnerId) {
+            $priceAfterSuperPartner = app(SuperPartnerPlanMarginService::class)->calculateFinalPrice($adminPrice, $planCapacity, $superPartnerId);
+            $finalPrice = $priceAfterSuperPartner;
+        }
 
         if ($beneficiarioId) {
             return [
