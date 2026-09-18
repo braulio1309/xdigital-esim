@@ -23,6 +23,12 @@
                                 </p>
                             </div>
                             <div class="col-md-4 text-md-right mt-3 mt-md-0">
+                                <button type="button"
+                                        class="btn btn-primary btn-sm mb-2"
+                                        @click="isCourtesyEsimModalActive = true">
+                                    <app-icon name="plus" style="width:15px;height:15px;" class="mr-1"/>
+                                    Generar eSIM
+                                </button>
                                 <div v-if="statsLoading" class="text-muted">
                                     <app-icon name="loader" style="width:20px;height:20px;"/> Calculando...
                                 </div>
@@ -72,6 +78,11 @@
         <detail-modal v-if="isDetailModalActive"
                       :transaction-id="rowData.id"
                       @close-modal="closeDetailModal"/>
+
+        <nomad-courtesy-esim-modal v-if="isCourtesyEsimModalActive"
+                       :table-id="tableId"
+                       @created="loadStats"
+                       @close-modal="isCourtesyEsimModalActive = false"/>
     </div>
 </template>
 
@@ -81,6 +92,7 @@
     import {FormMixin} from '../../../../../core/mixins/form/FormMixin.js';
     import {TableWithoutWrapperMixin} from '../../../../Mixins/TableWithoutWrapperMixin.js';
     import DetailModal from "./DetailModal";
+    import NomadCourtesyEsimModal from "./NomadCourtesyEsimModal";
 
     export default {
         extends: CoreLibrary,
@@ -88,10 +100,12 @@
         mixins: [FormMixin, TableWithoutWrapperMixin],
         components: {
             DetailModal,
+            NomadCourtesyEsimModal,
         },
         data() {
             return {
                 isDetailModalActive: false,
+                isCourtesyEsimModalActive: false,
                 tableId: 'nomad-transactions-table',
                 rowData: {},
                 statsLoading: false,

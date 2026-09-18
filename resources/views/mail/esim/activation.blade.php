@@ -34,13 +34,9 @@
                             </table>
 
                             @php
-                                $qrImageSrc = null;
-
-                                if (!empty($qrImagePath)) {
-                                    $qrImageSrc = isset($message)
-                                        ? $message->embed($qrImagePath)
-                                        : null;
-                                }
+                                $qrImageSrc = !empty($qrPng) && isset($message)
+                                    ? $message->embedData($qrPng, 'esim-activation-qr.png', 'image/png')
+                                    : null;
                             @endphp
 
                             @if($qrImageSrc)

@@ -62,6 +62,13 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         $rows[] = ['Cuentas por cobrar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
         $rows[] = ['', ''];
 
+        // ── Cancelled eSIMs section ─────────────────────────────────────────
+        $rows[] = ['── eSIMs Anuladas ──', ''];
+        $rows[] = ['Cantidad de eSIMs anuladas', $stats['cancelled_count']];
+        $rows[] = ['Cargo por eSIM anulada', '$' . number_format($stats['cancelled_rate'], 2)];
+        $rows[] = ['Cuentas por pagar - eSIMs anuladas', '$' . number_format($stats['cancelled_total'], 2)];
+        $rows[] = ['', ''];
+
         // ── Summary section ──────────────────────────────────────────────────
         $rows[] = ['── Resumen ──', ''];
         $rows[] = ['Total de transacciones en el período', $stats['total_transactions']];
@@ -70,10 +77,11 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
         // ── Balance ──────────────────────────────────────────────────────────
         $rows[] = ['── Balance Final ──', ''];
         $rows[] = ['Cuentas por Pagar - eSIMs gratuitas', '$' . number_format($stats['free_total'], 2)];
+        $rows[] = ['Cuentas por Pagar - eSIMs anuladas', '$' . number_format($stats['cancelled_total'], 2)];
         $rows[] = ['Cuentas por cobrar - comisiones por ventas', '$' . number_format($stats['paid_commission_total'], 2)];
 
-        // Company/client perspective: free eSIM debt minus commissions.
-        $netBalance = $stats['free_total'] - $stats['paid_commission_total'];
+        // Company/client perspective: free and cancelled eSIM debt minus commissions.
+        $netBalance = $stats['free_total'] + $stats['cancelled_total'] - $stats['paid_commission_total'];
         $saldoNetoCobrar = max($netBalance, 0);
         $saldoAFavor = max(-$netBalance, 0);
 
@@ -282,17 +290,20 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
 
         $totalTransactions = $allTransactions->count();
 
-        $freeTransactions = $allTransactions->filter(fn (Transaction $t) => $t->isFreeEsim());
+        $cancelledTransactions = $allTransactions->filter(fn (Transaction $t) => mb_strtolower((string) $t->status) === 'anulado');
+        $freeTransactions = $allTransactions->filter(fn (Transaction $t) => $t->isFreeEsim() && mb_strtolower((string) $t->status) !== 'anulado');
         $unpaidFreeTransactions = $freeTransactions->filter(function (Transaction $t) {
             return !$t->is_paid;
         });
-        $paidTransactions = $allTransactions->filter(fn (Transaction $t) => !$t->isFreeEsim());
+        $paidTransactions = $allTransactions->filter(fn (Transaction $t) => !$t->isFreeEsim() && mb_strtolower((string) $t->status) !== 'anulado');
 
         $freeDebtCount = $unpaidFreeTransactions->count();
         $freeCurrentRate = $this->resolveCurrentFreeEsimRate();
         $freeTotal = (float) $unpaidFreeTransactions->sum(function (Transaction $transaction) {
             return (float) $transaction->getCommissionAmount();
         });
+        $cancelledRate = 1.10;
+        $cancelledTotal = $cancelledTransactions->count() * $cancelledRate;
 
         $paidCount = $paidTransactions->count();
         $paidCommissionTotal = $paidTransactions->sum(function (Transaction $t) {
@@ -306,6 +317,9 @@ class FreeEsimDebtSummarySheet implements FromArray, WithStyles, WithTitle
             'free_debt_count'       => $freeDebtCount,
             'free_total'            => $freeTotal,
             'free_current_rate'     => $freeCurrentRate,
+            'cancelled_count'       => $cancelledTransactions->count(),
+            'cancelled_rate'        => $cancelledRate,
+            'cancelled_total'       => $cancelledTotal,
             'paid_count'            => $paidCount,
             'paid_commission_total' => $paidCommissionTotal,
         ];

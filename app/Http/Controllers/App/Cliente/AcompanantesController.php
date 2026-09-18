@@ -135,6 +135,12 @@ class AcompanantesController extends Controller
                     ->withInput();
             }
 
+            $primaryTransaction = Transaction::where('cliente_id', $cliente->id)
+                ->whereNull('companion_of_cliente_id')
+                ->where('country_code', $countryCode)
+                ->latest('creation_time')
+                ->first();
+
             $successCount = 0;
 
             foreach ($companionEmails as $index => $companionEmail) {
@@ -149,6 +155,7 @@ class AcompanantesController extends Controller
                         $cliente,
                         $selectedProduct,
                         $transactionContext,
+                        $primaryTransaction,
                         $countryCode,
                         'COMP-' . $cliente->id . '-' . time() . '-' . $index,
                         $esimService
@@ -337,6 +344,7 @@ class AcompanantesController extends Controller
         Cliente $primaryCliente,
         array $selectedProduct,
         array $transactionContext,
+        ?Transaction $primaryTransaction,
         string $countryCode,
         string $transactionId,
         EsimFxService $esimService
@@ -386,14 +394,14 @@ class AcompanantesController extends Controller
             'plan_name' => $selectedProduct['name'] ?? null,
             'data_amount' => $selectedProduct['amount'] ?? $selectedProduct['data_amount'] ?? null,
             'duration_days' => $selectedProduct['duration'] ?? $selectedProduct['validity_period'] ?? null,
-            'purchase_amount' => 0,
-            'api_price' => isset($selectedProduct['price']) ? (float) $selectedProduct['price'] : null,
-            'reference_purchase_amount' => 0,
-            'beneficiary_commission_amount' => 0,
-            'currency' => 'USD',
+            'purchase_amount' => $primaryTransaction ? $primaryTransaction->purchase_amount : 0,
+            'api_price' => $primaryTransaction ? $primaryTransaction->api_price : (isset($selectedProduct['price']) ? (float) $selectedProduct['price'] : null),
+            'reference_purchase_amount' => $primaryTransaction ? $primaryTransaction->reference_purchase_amount : 0,
+            'beneficiary_commission_amount' => $primaryTransaction ? $primaryTransaction->beneficiary_commission_amount : 0,
+            'currency' => $primaryTransaction ? $primaryTransaction->currency : 'USD',
             'country_code' => $countryCode,
-            'partner_sale_commission_amount' => 0,
-            'super_partner_sale_commission_amount' => 0,
+            'partner_sale_commission_amount' => $primaryTransaction ? $primaryTransaction->partner_sale_commission_amount : 0,
+            'super_partner_sale_commission_amount' => $primaryTransaction ? $primaryTransaction->super_partner_sale_commission_amount : 0,
         ];
 
         static $transactionColumns;

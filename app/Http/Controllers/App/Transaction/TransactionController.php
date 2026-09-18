@@ -4,9 +4,11 @@ namespace App\Http\Controllers\App\Transaction;
 
 use App\Helpers\CountryTariffHelper;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\Cliente\Cliente;
 use App\Filters\App\Transaction\TransactionFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\TransactionRequest as Request;
+use App\Mail\App\Cliente\EsimActivationMail;
 use App\Mail\App\Cliente\EsimRechargeMail;
 use App\Models\App\PaymentHistory\PaymentHistory;
 use App\Models\App\Transaction\RechargeEmailToken;
@@ -578,6 +580,9 @@ class TransactionController extends Controller
         try {
             $esimService = app(EsimFxService::class);
             $data = $esimService->getOrder($transaction->order_id);
+            if ($transaction->status === 'anulado') {
+                $data['status'] = 'anulado';
+            }
             return response()->json(['data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
@@ -605,11 +610,138 @@ class TransactionController extends Controller
         try {
             $esimService = app(EsimFxService::class);
             $esimService->terminateSubscription($transaction->order_id);
-            $transaction->update(['terminated_at' => now()]);
-            return response()->json(['message' => 'Subscription terminated successfully.', 'terminated_at' => $transaction->terminated_at]);
+            $transaction->update([
+                'status' => 'anulado',
+                'terminated_at' => now(),
+            ]);
+            return response()->json([
+                'message' => 'Subscription terminated successfully.',
+                'status' => $transaction->status,
+                'terminated_at' => $transaction->terminated_at,
+            ]);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Create a courtesy eSIM from Nomad billing and email its activation QR.
+     */
+    public function createCourtesyEsim(\Illuminate\Http\Request $request)
+    {
+        if (!$this->isAdminUser()) {
+            return response()->json(['message' => 'No autorizado. Solo el administrador puede generar eSIMs de cortesía.'], 403);
+        }
+
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'country_code' => 'required|string|size:2',
+            'data_amount' => 'required|integer|in:1,3,5,10',
+        ]);
+
+        $countryCode = strtoupper($validated['country_code']);
+        $email = mb_strtolower(trim($validated['email']));
+        $nameParts = preg_split('/\s+/', trim($validated['nombre']), 2);
+
+        try {
+            $products = app(EsimFxService::class)->getProducts(['countries' => $countryCode]);
+            $product = collect($products)
+                ->filter(function ($item) use ($validated) {
+                    return isset($item['amount'], $item['amount_unit'])
+                        && strtoupper((string) $item['amount_unit']) === 'GB'
+                        && (int) $item['amount'] === (int) $validated['data_amount'];
+                })
+                ->sortBy(function ($item) {
+                    return [(float) ($item['price'] ?? 0), (int) ($item['duration'] ?? PHP_INT_MAX)];
+                })
+                ->first();
+
+            if (!$product) {
+                return response()->json(['message' => 'No se encontró un plan disponible para el país y capacidad seleccionados.'], 422);
+            }
+
+            $cliente = Cliente::firstOrCreate(
+                ['email' => $email],
+                [
+                    'nombre' => $nameParts[0] ?? '',
+                    'apellido' => $nameParts[1] ?? '',
+                    'identificador' => '',
+                    'can_activate_free_esim' => false,
+                ]
+            );
+
+            $transactionId = 'NOMAD-CORTESIA-' . $cliente->id . '-' . time() . '-' . uniqid();
+            $esimService = app(EsimFxService::class);
+            $order = $esimService->createOrder($product['id'], $transactionId);
+
+            if (empty($order['id'])) {
+                throw new \RuntimeException('No se recibió un ID de orden válido desde Nomad.');
+            }
+
+            $activation = $esimService->activateOrder($order['id']);
+            $esim = is_array($activation) && !empty($activation['esim'])
+                ? $activation['esim']
+                : ($order['esim'] ?? $activation);
+            $qrValue = is_array($esim) ? ($esim['esim_qr'] ?? null) : null;
+
+            if (!$qrValue) {
+                throw new \RuntimeException('Nomad no devolvió el QR de activación para esta eSIM.');
+            }
+
+            $qrParts = explode('$', $qrValue);
+            $esimData = [
+                'smdp' => $qrParts[1] ?? 'N/A',
+                'code' => $qrParts[2] ?? 'N/A',
+                'iccid' => $esim['iccid'] ?? 'N/A',
+                'data_amount' => $product['amount'],
+                'duration_days' => $product['duration'] ?? $product['validity_period'] ?? null,
+            ];
+
+            Transaction::create([
+                'order_id' => $order['id'],
+                'transaction_id' => $transactionId,
+                'status' => $order['status'] ?? 'completed',
+                'iccid' => $esim['iccid'] ?? null,
+                'esim_qr' => $qrValue,
+                'creation_time' => now(),
+                'cliente_id' => $cliente->id,
+                'plan_name' => $product['name'] ?? null,
+                'data_amount' => $product['amount'],
+                'duration_days' => $product['duration'] ?? $product['validity_period'] ?? null,
+                'purchase_amount' => 0,
+                'api_price' => isset($product['price']) ? (float) $product['price'] : null,
+                'reference_purchase_amount' => 0,
+                'beneficiary_commission_amount' => 0,
+                'currency' => 'USD',
+                'country_code' => $countryCode,
+                'partner_sale_commission_amount' => 0,
+                'super_partner_sale_commission_amount' => 0,
+            ]);
+
+            Mail::to($email)->send(new EsimActivationMail($esimData, $email));
+
+            return response()->json(['message' => 'eSIM de cortesía generada y enviada al correo del cliente.']);
+        } catch (\Throwable $exception) {
+            Log::error('Error al generar eSIM de cortesía Nomad.', [
+                'email' => $email,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json(['message' => $exception->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Return countries available for the Nomad courtesy eSIM form.
+     */
+    public function nomadCourtesyCountries()
+    {
+        if (!$this->isAdminUser()) {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        return response()->json(CountryTariffHelper::getAllCountries());
     }
 
     /**
@@ -949,13 +1081,17 @@ class TransactionController extends Controller
             $endDate = Carbon::now()->startOfMonth()->subSecond();
         }
 
-        $total = Transaction::whereBetween('creation_time', [$startDate, $endDate])
+        $transactions = Transaction::whereBetween('creation_time', [$startDate, $endDate])
             ->whereNotNull('api_price')
-            ->sum('api_price');
+            ->get(['api_price', 'status']);
 
-        $count = Transaction::whereBetween('creation_time', [$startDate, $endDate])
-            ->whereNotNull('api_price')
-            ->count();
+        $total = $transactions->sum(function (Transaction $transaction) {
+            return mb_strtolower((string) $transaction->status) === 'anulado'
+                ? 0.50
+                : (float) $transaction->api_price;
+        });
+
+        $count = $transactions->count();
 
         return response()->json([
             'total_api_price' => round((float) $total, 2),

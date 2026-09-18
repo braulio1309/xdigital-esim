@@ -9,6 +9,8 @@ Route::get('transactions/sale-commission-total', [TransactionController::class, 
 Route::get('transactions/calculate-payment-amount', [TransactionController::class, 'calculatePaymentAmount'])->name('transactions.calculate-payment-amount');
 Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
 Route::post('transactions/mark-as-paid', [TransactionController::class, 'markAsPaid'])->name('transactions.mark-as-paid');
+Route::get('transactions/nomad-courtesy-countries', [TransactionController::class, 'nomadCourtesyCountries'])->name('transactions.nomad-courtesy-countries');
+Route::post('transactions/nomad-courtesy-esim', [TransactionController::class, 'createCourtesyEsim'])->name('transactions.nomad-courtesy-esim');
 Route::get('transactions/{transaction}/esim-status', [TransactionController::class, 'esimStatus'])->name('transactions.esim-status');
 Route::post('transactions/{transaction}/terminate-subscription', [TransactionController::class, 'terminateSubscription'])->name('transactions.terminate-subscription');
 Route::post('transactions/{transaction}/recharge', [TransactionController::class, 'recharge'])->name('transactions.recharge');

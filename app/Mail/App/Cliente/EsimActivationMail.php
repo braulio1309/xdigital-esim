@@ -2,10 +2,11 @@
 
 namespace App\Mail\App\Cliente;
 
+use BaconQrCode\Common\ErrorCorrectionLevel;
+use BaconQrCode\Encoder\Encoder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EsimActivationMail extends Mailable
 {
@@ -30,7 +31,7 @@ class EsimActivationMail extends Mailable
     public function build()
     {
         $activationLink = null;
-        $qrImagePath = null;
+        $qrPng = null;
 
         if (!empty($this->esimData['smdp']) && !empty($this->esimData['code'])
             && $this->esimData['smdp'] !== 'N/A' && $this->esimData['code'] !== 'N/A') {
@@ -38,24 +39,7 @@ class EsimActivationMail extends Mailable
         }
 
         if ($activationLink) {
-            $qrSvg = QrCode::size(280)->margin(1)->generate($activationLink);
-            $tempPath = tempnam(sys_get_temp_dir(), 'esim-qr-');
-
-            if ($tempPath !== false) {
-                $qrImagePath = $tempPath . '.svg';
-
-                if (@rename($tempPath, $qrImagePath) === false) {
-                    $qrImagePath = $tempPath;
-                }
-
-                file_put_contents($qrImagePath, $qrSvg);
-
-                register_shutdown_function(static function () use ($qrImagePath) {
-                    if (is_string($qrImagePath) && is_file($qrImagePath)) {
-                        @unlink($qrImagePath);
-                    }
-                });
-            }
+            $qrPng = $this->generateQrPng($activationLink);
         }
 
         return $this->subject('Tu eSIM ya fue activada')
@@ -66,7 +50,42 @@ class EsimActivationMail extends Mailable
                 'partnerName' => $this->partnerName,
                 'activationLink' => $activationLink,
                 'companionFormUrl' => $this->companionFormUrl,
-                'qrImagePath' => $qrImagePath,
+                'qrPng' => $qrPng,
             ]);
+    }
+
+    private function generateQrPng(string $content): string
+    {
+        $matrix = Encoder::encode($content, ErrorCorrectionLevel::M())->getMatrix();
+        $quietZone = 4;
+        $canvasSize = 280;
+        $moduleCount = $matrix->getWidth();
+        $scale = max(1, intdiv($canvasSize, $moduleCount + ($quietZone * 2)));
+        $renderedSize = ($moduleCount + ($quietZone * 2)) * $scale;
+        $offset = intdiv($canvasSize - $renderedSize, 2);
+        $imageData = '';
+
+        for ($y = 0; $y < $canvasSize; $y++) {
+            $row = '';
+            for ($x = 0; $x < $canvasSize; $x++) {
+                $matrixX = intdiv($x - $offset, $scale) - $quietZone;
+                $matrixY = intdiv($y - $offset, $scale) - $quietZone;
+                $isBlack = $matrixX >= 0 && $matrixX < $moduleCount
+                    && $matrixY >= 0 && $matrixY < $matrix->getHeight()
+                    && $matrix->get($matrixX, $matrixY) === 1;
+                $row .= $isBlack ? "\x00" : "\xFF";
+            }
+            $imageData .= "\x00" . $row;
+        }
+
+        return "\x89PNG\r\n\x1A\n"
+            . $this->pngChunk('IHDR', pack('NNCCCCC', $canvasSize, $canvasSize, 8, 0, 0, 0, 0))
+            . $this->pngChunk('IDAT', gzcompress($imageData, 9))
+            . $this->pngChunk('IEND', '');
+    }
+
+    private function pngChunk(string $type, string $data): string
+    {
+        return pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
     }
 }

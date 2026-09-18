@@ -1,7 +1,7 @@
 <template>
     <app-modal 
         modal-id="beneficiary-plan-margins-modal"
-        modal-size="large"
+        modal-size="extra-large"
         @close-modal="closeModal">
         
         <template slot="header">
@@ -215,8 +215,7 @@
                     <div class="alert alert-info">
                         <strong>Precios por País</strong>
                         <p class="mb-0 mt-2">
-                            Estos precios tienen la mayor prioridad. Si existe un precio para un país y plan específico, 
-                            se usará ese monto en lugar del precio fijo general o el cálculo de porcentaje.
+                            Estos precios tienen la mayor prioridad. Déjalos en blanco para usar el porcentaje predeterminado.
                         </p>
                     </div>
 
@@ -225,35 +224,31 @@
                             <thead>
                                 <tr>
                                     <th>País (Código)</th>
-                                    <th>Plan</th>
-                                    <th>Precio (USD)</th>
+                                    <th v-for="capacity in allCapacities" :key="capacity">{{ capacity }}GB (USD)</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(entry, idx) in countryPrices" :key="idx">
                                     <td class="align-middle">
-                                        <select class="form-control form-control-sm"
-                                                v-model="entry.country_code"
-                                                style="min-width: 240px; max-width: 320px;">
-                                            <option value="">Selecciona un país</option>
-                                            <option v-for="country in countryOptions" :key="country.code" :value="country.code">
-                                                {{ country.name }} ({{ country.code }})
-                                            </option>
-                                        </select>
+                                        <input class="form-control form-control-sm"
+                                               v-model="entry.country_code"
+                                               :list="`beneficiary-country-options-${idx}`"
+                                               placeholder="Escribe un país o código"
+                                               style="min-width: 240px; max-width: 320px;"
+                                               @change="normalizeCountryCode(entry)"/>
+                                        <datalist :id="`beneficiary-country-options-${idx}`">
+                                            <option v-for="country in countryOptions" :key="country.code" :value="country.code" :label="country.name"/>
+                                        </datalist>
                                     </td>
-                                    <td class="align-middle">
-                                        <select class="form-control form-control-sm" v-model="entry.plan_capacity" style="max-width: 100px;">
-                                            <option v-for="cap in allCapacities" :key="cap" :value="cap">{{ cap }}GB</option>
-                                        </select>
-                                    </td>
-                                    <td class="align-middle">
-                                        <div class="input-group" style="max-width: 150px;">
+                                    <td v-for="capacity in allCapacities" :key="capacity" class="align-middle">
+                                        <div class="input-group" style="min-width: 130px;">
                                             <div class="input-group-prepend">
                                                 <span class="input-group-text">$</span>
                                             </div>
                                             <app-input type="number"
-                                                       v-model="entry.price"
+                                                       v-model="entry.prices[capacity]"
+                                                       :placeholder="'Porcentaje'"
                                                        :min="0"
                                                        step="0.01"/>
                                         </div>
@@ -265,7 +260,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="countryPrices.length === 0">
-                                    <td colspan="4" class="text-center text-muted py-3">
+                                    <td :colspan="allCapacities.length + 2" class="text-center text-muted py-3">
                                         No hay precios por país configurados.
                                     </td>
                                 </tr>
@@ -372,7 +367,7 @@
                         });
                     }
                     if (response.data && response.data.country_prices) {
-                        this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
+                        this.countryPrices = this.groupCountryPrices(response.data.country_prices);
                     }
                     if (response.data && response.data.countries) {
                         this.countryOptions = response.data.countries
@@ -398,7 +393,7 @@
                     sale_commission_latam_pct: (this.saleCommissionLatamPct !== null && this.saleCommissionLatamPct !== undefined && this.saleCommissionLatamPct !== '') ? parseFloat(this.saleCommissionLatamPct) : null,
                     sale_commission_usa_ca_eu_pct: (this.saleCommissionUsaCaEuPct !== null && this.saleCommissionUsaCaEuPct !== undefined && this.saleCommissionUsaCaEuPct !== '') ? parseFloat(this.saleCommissionUsaCaEuPct) : null,
                     plan_prices: this.planPrices,
-                    country_prices: this.countryPrices.filter(e => e.country_code && e.plan_capacity && e.price !== '' && e.price !== null),
+                    country_prices: this.flattenCountryPrices(),
                 };
 
                 axios.post(actions.UPDATE_BENEFICIARY_PLAN_MARGINS, data)
@@ -428,7 +423,7 @@
                         });
                     }
                     if (response.data && response.data.country_prices) {
-                        this.countryPrices = response.data.country_prices.map(item => ({ ...item }));
+                        this.countryPrices = this.groupCountryPrices(response.data.country_prices);
                     }
                     if (response.data && response.data.countries) {
                         this.countryOptions = response.data.countries
@@ -471,11 +466,54 @@
             },
 
             addCountryPrice() {
-                this.countryPrices.push({ country_code: '', plan_capacity: '1', price: '' });
+                this.countryPrices.push({ country_code: '', prices: this.emptyCountryPrices() });
             },
 
             removeCountryPrice(idx) {
                 this.countryPrices.splice(idx, 1);
+            },
+
+            emptyCountryPrices() {
+                return this.allCapacities.reduce((prices, capacity) => {
+                    prices[capacity] = '';
+                    return prices;
+                }, {});
+            },
+
+            groupCountryPrices(countryPrices) {
+                const grouped = {};
+
+                countryPrices.forEach(item => {
+                    if (!grouped[item.country_code]) {
+                        grouped[item.country_code] = {
+                            country_code: item.country_code,
+                            prices: this.emptyCountryPrices(),
+                        };
+                    }
+
+                    grouped[item.country_code].prices[item.plan_capacity] = item.price !== null ? item.price : '';
+                });
+
+                return Object.values(grouped);
+            },
+
+            flattenCountryPrices() {
+                return this.countryPrices.flatMap(entry => this.allCapacities
+                    .filter(capacity => entry.country_code && entry.prices[capacity] !== '' && entry.prices[capacity] !== null)
+                    .map(capacity => ({
+                        country_code: entry.country_code.trim().toUpperCase(),
+                        plan_capacity: capacity,
+                        price: entry.prices[capacity],
+                    })));
+            },
+
+            normalizeCountryCode(entry) {
+                const selectedCountry = this.countryOptions.find(country =>
+                    country.name.toLowerCase() === entry.country_code.trim().toLowerCase() ||
+                    country.code.toLowerCase() === entry.country_code.trim().toLowerCase()
+                );
+
+                entry.country_code = selectedCountry ? selectedCountry.code : entry.country_code.trim().toUpperCase();
             },
 
             closeModal() {

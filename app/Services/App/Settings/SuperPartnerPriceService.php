@@ -242,7 +242,6 @@ class SuperPartnerPriceService
             foreach ($countryPrices as $data) {
                 $countryCode = strtoupper((string) ($data['country_code'] ?? ''));
                 $planCapacity = (string) ($data['plan_capacity'] ?? '');
-                $percentage = $data['percentage'] ?? null;
                 $price = $data['price'] ?? null;
 
                 if (!$countryCode || !$planCapacity) {
@@ -253,21 +252,12 @@ class SuperPartnerPriceService
                     'is_active' => $data['is_active'] ?? true,
                 ];
 
-                if ($planCapacity === '1') {
-                    if ($price === null || $price === '') {
-                        continue;
-                    }
-
-                    $payload['price'] = (float) $price;
-                    $payload['percentage'] = 0;
-                } else {
-                    if ($percentage === null || $percentage === '') {
-                        continue;
-                    }
-
-                    $payload['percentage'] = (float) $percentage;
-                    $payload['price'] = null;
+                if ($price === null || $price === '') {
+                    continue;
                 }
+
+                $payload['price'] = (float) $price;
+                $payload['percentage'] = 0;
 
                 SuperPartnerCountryPrice::updateOrCreate(
                     [

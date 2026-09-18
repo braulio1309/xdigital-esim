@@ -150,6 +150,7 @@
 
             statusBadgeClass(status) {
                 const map = {
+                    'anulado': 'badge badge-danger',
                     'ACTIVE': 'badge badge-success',
                     'PROVISIONED': 'badge badge-info',
                     'ALLOCATED': 'badge badge-secondary',
