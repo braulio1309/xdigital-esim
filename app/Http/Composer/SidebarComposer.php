@@ -149,6 +149,12 @@ class SidebarComposer
                     'url' => request()->root() . '/report-view',
                     'permission' => true,
                 ],
+                [
+                    'icon' => 'file-text',
+                    'name' => 'Facturación',
+                    'url' => request()->root() . '/admin/partner-invoices',
+                    'permission' => true,
+                ],
             ];
         } elseif ($isAdminBeneficiario) {
             // Directivo sub-user of a partner (beneficiario)
@@ -183,6 +189,12 @@ class SidebarComposer
                     'url' => request()->root() . '/admin/payment-histories',
                     'permission' => true,
                 ],
+                [
+                    'icon' => 'file-text',
+                    'name' => 'Facturación',
+                    'url' => request()->root() . '/admin/partner-invoices',
+                    'permission' => true,
+                ],
             ];
         } elseif ($isPartner) {
             $menu = [
@@ -214,6 +226,12 @@ class SidebarComposer
                     'icon' => 'credit-card',
                     'name' => 'Historial de Pagos',
                     'url' => request()->root() . '/admin/payment-histories',
+                    'permission' => true,
+                ],
+                [
+                    'icon' => 'file-text',
+                    'name' => 'Facturación',
+                    'url' => request()->root() . '/admin/partner-invoices',
                     'permission' => true,
                 ],
             ];

@@ -34,6 +34,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('notificar:consumo-esim')
             ->everyThirtyMinutes()
             ->withoutOverlapping();
+
+        $schedule->command('partner-invoices:generate')
+            ->monthlyOn(1, '00:15')
+            ->withoutOverlapping();
     }
 
     /**

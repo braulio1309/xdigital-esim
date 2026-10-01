@@ -11,6 +11,7 @@
         "php": "^8.0.2",
         "altek/eventually": "^2.0",
         "aws/aws-sdk-php": "^3.231",
+        "barryvdh/laravel-dompdf": "^2.2",
         "erusev/parsedown": "^1.7",
         "fideloper/proxy": "^4.4",
         "guzzlehttp/guzzle": "^7.2",
