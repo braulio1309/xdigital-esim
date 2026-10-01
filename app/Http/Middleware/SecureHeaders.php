@@ -3,77 +3,51 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Class SecureHeaders.
  */
 class SecureHeaders
 {
-    // Note: This class is disabled by default
-    // You may enable it in the Kernel if you wish to use it
-    // You must set the values to your liking, they have been set to sensible defaults
-
-    // Enumerate headers which you do not want in your application's responses.
-    // Great starting point would be to go check out @Scott_Helme's:
-    // https://securityheaders.com/
-
-    /**
-     * @var array
-     */
-    private $unwantedHeaderList = [
-        'X-Powered-By',
-        'Server',
-    ];
-
-    /**
-     * @param $request
-     * @param  Closure  $next
-     *
-     * @return mixed
-     */
     public function handle($request, Closure $next)
     {
-        // They seems to mess up the tests so disable them
-        if (config('app.testing')) {
-            return $next($request);
+        if (!app()->environment(['local', 'testing']) && !$request->isSecure()) {
+            return redirect()->secure($request->getRequestUri(), Response::HTTP_PERMANENTLY_REDIRECT);
         }
-
-        $this->removeUnwantedHeaders($this->unwantedHeaderList);
 
         $response = $next($request);
 
-        // Info: https://scotthelme.co.uk/a-new-security-header-referrer-policy/
-        $response->headers->set('Referrer-Policy', 'no-referrer-when-downgrade');
+        if ($request->hasSession()) {
+            $response->headers->set('X-CSRF-TOKEN', $request->session()->token());
+        }
 
-        // Info: https://scotthelme.co.uk/hardening-your-http-response-headers/#x-content-type-options
+        $response->headers->remove('X-Powered-By');
+        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-
-        // Info: https://scotthelme.co.uk/hardening-your-http-response-headers/#x-xss-protection
-        $response->headers->set('X-XSS-Protection', '1; mode=block');
-
-        // Info: https://scotthelme.co.uk/hardening-your-http-response-headers/#x-frame-options
         $response->headers->set('X-Frame-Options', 'DENY');
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com")');
+        $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+        $response->headers->set('Cross-Origin-Resource-Policy', 'same-site');
+        $response->headers->set('Content-Security-Policy', implode('; ', [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "frame-ancestors 'none'",
+            "form-action 'self' https://checkout.stripe.com https://checkout.razorpay.com",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://checkout.razorpay.com https://cdnjs.cloudflare.com https://www.google.com https://www.gstatic.com https://maps.googleapis.com https://maps.gstatic.com",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com",
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https:",
+            "connect-src 'self' https: wss:",
+            "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://www.google.com https://www.recaptcha.net",
+            "worker-src 'self' blob:",
+        ]));
 
-        // Info: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
-        $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-
-        // Info: https://scotthelme.co.uk/content-security-policy-an-introduction/
-        // Generate Here: https://www.cspisawesome.com/content_security_policies
-        $response->headers->set('Content-Security-Policy', "default-src 'self'");
-
-        // Info: https://scotthelme.co.uk/a-new-security-header-feature-policy/
-        $response->headers->set('Feature-Policy', "geolocation 'none'; midi 'none'; sync-xhr 'none'; microphone 'none'; camera 'none'; magnetometer 'none'; gyroscope 'none'; speaker 'self'; fullscreen 'self'; payment 'none'");
+        if ($request->isSecure() && !app()->environment(['local', 'testing'])) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
+        }
 
         return $response;
-    }
-
-    /**
-     * @param $headerList
-     */
-    private function removeUnwantedHeaders($headerList)
-    {
-        foreach ($headerList as $header) {
-            header_remove($header);
-        }
     }
 }

@@ -23,16 +23,34 @@ window.moment = require('moment')
 /**
  * We'll load the axios HTTP library which allows us to easily issue requests
  * to our Laravel back-end. This library automatically handles sending the
- * CSRF token as a header based on the value of the "XSRF" token cookie.
+ * CSRF token as a header from the page meta tag.
  */
+
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
 
 window.axios = axios.create({
     headers: {
         'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-        'Access-Control-Allow-Origin': '*'
+        'X-CSRF-TOKEN': csrfToken,
     }
 })
+
+const refreshCsrfToken = response => {
+    const csrfToken = response.headers['x-csrf-token'];
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+
+    if (csrfToken && csrfMeta) {
+        csrfMeta.setAttribute('content', csrfToken);
+        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+        window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+    }
+
+    return response;
+};
+
+axios.interceptors.response.use(refreshCsrfToken);
+window.axios.interceptors.response.use(refreshCsrfToken);
 
 /**
  * Echo exposes an expressive API for subscribing to channels and listening
