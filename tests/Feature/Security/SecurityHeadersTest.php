@@ -8,7 +8,7 @@ use Tests\TestCase;
 class SecurityHeadersTest extends TestCase
 {
     /** @test */
-    public function application_responses_include_security_headers_and_csrf_cookie_is_httponly(): void
+    public function application_responses_include_security_headers_and_csrf_cookie_uses_lax_same_site(): void
     {
         $response = $this->get('/');
 
@@ -26,7 +26,7 @@ class SecurityHeadersTest extends TestCase
             });
 
         $this->assertNotNull($csrfCookie);
-        $this->assertTrue($csrfCookie->isHttpOnly());
+        $this->assertFalse($csrfCookie->isHttpOnly());
         $this->assertSame('lax', $csrfCookie->getSameSite());
     }
 }

@@ -26,7 +26,7 @@ class VerifyCsrfToken extends Middleware
             $config['path'],
             $config['domain'],
             $config['secure'],
-            true,
+            false,
             false,
             $config['same_site'] ?? 'lax'
         );

@@ -132,7 +132,10 @@
                 formData.append('free_esim_capacity', this.freeEsimCapacity);
 
                 axios.post('/clientes/import', formData, {
-                    headers: {'Content-Type': 'multipart/form-data'}
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                    }
                 }).then(response => {
                     this.result = response.data;
                     this.$toastr.s(response.data.message);
