@@ -22,14 +22,20 @@ class SetSettingsConfig
 
     public function set()
     {
+        $settings = collect(config('settings.app', []))
+            ->mapWithKeys(function ($setting) {
+                return [$setting['name'] => $setting['value'] ?? null];
+            })
+            ->all();
+
+        View::composer('*', function ($view) use (&$settings) {
+            $view->with('settings', $settings);
+        });
+
         $settings = cache()->remember('app-settings-global', 84000, function () {
                 return resolve(SettingService::class)
                     ->getFormattedSettings();
             });
-
-        View::composer('*', function($view) use ($settings) {
-            $view->with('settings', $settings);
-        });
 
         foreach ($settings as $key => $setting) {
             config()->set('settings.application.'.$key, $setting);

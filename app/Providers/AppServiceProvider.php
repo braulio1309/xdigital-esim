@@ -36,10 +36,7 @@ class AppServiceProvider extends ServiceProvider
          * These will be overridden by LocaleMiddleware if the session local is set
          */
 
-        // setLocale for php. Enables ->formatLocalized() with localized values for dates
         setlocale(LC_TIME, config('app.locale_php'));
-
-        // setLocale to use Carbon source locales. Enables diffForHumans() localized
         Carbon::setLocale(config('app.locale'));
 
         /*
@@ -63,16 +60,14 @@ class AppServiceProvider extends ServiceProvider
         // Custom Blade Directives
 
         /*
-         * The block of code inside this directive indicates
-         * the project is currently running in read only mode.
+         * The block of code inside this directive indicates the project is currently in read only mode.
          */
         Blade::if('readonly', function () {
             return config('app.read_only');
         });
 
         /*
-         * The block of code inside this directive indicates
-         * the chosen language requests RTL support.
+         * The block of code inside this directive indicates the chosen language requests RTL support.
          */
         Blade::if('langrtl', function ($session_identifier = 'lang-rtl') {
             return session()->has($session_identifier);
@@ -82,15 +77,19 @@ class AppServiceProvider extends ServiceProvider
             SetStorageConfig::new(true)
                 ->clear()
                 ->set();
+        } catch (Exception $exception) {
+        }
 
+        try {
             SetSettingsConfig::new(true)
                 ->set();
+        } catch (Exception $exception) {
+        }
 
+        try {
             SetMailConfig::new(true)
                 ->set();
-
-        } catch (Exception $exception){
-
+        } catch (Exception $exception) {
         }
     }
 }
