@@ -1,5 +1,5 @@
 <template>
-    <app-navbar :logo-url="urlGenerator(logo)"
+    <app-navbar :logo-url="urlGenerator(logo || AppFunction.getAppUrl('images/icon.png'))"
                 :user="user.loggedInUser"
                 :selected-language="userLanguage"
                 :language-data="languageList"

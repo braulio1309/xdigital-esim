@@ -27,7 +27,6 @@ class SetSettingsConfig
                 return [$setting['name'] => $setting['value'] ?? null];
             })
             ->all();
-
         View::composer('*', function ($view) use (&$settings) {
             $view->with('settings', $settings);
         });
