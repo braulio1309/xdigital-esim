@@ -3,7 +3,7 @@
         <div class="row">
             <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-8">
                 <div class="back-image"
-                     :style="'background-image: url('+urlGenerator(configData.company_banner)+')'">
+                     :style="'background-image: url('+urlGenerator(authConfig.company_banner)+')'">
                 </div>
             </div>
             <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-4 pl-md-0">
@@ -14,7 +14,7 @@
                           action="store">
 
                         <div class="text-center mb-4">
-                            <img :src="urlGenerator(configData.company_logo)" alt=""
+                            <img :src="urlGenerator(authConfig.company_logo)" alt=""
                                  class="img-fluid logo">
                         </div>
                         <div class="d-flex align-items-center justify-content-center flex-wrap partner-logos mb-4">
@@ -66,7 +66,7 @@
                                class="bluish-text d-flex align-items-center justify-content-center justify-content-lg-end">
                                 <app-icon name="lock" class="pr-2"/> {{ $t('forgot_password') }}
                             </a>
-                            <a v-if="configData.registration === 'on'" :href="urlGenerator('/user/register')"
+                            <a v-if="authConfig.registration === 'on'" :href="urlGenerator('/user/register')"
                                class="bluish-text d-flex align-items-center justify-content-center justify-content-lg-end">
                                 <app-icon name="user" class="pr-2"/> {{ $t('register') }}
                             </a>
@@ -74,7 +74,7 @@
                         <div class="form-row">
                             <div class="col-12">
                                 <p class="text-center mt-5">
-                                    {{ $t('copyright_text') + configData.company_name }}
+                                    {{ $t('copyright_text') + authConfig.company_name }}
                                 </p>
                             </div>
                         </div>

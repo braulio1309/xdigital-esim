@@ -3,7 +3,7 @@
         <div class="row">
             <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-8">
                 <div class="back-image"
-                     :style="`background-image: url(${urlGenerator(configData.company_banner)})`">
+                     :style="`background-image: url(${urlGenerator(authConfig.company_banner)})`">
                 </div>
             </div>
             <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-4 pl-md-0">
@@ -11,8 +11,8 @@
                     <form class="sign-in-sign-up-form w-100" ref="form" data-url="/user/reset-password" action="store">
                         <div class="text-center mb-4">
                             <img
-                                :src="configData.company_logo ?
-                                urlGenerator(configData.company_logo) :
+                                :src="authConfig.company_logo ?
+                                urlGenerator(authConfig.company_logo) :
                                 urlGenerator('/images/core.png')"
                                 alt="" class="img-fluid logo">
                         </div>
@@ -62,7 +62,7 @@
                         <div class="form-row">
                             <div class="col-12">
                                 <p class="text-center mt-5">
-                                    {{ $t('copyright_text') + configData.company_name }}
+                                    {{ $t('copyright_text') + authConfig.company_name }}
                                 </p>
                             </div>
                         </div>
