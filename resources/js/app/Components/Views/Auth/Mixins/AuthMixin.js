@@ -11,7 +11,7 @@ export const AuthMixin ={
         authConfig() {
             return {
                 company_banner: 'banner/69b32bc38517e.png',
-                company_logo: 'logo/69b32c47b0fba.png',
+                company_logo: 'Xcertus',
                 company_name: '',
                 registration: 'off',
                 ...(this.configData || {}),
