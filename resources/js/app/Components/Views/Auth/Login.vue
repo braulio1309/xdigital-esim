@@ -74,7 +74,7 @@
                         <div class="form-row">
                             <div class="col-12">
                                 <p class="text-center mt-5">
-                                    {{ $t('copyright_text') + authConfig.company_name }}
+                                    {{ $t('copyright_text') }} Xcertus
                                 </p>
                             </div>
                         </div>
