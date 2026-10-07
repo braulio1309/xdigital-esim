@@ -77,14 +77,22 @@ class EsimFxService
             throw new Exception('ICCID is required for TOPUP orders');
         }
 
-        $payload = array_merge([
-            'product' => [
-                'id' => $productId
-            ],
+        $payload = [
             'transaction_id' => $transactionId,
             'count' => 1,
             'operation_type' => $operationType,
-        ], $extraParams);
+        ];
+
+        if ($operationType === 'TOPUP') {
+            $payload['product'] = ['id' => $productId];
+        } else {
+            $payload['product'] = [
+                'id' => $productId,
+                
+            ];
+        }
+
+        $payload = array_merge($payload, $extraParams);
 
         $response = Http::withHeaders($this->getHeaders())
                         ->post($endpoint, $payload);
@@ -192,7 +200,7 @@ class EsimFxService
     public function getProducts($filters = [])
     {
          $response = Http::withHeaders($this->getHeaders())
-                         ->post("{$this->baseUrl}/product/api/v1/get_products", $filters);
+                         ->post("{$this->baseUrl}/product/api/v2/get_products", $filters);
          
          return $response->json()['data']['products'] ?? [];
     }

@@ -128,6 +128,9 @@ class RegistroEsimControllerTest extends TestCase
         });
 
         $this->assertDatabaseCount('transactions', 2);
+        $this->assertDatabaseHas('transactions', [
+            'product_id' => 'product-1',
+        ]);
     }
 
     private function createEligibleCliente(): Cliente

@@ -15,6 +15,67 @@
             </div>
         </div>
 
+        @if($owner['type'] === 'super_partner')
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">Total mensual consolidado de tus partners</h4>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Periodo</th>
+                                            <th class="text-right">Partners</th>
+                                            <th class="text-right">Total neto</th>
+                                            <th class="text-right">Comisiones</th>
+                                            <th class="text-right">Pendiente</th>
+                                            <th class="text-center">Documentos</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($monthlyPartnerTotals as $monthlyTotal)
+                                            <tr class="table-primary font-weight-bold">
+                                                <td>{{ $monthlyTotal->period_start->format('m/Y') }}</td>
+                                                <td class="text-right">{{ number_format($monthlyTotal->partner_count) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->net_amount, 2) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->earned_commissions, 2) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->due_amount, 2) }}</td>
+                                                <td class="text-center">
+                                                    <a class="btn btn-sm btn-outline-light"
+                                                       href="{{ route('partner-invoices.monthly-invoice', $monthlyTotal->period_start->format('Y-m')) }}"
+                                                       title="Descargar factura mensual consolidada"
+                                                       aria-label="Descargar factura mensual consolidada">
+                                                        <i class="mdi mdi-download"></i>
+                                                    </a>
+                                                    @if((float) $monthlyTotal->earned_commissions > 0)
+                                                        <a class="btn btn-sm btn-outline-primary"
+                                                           href="{{ route('partner-invoices.monthly-commission-report', $monthlyTotal->period_start->format('Y-m')) }}"
+                                                           title="Descargar desglose mensual de comisiones"
+                                                           aria-label="Descargar desglose mensual de comisiones">
+                                                            <i class="mdi mdi-file-document-outline"></i>
+                                                        </a>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted py-4">
+                                                    No hay facturas mensuales de partners.
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="row mt-3">
             <div class="col-12">
                 <div class="card">

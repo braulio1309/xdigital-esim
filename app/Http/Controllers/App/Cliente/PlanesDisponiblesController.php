@@ -705,6 +705,7 @@ class PlanesDisponiblesController extends Controller
             // Guardar la transacción en la base de datos
             $transactionData = [
                 'order_id' => $apiResponse['id'],
+                'product_id' => $request->product_id,
                 'transaction_id' => $transactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
                 'iccid' => $isRecharge ? $rechargeContext['iccid'] : ($apiResponse['esim']['iccid'] ?? null),
@@ -936,6 +937,7 @@ class PlanesDisponiblesController extends Controller
             // Guardar la transacción en la base de datos
             $transactionData = [
                 'order_id' => $apiResponse['id'],
+                'product_id' => $request->product_id,
                 'transaction_id' => $transactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
                 'iccid' => $isRecharge ? $rechargeContext['iccid'] : ($apiResponse['esim']['iccid'] ?? null),

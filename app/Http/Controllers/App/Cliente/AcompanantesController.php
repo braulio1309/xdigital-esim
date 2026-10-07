@@ -382,6 +382,7 @@ class AcompanantesController extends Controller
 
         $transactionData = [
             'order_id' => $apiResponse['id'],
+            'product_id' => $selectedProduct['id'],
             'transaction_id' => $transactionId,
             'status' => $apiResponse['status'] ?? 'completed',
             'iccid' => $esimPayload['iccid'] ?? null,

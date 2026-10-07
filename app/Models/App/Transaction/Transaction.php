@@ -23,6 +23,7 @@ class Transaction extends AppModel
         'beneficiario_id',
         'super_partner_id',
         'order_id',
+        'product_id',
         'plan_name',
         'data_amount',
         'duration_days',

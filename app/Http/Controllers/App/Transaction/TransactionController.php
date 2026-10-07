@@ -700,6 +700,7 @@ class TransactionController extends Controller
 
             Transaction::create([
                 'order_id' => $order['id'],
+                'product_id' => $product['id'],
                 'transaction_id' => $transactionId,
                 'status' => $order['status'] ?? 'completed',
                 'iccid' => $esim['iccid'] ?? null,
@@ -877,6 +878,7 @@ class TransactionController extends Controller
             // esim_qr is null because a TOPUP does not issue a new QR code.
             Transaction::create([
                 'order_id' => $apiResponse['id'],
+                'product_id' => $selectedProduct['id'],
                 'transaction_id' => $topupTransactionId,
                 'status' => $apiResponse['status'] ?? 'completed',
                 'iccid' => $transaction->iccid,

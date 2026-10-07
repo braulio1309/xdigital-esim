@@ -131,4 +131,10 @@ return [
         'client_key' => env('ESIMFX_CLIENT_KEY'),
     ],
 
+    'billing_payment' => [
+        'bank_name' => env('BILLING_BANK_NAME'),
+        'account_number' => env('BILLING_BANK_ACCOUNT_NUMBER'),
+        'routing_number' => env('BILLING_BANK_ROUTING_NUMBER'),
+    ],
+
 ];

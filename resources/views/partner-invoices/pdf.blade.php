@@ -29,6 +29,9 @@
         .totals .rule td { border-top: 1px solid #888; padding-top: 9px; }
         .totals .grand td { font-size: 12px; font-weight: bold; }
         .totals .due td { border-top: 1px solid #888; font-size: 11px; font-weight: bold; padding-top: 9px; }
+        .payment { border: 1px solid #ddd; margin-top: 26px; padding: 12px; }
+        .payment-title { font-size: 11px; font-weight: bold; margin-bottom: 7px; }
+        .payment td { padding: 3px 12px 3px 0; }
         .footer { border-top: 1px solid #ddd; color: #777; font-size: 8px; margin-top: 55px; padding-top: 9px; }
     </style>
 </head>
@@ -109,6 +112,15 @@
         <tr><td>Pagado</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->paid_amount, 2) }}</td></tr>
         <tr class="due"><td>Saldo pendiente</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->due_amount, 2) }}</td></tr>
     </table>
+
+    <div class="payment">
+        <div class="payment-title">Datos para realizar el pago</div>
+        <table>
+            <tr><td><strong>Banco</strong></td><td>{{ $paymentDetails['bank_name'] ?? '' }}</td></tr>
+            <tr><td><strong>Número de cuenta</strong></td><td>{{ $paymentDetails['account_number'] ?? '' }}</td></tr>
+            <tr><td><strong>Routing number</strong></td><td>{{ $paymentDetails['routing_number'] ?? '' }}</td></tr>
+        </table>
+    </div>
 
     <div class="footer">Factura emitida por Xcertus. Los importes corresponden a cargos por eSIM del periodo indicado.</div>
 </body>
