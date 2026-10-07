@@ -44,18 +44,18 @@
                                                 <td class="text-right">USD {{ number_format((float) $monthlyTotal->earned_commissions, 2) }}</td>
                                                 <td class="text-right">USD {{ number_format((float) $monthlyTotal->due_amount, 2) }}</td>
                                                 <td class="text-center">
-                                                    <a class="btn btn-sm btn-outline-light"
+                                                    <a class="btn btn-sm btn-success text-nowrap"
                                                        href="{{ route('partner-invoices.monthly-invoice', $monthlyTotal->period_start->format('Y-m')) }}"
                                                        title="Descargar factura mensual consolidada"
                                                        aria-label="Descargar factura mensual consolidada">
-                                                        <i class="mdi mdi-download"></i>
+                                                        <i class="mdi mdi-download mr-1"></i>Descargar factura
                                                     </a>
                                                     @if((float) $monthlyTotal->earned_commissions > 0)
-                                                        <a class="btn btn-sm btn-outline-primary"
+                                                        <a class="btn btn-sm btn-outline-primary text-nowrap"
                                                            href="{{ route('partner-invoices.monthly-commission-report', $monthlyTotal->period_start->format('Y-m')) }}"
                                                            title="Descargar desglose mensual de comisiones"
                                                            aria-label="Descargar desglose mensual de comisiones">
-                                                            <i class="mdi mdi-file-document-outline"></i>
+                                                            <i class="mdi mdi-file-document-outline mr-1"></i>Desglose
                                                         </a>
                                                     @endif
                                                 </td>
