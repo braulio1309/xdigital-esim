@@ -9,7 +9,7 @@
                 <div class="page-header d-flex justify-content-between align-items-center flex-wrap">
                     <div>
                         <h3 class="page-title mb-1">Facturación</h3>
-                        <p class="text-muted mb-0">Histórico mensual de cargos por eSIM.</p>
+                        <p class="text-muted mb-0">Histórico mensual de facturas y estatus de pago.</p>
                     </div>
                 </div>
             </div>
@@ -76,6 +76,38 @@
             </div>
         @endif
 
+        @if(session('success'))
+            <div class="alert alert-success mt-3">{{ session('success') }}</div>
+        @endif
+
+        @if($owner['type'] === 'admin')
+            <div class="row mt-3">
+                <div class="col-12">
+                    <form method="GET" action="{{ route('partner-invoices.index') }}" class="card card-body">
+                        <div class="form-row align-items-end">
+                            <div class="form-group col-md-4 mb-md-0">
+                                <label for="invoice-month">Filtrar por mes</label>
+                                <select id="invoice-month" name="month" class="form-control">
+                                    <option value="">Todos los meses</option>
+                                    @foreach($months as $month)
+                                        <option value="{{ $month }}" {{ request('month') === $month ? 'selected' : '' }}>
+                                            {{ \Carbon\Carbon::createFromFormat('!Y-m', $month)->format('m/Y') }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group mb-0">
+                                <button type="submit" class="btn btn-primary">Filtrar</button>
+                                @if(request()->filled('month'))
+                                    <a href="{{ route('partner-invoices.index') }}" class="btn btn-outline-secondary">Limpiar</a>
+                                @endif
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
+
         <div class="row mt-3">
             <div class="col-12">
                 <div class="card">
@@ -85,7 +117,10 @@
                                 <thead>
                                     <tr>
                                         <th>Periodo</th>
-                                        @if($owner['type'] === 'super_partner')
+                                        @if($owner['type'] === 'admin')
+                                            <th>Tipo</th>
+                                            <th>Super Partner / Partner</th>
+                                        @elseif($owner['type'] === 'super_partner')
                                             <th>Partner / cuenta</th>
                                         @endif
                                         <th>Número de factura</th>
@@ -93,7 +128,11 @@
                                         <th class="text-right">Total neto</th>
                                         <th class="text-right">Comisiones</th>
                                         <th class="text-right">Pendiente</th>
+                                        <th class="text-center">Estatus</th>
                                         <th class="text-center">Documentos</th>
+                                        @if($owner['type'] === 'admin')
+                                            <th class="text-center">Acción</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -105,6 +144,10 @@
                                                     {{ $invoice->period_start->format('d/m/Y') }} - {{ $invoice->period_end->format('d/m/Y') }}
                                                 </small>
                                             </td>
+                                            @if($owner['type'] === 'admin')
+                                                <td>{{ $invoice->owner_type === 'super_partner' ? 'Super Partner' : 'Partner' }}</td>
+                                                <td>{{ $invoice->recipient_name ?: 'Cuenta no disponible' }}</td>
+                                            @endif
                                             @if($owner['type'] === 'super_partner')
                                                 <td>{{ $invoice->recipient_name ?: 'Cuenta no disponible' }}</td>
                                             @endif
@@ -115,6 +158,11 @@
                                             <td class="text-right">
                                                 <span class="badge {{ (float) $invoice->due_amount > 0 ? 'badge-warning' : 'badge-success' }}">
                                                     {{ $invoice->currency }} {{ number_format((float) $invoice->due_amount, 2) }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge {{ $invoice->is_paid ? 'badge-success' : 'badge-warning' }}">
+                                                    {{ $invoice->is_paid ? 'Pagada' : 'Pendiente' }}
                                                 </span>
                                             </td>
                                             <td class="text-center">
@@ -133,10 +181,25 @@
                                                     </a>
                                                 @endif
                                             </td>
+                                            @if($owner['type'] === 'admin')
+                                                <td class="text-center">
+                                                    <form method="POST" action="{{ route('partner-invoices.payment-status', $invoice) }}">
+                                                        @csrf
+                                                        @method('PATCH')
+                                                        @if(request()->filled('month'))
+                                                            <input type="hidden" name="month" value="{{ request('month') }}">
+                                                        @endif
+                                                        <input type="hidden" name="is_paid" value="{{ $invoice->is_paid ? 0 : 1 }}">
+                                                        <button type="submit" class="btn btn-sm {{ $invoice->is_paid ? 'btn-outline-warning' : 'btn-outline-success' }}">
+                                                            {{ $invoice->is_paid ? 'Marcar pendiente' : 'Marcar pagada' }}
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="{{ $owner['type'] === 'super_partner' ? 8 : 7 }}" class="text-center text-muted py-5">
+                                            <td colspan="{{ $owner['type'] === 'admin' ? 11 : ($owner['type'] === 'super_partner' ? 9 : 8) }}" class="text-center text-muted py-5">
                                                 No hay facturas generadas todavía.
                                             </td>
                                         </tr>

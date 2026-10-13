@@ -86,6 +86,12 @@ class SidebarComposer
                     'permission' => true,
                 ],
                 [
+                    'icon' => 'file-text',
+                    'name' => 'Facturación Partners',
+                    'url' => request()->root() . '/admin/partner-invoices',
+                    'permission' => true,
+                ],
+                [
                     'icon' => 'credit-card',
                     'name' => 'Historial de Pagos',
                     'url' => request()->root() . '/admin/payment-histories',

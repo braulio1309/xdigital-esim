@@ -16,10 +16,30 @@ class PartnerInvoiceController extends Controller
         $owner = $this->resolveOwner();
         $query = PartnerInvoice::query()->with('commissionNote')->orderByDesc('period_start')->orderByDesc('id');
         $monthlyPartnerTotals = collect();
+        $months = collect();
 
-        if ($owner['type'] === 'partner') {
+        if ($owner['type'] === 'admin') {
+            $request->validate([
+                'month' => ['nullable', 'date_format:Y-m'],
+            ]);
+
+            if ($request->filled('month')) {
+                $periodStart = Carbon::createFromFormat('!Y-m', $request->input('month'));
+                $query->whereDate('period_start', $periodStart->toDateString());
+            }
+
+            $months = PartnerInvoice::query()
+                ->select('period_start')
+                ->distinct()
+                ->orderByDesc('period_start')
+                ->pluck('period_start')
+                ->map(function ($periodStart) {
+                    return Carbon::parse($periodStart)->format('Y-m');
+                });
+        } elseif ($owner['type'] === 'partner') {
             $query->where('owner_type', 'partner')->where('owner_id', $owner['model']->id);
             $partnersById = collect([$owner['model']->id => $owner['model']]);
+            $superPartnersById = collect();
         } else {
             $partnerIds = $owner['model']->beneficiarios()->pluck('id');
             $monthlyPartnerTotals = PartnerInvoice::query()
@@ -40,18 +60,50 @@ class PartnerInvoiceController extends Controller
                 });
             });
             $partnersById = Beneficiario::query()->whereIn('id', $partnerIds)->get()->keyBy('id');
+            $superPartnersById = collect();
         }
 
         $invoices = $query->paginate(20)->withQueryString();
-        $invoices->getCollection()->transform(function (PartnerInvoice $invoice) use ($owner, $partnersById) {
+        if ($owner['type'] === 'admin') {
+            $pageInvoices = $invoices->getCollection();
+            $partnersById = Beneficiario::query()
+                ->whereIn('id', $pageInvoices->where('owner_type', 'partner')->pluck('owner_id')->unique())
+                ->get()
+                ->keyBy('id');
+            $superPartnersById = SuperPartner::query()
+                ->whereIn('id', $pageInvoices->where('owner_type', 'super_partner')->pluck('owner_id')->unique())
+                ->get()
+                ->keyBy('id');
+        }
+
+        $invoices->getCollection()->transform(function (PartnerInvoice $invoice) use ($owner, $partnersById, $superPartnersById) {
             $invoice->recipient_name = $invoice->owner_type === 'super_partner'
-                ? $owner['model']->nombre
+                ? ($owner['type'] === 'admin'
+                    ? optional($superPartnersById->get($invoice->owner_id))->nombre
+                    : $owner['model']->nombre)
                 : optional($partnersById->get($invoice->owner_id))->nombre;
 
             return $invoice;
         });
 
-        return view('partner-invoices.index', compact('invoices', 'owner', 'monthlyPartnerTotals'));
+        return view('partner-invoices.index', compact('invoices', 'owner', 'monthlyPartnerTotals', 'months'));
+    }
+
+    public function updatePaymentStatus(Request $request, PartnerInvoice $partnerInvoice)
+    {
+        $this->ensureAdministrator();
+
+        $validated = $request->validate([
+            'is_paid' => ['required', 'boolean'],
+        ]);
+
+        $partnerInvoice->update([
+            'is_paid' => $validated['is_paid'],
+        ]);
+
+        return redirect()
+            ->route('partner-invoices.index', $request->only('month'))
+            ->with('success', 'El estatus de pago de la factura se actualizó correctamente.');
     }
 
     public function download(PartnerInvoice $partnerInvoice)
@@ -241,6 +293,10 @@ class PartnerInvoiceController extends Controller
     {
         $user = auth()->user();
 
+        if ($user->user_type === 'admin') {
+            return ['type' => 'admin', 'model' => null];
+        }
+
         if ($user->user_type === 'beneficiario') {
             abort(403);
         }
@@ -265,6 +321,10 @@ class PartnerInvoiceController extends Controller
 
     private function canAccessInvoice(PartnerInvoice $invoice, array $owner): bool
     {
+        if ($owner['type'] === 'admin') {
+            return true;
+        }
+
         if ($owner['type'] === 'partner') {
             return $invoice->owner_type === 'partner' && (int) $invoice->owner_id === (int) $owner['model']->id;
         }
@@ -275,5 +335,10 @@ class PartnerInvoiceController extends Controller
 
         return $invoice->owner_type === 'partner'
             && $owner['model']->beneficiarios()->whereKey($invoice->owner_id)->exists();
+    }
+
+    private function ensureAdministrator(): void
+    {
+        abort_unless(auth()->user()->user_type === 'admin', 403);
     }
 }
