@@ -18,7 +18,11 @@ class PartnerInvoiceAdminTest extends TestCase
     {
         $admin = $this->createAdmin(['user_type' => 'admin']);
         [$superPartner, $partner] = $this->createPartnerNetwork();
+        [$otherSuperPartner, $otherPartner] = $this->createPartnerNetwork('Dos');
         $septemberInvoice = $this->createInvoice('XC-SP-202609-000001', 'super_partner', $superPartner->id, '2026-09-01');
+        $septemberPartnerInvoice = $this->createInvoice('XC-P-202609-000002', 'partner', $partner->id, '2026-09-01');
+        $otherSuperPartnerInvoice = $this->createInvoice('XC-SP-202609-000003', 'super_partner', $otherSuperPartner->id, '2026-09-01');
+        $this->createInvoice('XC-P-202609-000004', 'partner', $otherPartner->id, '2026-09-01');
         $octoberInvoice = $this->createInvoice('XC-P-202610-000002', 'partner', $partner->id, '2026-10-01');
 
         $response = $this->actingAs($admin)
@@ -27,14 +31,47 @@ class PartnerInvoiceAdminTest extends TestCase
         $response->assertOk()
             ->assertSee($septemberInvoice->invoice_number)
             ->assertSee($superPartner->nombre)
+            ->assertSee($septemberPartnerInvoice->invoice_number)
+            ->assertSee($otherSuperPartnerInvoice->invoice_number)
+            ->assertSee('Facturas mensuales de super partners')
+            ->assertSee('Total mensual de partners por super partner')
+            ->assertSee(route('partner-invoices.monthly-invoice', [
+                'period' => '2026-09',
+                'super_partner_id' => $superPartner->id,
+            ]))
             ->assertDontSee($octoberInvoice->invoice_number);
+
+        $this->actingAs($admin)
+            ->get(route('partner-invoices.monthly-invoice', [
+                'period' => '2026-09',
+                'super_partner_id' => $superPartner->id,
+            ]))
+            ->assertOk();
+
+        $filteredResponse = $this->actingAs($admin)->get(route('partner-invoices.index', [
+            'month' => '2026-09',
+            'super_partner_id' => $superPartner->id,
+            'invoice_type' => 'partner',
+        ]));
+
+        $filteredResponse->assertOk()
+            ->assertSee($septemberPartnerInvoice->invoice_number)
+            ->assertDontSee($septemberInvoice->invoice_number)
+            ->assertDontSee($otherSuperPartnerInvoice->invoice_number)
+            ->assertDontSee($otherSuperPartner->nombre);
 
         $this->actingAs($admin)
             ->patch(route('partner-invoices.payment-status', $septemberInvoice), [
                 'is_paid' => 1,
                 'month' => '2026-09',
+                'super_partner_id' => $superPartner->id,
+                'invoice_type' => 'super_partner',
             ])
-            ->assertRedirect(route('partner-invoices.index', ['month' => '2026-09']));
+            ->assertRedirect(route('partner-invoices.index', [
+                'month' => '2026-09',
+                'super_partner_id' => $superPartner->id,
+                'invoice_type' => 'super_partner',
+            ]));
 
         $this->assertTrue($septemberInvoice->fresh()->is_paid);
         $this->assertFalse($octoberInvoice->fresh()->is_paid);
@@ -53,21 +90,21 @@ class PartnerInvoiceAdminTest extends TestCase
         $this->assertFalse($invoice->fresh()->is_paid);
     }
 
-    private function createPartnerNetwork(): array
+    private function createPartnerNetwork(string $suffix = 'Uno'): array
     {
         $superPartnerUser = User::factory()->create(['user_type' => 'super_partner']);
         $superPartner = SuperPartner::create([
-            'nombre' => 'Super Partner Uno',
+            'nombre' => 'Super Partner ' . $suffix,
             'descripcion' => 'Prueba',
-            'codigo' => 'SP000001',
+            'codigo' => 'SP' . ($suffix === 'Uno' ? '000001' : '000002'),
             'user_id' => $superPartnerUser->id,
         ]);
 
         $partnerUser = User::factory()->create(['user_type' => 'beneficiario']);
         $partner = Beneficiario::create([
-            'nombre' => 'Partner Uno',
+            'nombre' => 'Partner ' . $suffix,
             'descripcion' => 'Prueba',
-            'codigo' => 'P000001',
+            'codigo' => 'P' . ($suffix === 'Uno' ? '000001' : '000002'),
             'user_id' => $partnerUser->id,
             'super_partner_id' => $superPartner->id,
         ]);

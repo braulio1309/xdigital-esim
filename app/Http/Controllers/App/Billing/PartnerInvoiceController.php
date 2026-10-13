@@ -16,17 +16,85 @@ class PartnerInvoiceController extends Controller
         $owner = $this->resolveOwner();
         $query = PartnerInvoice::query()->with('commissionNote')->orderByDesc('period_start')->orderByDesc('id');
         $monthlyPartnerTotals = collect();
+        $superPartnerInvoiceTotals = collect();
+        $adminPartnerInvoiceTotals = collect();
         $months = collect();
+        $superPartners = collect();
 
         if ($owner['type'] === 'admin') {
             $request->validate([
                 'month' => ['nullable', 'date_format:Y-m'],
+                'super_partner_id' => ['nullable', 'integer', 'exists:super_partners,id'],
+                'invoice_type' => ['nullable', 'in:super_partner,partner'],
             ]);
 
-            if ($request->filled('month')) {
-                $periodStart = Carbon::createFromFormat('!Y-m', $request->input('month'));
-                $query->whereDate('period_start', $periodStart->toDateString());
+            $periodStart = $request->filled('month')
+                ? Carbon::createFromFormat('!Y-m', $request->input('month'))->toDateString()
+                : null;
+            $superPartnerId = $request->input('super_partner_id');
+            $invoiceType = $request->input('invoice_type');
+
+            if (!$invoiceType || $invoiceType === 'super_partner') {
+                $superPartnerInvoiceTotals = PartnerInvoice::query()
+                    ->where('partner_invoices.owner_type', 'super_partner')
+                    ->when($superPartnerId, function ($builder) use ($superPartnerId) {
+                        $builder->where('partner_invoices.owner_id', $superPartnerId);
+                    })
+                    ->when($periodStart, function ($builder) use ($periodStart) {
+                        $builder->whereDate('partner_invoices.period_start', $periodStart);
+                    })
+                    ->selectRaw('period_start, owner_id as super_partner_id, COUNT(*) as invoice_count')
+                    ->selectRaw('SUM(CASE WHEN amount > applied_commissions THEN amount - applied_commissions ELSE 0 END) as net_amount')
+                    ->selectRaw('SUM(earned_commissions) as earned_commissions')
+                    ->selectRaw('SUM(due_amount) as due_amount')
+                    ->selectRaw('SUM(CASE WHEN is_paid = 1 THEN 1 ELSE 0 END) as paid_count')
+                    ->groupBy('period_start', 'owner_id')
+                    ->orderByDesc('period_start')
+                    ->get();
             }
+
+            if (!$invoiceType || $invoiceType === 'partner') {
+                $partnerInvoiceQuery = PartnerInvoice::query()
+                    ->join('beneficiarios', 'beneficiarios.id', '=', 'partner_invoices.owner_id')
+                    ->where('partner_invoices.owner_type', 'partner');
+                if ($periodStart) {
+                    $partnerInvoiceQuery->whereDate('partner_invoices.period_start', $periodStart);
+                }
+                if ($superPartnerId) {
+                    $partnerInvoiceQuery->where('beneficiarios.super_partner_id', $superPartnerId);
+                }
+
+                $adminPartnerInvoiceTotals = $partnerInvoiceQuery
+                    ->selectRaw('partner_invoices.period_start, beneficiarios.super_partner_id, COUNT(DISTINCT partner_invoices.owner_id) as partner_count')
+                    ->selectRaw('COUNT(partner_invoices.id) as invoice_count')
+                    ->selectRaw('SUM(CASE WHEN partner_invoices.amount > partner_invoices.applied_commissions THEN partner_invoices.amount - partner_invoices.applied_commissions ELSE 0 END) as net_amount')
+                    ->selectRaw('SUM(partner_invoices.earned_commissions) as earned_commissions')
+                    ->selectRaw('SUM(partner_invoices.due_amount) as due_amount')
+                    ->selectRaw('SUM(CASE WHEN partner_invoices.is_paid = 1 THEN 1 ELSE 0 END) as paid_count')
+                    ->groupBy('partner_invoices.period_start', 'beneficiarios.super_partner_id')
+                    ->orderByDesc('partner_invoices.period_start')
+                    ->get();
+            }
+
+            $query->when($invoiceType, function ($builder) use ($invoiceType) {
+                $builder->where('owner_type', $invoiceType);
+            })->when($periodStart, function ($builder) use ($periodStart) {
+                $builder->whereDate('period_start', $periodStart);
+            })->when($superPartnerId, function ($builder) use ($superPartnerId) {
+                $partnerIds = Beneficiario::query()
+                    ->where('super_partner_id', $superPartnerId)
+                    ->select('id');
+
+                $builder->where(function ($ownerQuery) use ($superPartnerId, $partnerIds) {
+                    $ownerQuery->where(function ($superPartnerQuery) use ($superPartnerId) {
+                        $superPartnerQuery->where('owner_type', 'super_partner')
+                            ->where('owner_id', $superPartnerId);
+                    })->orWhere(function ($partnerQuery) use ($partnerIds) {
+                        $partnerQuery->where('owner_type', 'partner')
+                            ->whereIn('owner_id', $partnerIds);
+                    });
+                });
+            });
 
             $months = PartnerInvoice::query()
                 ->select('period_start')
@@ -35,7 +103,10 @@ class PartnerInvoiceController extends Controller
                 ->pluck('period_start')
                 ->map(function ($periodStart) {
                     return Carbon::parse($periodStart)->format('Y-m');
-                });
+                })
+                ->unique()
+                ->values();
+            $superPartners = SuperPartner::query()->orderBy('nombre')->get(['id', 'nombre']);
         } elseif ($owner['type'] === 'partner') {
             $query->where('owner_type', 'partner')->where('owner_id', $owner['model']->id);
             $partnersById = collect([$owner['model']->id => $owner['model']]);
@@ -74,6 +145,14 @@ class PartnerInvoiceController extends Controller
                 ->whereIn('id', $pageInvoices->where('owner_type', 'super_partner')->pluck('owner_id')->unique())
                 ->get()
                 ->keyBy('id');
+
+            $superPartnerNames = $superPartners->keyBy('id');
+            $superPartnerInvoiceTotals->each(function ($total) use ($superPartnerNames) {
+                $total->super_partner_name = optional($superPartnerNames->get($total->super_partner_id))->nombre;
+            });
+            $adminPartnerInvoiceTotals->each(function ($total) use ($superPartnerNames) {
+                $total->super_partner_name = optional($superPartnerNames->get($total->super_partner_id))->nombre;
+            });
         }
 
         $invoices->getCollection()->transform(function (PartnerInvoice $invoice) use ($owner, $partnersById, $superPartnersById) {
@@ -86,7 +165,15 @@ class PartnerInvoiceController extends Controller
             return $invoice;
         });
 
-        return view('partner-invoices.index', compact('invoices', 'owner', 'monthlyPartnerTotals', 'months'));
+        return view('partner-invoices.index', compact(
+            'invoices',
+            'owner',
+            'monthlyPartnerTotals',
+            'months',
+            'superPartners',
+            'superPartnerInvoiceTotals',
+            'adminPartnerInvoiceTotals'
+        ));
     }
 
     public function updatePaymentStatus(Request $request, PartnerInvoice $partnerInvoice)
@@ -102,7 +189,7 @@ class PartnerInvoiceController extends Controller
         ]);
 
         return redirect()
-            ->route('partner-invoices.index', $request->only('month'))
+            ->route('partner-invoices.index', $request->only('month', 'super_partner_id', 'invoice_type'))
             ->with('success', 'El estatus de pago de la factura se actualizó correctamente.');
     }
 
@@ -131,14 +218,13 @@ class PartnerInvoiceController extends Controller
         ])->setPaper('a4')->download(strtolower($partnerInvoice->invoice_number) . '.pdf');
     }
 
-    public function downloadMonthlyPartnerInvoice(string $period)
+    public function downloadMonthlyPartnerInvoice(Request $request, string $period)
     {
-        $owner = $this->resolveOwner();
-        abort_unless($owner['type'] === 'super_partner', 404);
+        $superPartner = $this->resolveMonthlyInvoiceSuperPartner($request);
         abort_unless(preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $period) === 1, 404);
 
         $periodStart = Carbon::createFromFormat('!Y-m', $period);
-        $partnerIds = $owner['model']->beneficiarios()->pluck('id');
+        $partnerIds = $superPartner->beneficiarios()->pluck('id');
         $invoices = PartnerInvoice::query()
             ->where('owner_type', 'partner')
             ->whereIn('owner_id', $partnerIds)
@@ -176,7 +262,7 @@ class PartnerInvoiceController extends Controller
             : null;
 
         return app('dompdf.wrapper')->loadView('partner-invoices.monthly-consolidated-invoice', [
-            'superPartner' => $owner['model'],
+            'superPartner' => $superPartner,
             'periodStart' => $periodStart,
             'invoiceNumbers' => $invoices->pluck('invoice_number'),
             'items' => $items,
@@ -219,14 +305,13 @@ class PartnerInvoiceController extends Controller
         ])->setPaper('a4')->download(strtolower($note->note_number) . '.pdf');
     }
 
-    public function downloadMonthlyCommissionReport(string $period)
+    public function downloadMonthlyCommissionReport(Request $request, string $period)
     {
-        $owner = $this->resolveOwner();
-        abort_unless($owner['type'] === 'super_partner', 404);
+        $superPartner = $this->resolveMonthlyInvoiceSuperPartner($request);
         abort_unless(preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $period) === 1, 404);
 
         $periodStart = Carbon::createFromFormat('!Y-m', $period);
-        $partnerIds = $owner['model']->beneficiarios()->pluck('id');
+        $partnerIds = $superPartner->beneficiarios()->pluck('id');
         $invoices = PartnerInvoice::query()
             ->with('commissionNote')
             ->where('owner_type', 'partner')
@@ -273,7 +358,7 @@ class PartnerInvoiceController extends Controller
             : null;
 
         return app('dompdf.wrapper')->loadView('partner-invoices.monthly-commission-report', [
-            'superPartner' => $owner['model'],
+            'superPartner' => $superPartner,
             'periodStart' => $periodStart,
             'commissionRows' => $commissionRows,
             'earnedCommissions' => round($invoices->sum(function (PartnerInvoice $invoice) {
@@ -340,5 +425,21 @@ class PartnerInvoiceController extends Controller
     private function ensureAdministrator(): void
     {
         abort_unless(auth()->user()->user_type === 'admin', 403);
+    }
+
+    private function resolveMonthlyInvoiceSuperPartner(Request $request): SuperPartner
+    {
+        $owner = $this->resolveOwner();
+
+        if ($owner['type'] === 'super_partner') {
+            return $owner['model'];
+        }
+
+        abort_unless($owner['type'] === 'admin', 404);
+        $validated = $request->validate([
+            'super_partner_id' => ['required', 'integer', 'exists:super_partners,id'],
+        ]);
+
+        return SuperPartner::findOrFail($validated['super_partner_id']);
     }
 }

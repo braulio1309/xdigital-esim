@@ -96,15 +96,139 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="form-group col-md-4 mb-md-0">
+                                <label for="invoice-super-partner">Super Partner</label>
+                                <select id="invoice-super-partner" name="super_partner_id" class="form-control">
+                                    <option value="">Todos los super partners</option>
+                                    @foreach($superPartners as $superPartner)
+                                        <option value="{{ $superPartner->id }}" {{ (string) request('super_partner_id') === (string) $superPartner->id ? 'selected' : '' }}>
+                                            {{ $superPartner->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group col-md-3 mb-md-0">
+                                <label for="invoice-type">Tipo de factura</label>
+                                <select id="invoice-type" name="invoice_type" class="form-control">
+                                    <option value="">Todos los tipos</option>
+                                    <option value="super_partner" {{ request('invoice_type') === 'super_partner' ? 'selected' : '' }}>Super Partners</option>
+                                    <option value="partner" {{ request('invoice_type') === 'partner' ? 'selected' : '' }}>Partners</option>
+                                </select>
+                            </div>
                             <div class="form-group mb-0">
                                 <button type="submit" class="btn btn-primary">Filtrar</button>
-                                @if(request()->filled('month'))
+                                @if(request()->filled('month') || request()->filled('super_partner_id') || request()->filled('invoice_type'))
                                     <a href="{{ route('partner-invoices.index') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
                             </div>
                         </div>
                     </form>
                 </div>
+            </div>
+
+            <div class="row">
+            @if(!$superPartnerInvoiceTotals->isEmpty())
+                <div class="col-12 mt-3">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h4 class="mb-0">Facturas mensuales de super partners</h4>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Periodo</th>
+                                            <th>Super Partner</th>
+                                            <th class="text-right">Facturas</th>
+                                            <th class="text-right">Total neto</th>
+                                            <th class="text-right">Comisiones</th>
+                                            <th class="text-right">Pendiente</th>
+                                            <th class="text-right">Pagadas</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($superPartnerInvoiceTotals as $monthlyTotal)
+                                            <tr>
+                                                <td>{{ \Carbon\Carbon::parse($monthlyTotal->period_start)->format('m/Y') }}</td>
+                                                <td>{{ $monthlyTotal->super_partner_name ?: 'Cuenta no disponible' }}</td>
+                                                <td class="text-right">{{ number_format($monthlyTotal->invoice_count) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->net_amount, 2) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->earned_commissions, 2) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->due_amount, 2) }}</td>
+                                                <td class="text-right">{{ number_format($monthlyTotal->paid_count) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            @if(!$adminPartnerInvoiceTotals->isEmpty())
+                <div class="col-12 mt-3">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">Total mensual de partners por super partner</h4>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Periodo</th>
+                                            <th>Super Partner</th>
+                                            <th class="text-right">Partners</th>
+                                            <th class="text-right">Facturas</th>
+                                            <th class="text-right">Total neto</th>
+                                            <th class="text-right">Comisiones</th>
+                                            <th class="text-right">Pendiente</th>
+                                            <th class="text-right">Facturas pagadas</th>
+                                            <th class="text-center">Documentos</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($adminPartnerInvoiceTotals as $monthlyTotal)
+                                            <tr>
+                                                <td>{{ \Carbon\Carbon::parse($monthlyTotal->period_start)->format('m/Y') }}</td>
+                                                <td>{{ $monthlyTotal->super_partner_name ?: 'Sin super partner' }}</td>
+                                                <td class="text-right">{{ number_format($monthlyTotal->partner_count) }}</td>
+                                                <td class="text-right">{{ number_format($monthlyTotal->invoice_count) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->net_amount, 2) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->earned_commissions, 2) }}</td>
+                                                <td class="text-right">USD {{ number_format((float) $monthlyTotal->due_amount, 2) }}</td>
+                                                <td class="text-right">{{ number_format($monthlyTotal->paid_count) }}</td>
+                                                <td class="text-center">
+                                                    @if($monthlyTotal->super_partner_id)
+                                                        <a class="btn btn-sm btn-success text-nowrap"
+                                                           href="{{ route('partner-invoices.monthly-invoice', ['period' => \Carbon\Carbon::parse($monthlyTotal->period_start)->format('Y-m'), 'super_partner_id' => $monthlyTotal->super_partner_id]) }}"
+                                                           title="Descargar factura mensual consolidada"
+                                                           aria-label="Descargar factura mensual consolidada">
+                                                            <i class="mdi mdi-download mr-1"></i>Factura consolidada
+                                                        </a>
+                                                        @if((float) $monthlyTotal->earned_commissions > 0)
+                                                            <a class="btn btn-sm btn-outline-primary text-nowrap"
+                                                               href="{{ route('partner-invoices.monthly-commission-report', ['period' => \Carbon\Carbon::parse($monthlyTotal->period_start)->format('Y-m'), 'super_partner_id' => $monthlyTotal->super_partner_id]) }}"
+                                                               title="Descargar desglose mensual de comisiones"
+                                                               aria-label="Descargar desglose mensual de comisiones">
+                                                                <i class="mdi mdi-file-document-outline mr-1"></i>Desglose
+                                                            </a>
+                                                        @endif
+                                                    @else
+                                                        <span class="text-muted">Sin super partner</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             </div>
         @endif
 
@@ -186,9 +310,11 @@
                                                     <form method="POST" action="{{ route('partner-invoices.payment-status', $invoice) }}">
                                                         @csrf
                                                         @method('PATCH')
-                                                        @if(request()->filled('month'))
-                                                            <input type="hidden" name="month" value="{{ request('month') }}">
-                                                        @endif
+                                                        @foreach(['month', 'super_partner_id', 'invoice_type'] as $filter)
+                                                            @if(request()->filled($filter))
+                                                                <input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">
+                                                            @endif
+                                                        @endforeach
                                                         <input type="hidden" name="is_paid" value="{{ $invoice->is_paid ? 0 : 1 }}">
                                                         <button type="submit" class="btn btn-sm {{ $invoice->is_paid ? 'btn-outline-warning' : 'btn-outline-success' }}">
                                                             {{ $invoice->is_paid ? 'Marcar pendiente' : 'Marcar pagada' }}
