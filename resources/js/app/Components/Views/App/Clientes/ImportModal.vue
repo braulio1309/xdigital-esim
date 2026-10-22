@@ -9,6 +9,7 @@
             <form class="mb-0"
                   :class="{'loading-opacity': preloader}"
                   ref="form"
+                  autocomplete="off"
                   enctype="multipart/form-data">
 
                 <div class="form-group row align-items-center">
@@ -103,7 +104,7 @@
             return {
                 preloader: false,
                 file: null,
-                freeEsimCapacity: 3,
+                freeEsimCapacity: 1,
                 freeEsimCapacityOptions: [
                     {value: 1, label: '1 GB'},
                     {value: 3, label: '3 GB'},
@@ -157,7 +158,7 @@
             closeModal() {
                 this.$emit('close-modal');
                 this.file = null;
-                this.freeEsimCapacity = 3;
+                this.freeEsimCapacity = 1;
                 this.result = null;
                 if (this.$refs.importFile) {
                     this.$refs.importFile.value = '';

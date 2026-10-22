@@ -8,7 +8,9 @@
             <app-overlay-loader v-if="preloader"/>
             <form class="mb-0"
                   :class="{'loading-opacity': preloader}"
-                  ref="form" :data-url='selectedUrl ? `clientes/${inputs.id}` : `clientes`'>
+                  ref="form"
+                  autocomplete="off"
+                  :data-url='selectedUrl ? `clientes/${inputs.id}` : `clientes`'>
                 <div class="form-group row align-items-center">
                     <label for="inputs_nombre" class="col-sm-3 mb-0">
                         {{ $t('nombre') }}
@@ -189,7 +191,7 @@
                     can_activate_free_esim: false,
                     free_esim_capacity: 1,
                     numero_voucher: '',
-                    numero_personas: 1,
+                    numero_personas: '',
                     voucher_edit_id: null,
                 },
                 beneficiarios: [],
@@ -253,7 +255,7 @@
                     can_activate_free_esim: false,
                     free_esim_capacity: 1,
                     numero_voucher: '',
-                    numero_personas: 1,
+                    numero_personas: '',
                     voucher_edit_id: null,
                 };
             },
@@ -310,6 +312,9 @@
                     });
             },
             submit() {
+                if (!this.selectedUrl && !this.inputs.free_esim_capacity) {
+                    this.inputs.free_esim_capacity = 1;
+                }
                 this.save(this.inputs);
             },
             afterSuccess(response) {

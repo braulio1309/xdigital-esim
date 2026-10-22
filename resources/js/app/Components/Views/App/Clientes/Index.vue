@@ -28,6 +28,18 @@
                                v-model="atencionClienteSearchDate">
                     </div>
                     <small class="text-muted">Debes buscar para poder ver clientes.</small>
+                    <div v-if="canCreateClientes" class="mt-3">
+                        <button type="button"
+                                class="btn btn-success btn-with-shadow mr-2"
+                                @click="openImportModal">
+                            {{ $t('import') }}
+                        </button>
+                        <button type="button"
+                                class="btn btn-primary btn-with-shadow"
+                                @click="openCreateModal">
+                            {{ $t('add') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -75,17 +87,6 @@
 
         <app-table :id="tableId" :options="tableOptions" :search="search" @action="getListAction"/>
 
-        <add-modal v-if="isAddEditModalActive"
-               :key="addModalRenderKey"
-                   :table-id="tableId"
-                   :auth-user="currentUser"
-                   :selected-url="selectedUrl"
-                   @close-modal="closeAddEditModal"/>
-
-        <import-modal v-if="isImportModalActive"
-                      :table-id="tableId"
-                      @close-modal="closeImportModal"/>
-
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
                           :title="clienteStatusModalTitle"
@@ -97,6 +98,17 @@
                           @confirmed="confirmed"
                           @cancelled="cancelled"/>
         </template>
+
+        <add-modal v-if="isAddEditModalActive"
+                   :key="addModalRenderKey"
+                   :table-id="tableId"
+                   :auth-user="currentUser"
+                   :selected-url="selectedUrl"
+                   @close-modal="closeAddEditModal"/>
+
+        <import-modal v-if="isImportModalActive"
+                      :table-id="tableId"
+                      @close-modal="closeImportModal"/>
     </div>
 </template>
 
@@ -291,6 +303,11 @@
             isAtencionCliente() {
                 const u = this.currentUser;
                 return u && u.user_sub_type === 'atencion_cliente';
+            },
+            canCreateClientes() {
+                const u = this.currentUser;
+                return !this.isAtencionCliente
+                    || (u && ['admin_beneficiario', 'admin_partner'].includes(u.user_type));
             },
             canManageClienteStatus() {
                 const u = this.currentUser;
