@@ -126,6 +126,7 @@
                 </div>
             </div>
 
+            @if($hasFilters)
             <div class="row">
             @if(!$superPartnerInvoiceTotals->isEmpty())
                 <div class="col-12 mt-3">
@@ -230,8 +231,16 @@
                 </div>
             @endif
             </div>
+            @else
+                <div class="row mt-3">
+                    <div class="col-12 text-center text-muted py-4">
+                        Selecciona al menos un filtro para consultar la información de facturación.
+                    </div>
+                </div>
+            @endif
         @endif
 
+        @if($owner['type'] !== 'admin' || $hasFilters)
         <div class="row mt-3">
             <div class="col-12">
                 <div class="card">
@@ -341,6 +350,7 @@
                         @endif
                     </div>
                 </div>
+                @endif
             </div>
         </div>
     </div>

@@ -109,7 +109,6 @@
         <tr><td>Impuestos</td><td>{{ $invoice->currency }} 0.00</td></tr>
         <tr><td>Comisiones aplicadas</td><td>- {{ $invoice->currency }} {{ number_format((float) $invoice->applied_commissions, 2) }}</td></tr>
         <tr class="grand"><td>Total neto</td><td>{{ $invoice->currency }} {{ number_format(max(0, (float) $invoice->amount - (float) $invoice->applied_commissions), 2) }}</td></tr>
-        <tr><td>Pagado</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->paid_amount, 2) }}</td></tr>
         <tr class="due"><td>Saldo pendiente</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->due_amount, 2) }}</td></tr>
     </table>
 

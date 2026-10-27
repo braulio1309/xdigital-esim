@@ -79,11 +79,11 @@
     </table>
 
     <table class="totals">
-        <tr><td>Comisiones generadas</td><td>USD {{ number_format($earnedCommissions, 2) }}</td></tr>
+        <tr><td>Comisiones a favor</td><td>USD {{ number_format($earnedCommissions, 2) }}</td></tr>
         <tr><td>Aplicadas a facturas</td><td>USD {{ number_format($appliedCommissions, 2) }}</td></tr>
         <tr class="grand"><td>Saldo a favor</td><td>USD {{ number_format($balanceCommissions, 2) }}</td></tr>
     </table>
 
-    <div class="footer">Desglose de comisiones generadas por los partners del super partner durante el periodo indicado.</div>
+    <div class="footer">Desglose mensual de comisiones a favor de los partners asociados al super partner.</div>
 </body>
 </html>

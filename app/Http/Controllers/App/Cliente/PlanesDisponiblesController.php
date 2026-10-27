@@ -727,7 +727,8 @@ class PlanesDisponiblesController extends Controller
                 round((float) $pricingSnapshot['charge_amount'], 2),
                 $countryCode,
                 $beneficiarioId,
-                $superPartnerId
+                $superPartnerId,
+                $request->input('data_amount')
             );
             $transactionData['partner_sale_commission_amount'] = $saleCommissions['partner_sale_commission_amount'];
             $transactionData['super_partner_sale_commission_amount'] = $saleCommissions['super_partner_sale_commission_amount'];

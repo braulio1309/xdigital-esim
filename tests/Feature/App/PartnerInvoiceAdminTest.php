@@ -14,6 +14,26 @@ class PartnerInvoiceAdminTest extends TestCase
     use RefreshDatabase;
 
     /** @test */
+    public function administrator_sees_no_invoice_information_until_applying_a_filter(): void
+    {
+        $admin = $this->createAdmin(['user_type' => 'admin']);
+        [$superPartner] = $this->createPartnerNetwork();
+        $invoice = $this->createInvoice('XC-SP-202609-000001', 'super_partner', $superPartner->id, '2026-09-01');
+
+        $response = $this->actingAs($admin)->get(route('partner-invoices.index'));
+
+        $response->assertOk()
+            ->assertSee('Selecciona al menos un filtro')
+            ->assertDontSee($invoice->invoice_number)
+            ->assertDontSee('Facturas mensuales de super partners');
+
+        $this->actingAs($admin)
+            ->get(route('partner-invoices.index', ['month' => '2026-09']))
+            ->assertOk()
+            ->assertSee($invoice->invoice_number);
+    }
+
+    /** @test */
     public function administrator_can_filter_invoices_by_month_and_update_payment_status(): void
     {
         $admin = $this->createAdmin(['user_type' => 'admin']);

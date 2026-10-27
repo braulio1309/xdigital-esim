@@ -65,6 +65,20 @@ class Transaction extends AppModel
             if ($transaction->beneficiary_commission_amount === null) {
                 $transaction->beneficiary_commission_amount = $transaction->calculateCommissionAmountFromConfig();
             }
+
+            if ($transaction->isFreeEsim() && $transaction->beneficiary_commission_amount !== null) {
+                $discountPercentage = self::getLargePlanRegionalPercentage(
+                    $transaction->country_code,
+                    $transaction->data_amount
+                );
+
+                if ($discountPercentage !== null) {
+                    $transaction->beneficiary_commission_amount = round(
+                        (float) $transaction->beneficiary_commission_amount * (1 - $discountPercentage / 100),
+                        2
+                    );
+                }
+            }
         });
     }
 
@@ -255,13 +269,15 @@ class Transaction extends AppModel
      * @param  string|null $countryCode      ISO 3166-1 alpha-2 country code
      * @param  int|null    $beneficiarioId
      * @param  int|null    $superPartnerId
+     * @param  float|null  $dataAmount       Plan capacity in GB
      * @return array{partner_sale_commission_amount: float, super_partner_sale_commission_amount: float}
      */
     public static function calculateSaleCommissions(
         float $purchaseAmount,
         ?string $countryCode,
         ?int $beneficiarioId,
-        ?int $superPartnerId
+        ?int $superPartnerId,
+        ?float $dataAmount = null
     ): array {
         $partnerAmount = 0.0;
         $superPartnerAmount = 0.0;
@@ -270,6 +286,15 @@ class Transaction extends AppModel
             return [
                 'partner_sale_commission_amount' => $partnerAmount,
                 'super_partner_sale_commission_amount' => $superPartnerAmount,
+            ];
+        }
+
+        $regionalPercentage = self::getLargePlanRegionalPercentage($countryCode, $dataAmount);
+
+        if ($regionalPercentage !== null && $superPartnerId) {
+            return [
+                'partner_sale_commission_amount' => 0.0,
+                'super_partner_sale_commission_amount' => round($purchaseAmount * $regionalPercentage / 100, 2),
             ];
         }
 
@@ -316,6 +341,27 @@ class Transaction extends AppModel
             'partner_sale_commission_amount' => $partnerAmount,
             'super_partner_sale_commission_amount' => $superPartnerAmount,
         ];
+    }
+
+    public static function getLargePlanRegionalPercentage(?string $countryCode, ?float $dataAmount): ?float
+    {
+        if ((float) $dataAmount <= 1 || !$countryCode) {
+            return null;
+        }
+
+        $countryCode = strtoupper(trim($countryCode));
+
+        if (\App\Helpers\CountryTariffHelper::isLatamCountry($countryCode)) {
+            return 15.0;
+        }
+
+        $region = \App\Helpers\CountryTariffHelper::getRegionForCountryCode($countryCode);
+
+        if ($countryCode === 'US' || in_array($region, ['EU28', 'Europe'], true)) {
+            return 25.0;
+        }
+
+        return null;
     }
 
     protected function resolveLegacyFreeEsimPrice($owner, float $fallback): float

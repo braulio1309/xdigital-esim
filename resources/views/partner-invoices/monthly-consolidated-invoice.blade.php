@@ -103,9 +103,8 @@
         <tr><td>Subtotal de cargos</td><td>{{ $currency }} {{ number_format($amount, 2) }}</td></tr>
         <tr><td>Comisiones aplicadas</td><td>- {{ $currency }} {{ number_format($appliedCommissions, 2) }}</td></tr>
         <tr class="grand"><td>Total consolidado</td><td>{{ $currency }} {{ number_format(max(0, $amount - $appliedCommissions), 2) }}</td></tr>
-        <tr><td>Pagado</td><td>{{ $currency }} {{ number_format($paidAmount, 2) }}</td></tr>
         <tr><td>Saldo pendiente</td><td>{{ $currency }} {{ number_format($dueAmount, 2) }}</td></tr>
-        <tr><td>Comisiones generadas</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
+        <tr><td>Saldo a favor</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
     </table>
 
     <div class="payment">

@@ -20,6 +20,7 @@ class PartnerInvoiceController extends Controller
         $adminPartnerInvoiceTotals = collect();
         $months = collect();
         $superPartners = collect();
+        $hasFilters = false;
 
         if ($owner['type'] === 'admin') {
             $request->validate([
@@ -33,8 +34,11 @@ class PartnerInvoiceController extends Controller
                 : null;
             $superPartnerId = $request->input('super_partner_id');
             $invoiceType = $request->input('invoice_type');
+            $hasFilters = $request->filled('month')
+                || $request->filled('super_partner_id')
+                || $request->filled('invoice_type');
 
-            if (!$invoiceType || $invoiceType === 'super_partner') {
+            if ($hasFilters && (!$invoiceType || $invoiceType === 'super_partner')) {
                 $superPartnerInvoiceTotals = PartnerInvoice::query()
                     ->where('partner_invoices.owner_type', 'super_partner')
                     ->when($superPartnerId, function ($builder) use ($superPartnerId) {
@@ -53,7 +57,7 @@ class PartnerInvoiceController extends Controller
                     ->get();
             }
 
-            if (!$invoiceType || $invoiceType === 'partner') {
+            if ($hasFilters && (!$invoiceType || $invoiceType === 'partner')) {
                 $partnerInvoiceQuery = PartnerInvoice::query()
                     ->join('beneficiarios', 'beneficiarios.id', '=', 'partner_invoices.owner_id')
                     ->where('partner_invoices.owner_type', 'partner');
@@ -76,25 +80,29 @@ class PartnerInvoiceController extends Controller
                     ->get();
             }
 
-            $query->when($invoiceType, function ($builder) use ($invoiceType) {
-                $builder->where('owner_type', $invoiceType);
-            })->when($periodStart, function ($builder) use ($periodStart) {
-                $builder->whereDate('period_start', $periodStart);
-            })->when($superPartnerId, function ($builder) use ($superPartnerId) {
-                $partnerIds = Beneficiario::query()
-                    ->where('super_partner_id', $superPartnerId)
-                    ->select('id');
+            if ($hasFilters) {
+                $query->when($invoiceType, function ($builder) use ($invoiceType) {
+                    $builder->where('owner_type', $invoiceType);
+                })->when($periodStart, function ($builder) use ($periodStart) {
+                    $builder->whereDate('period_start', $periodStart);
+                })->when($superPartnerId, function ($builder) use ($superPartnerId) {
+                    $partnerIds = Beneficiario::query()
+                        ->where('super_partner_id', $superPartnerId)
+                        ->select('id');
 
-                $builder->where(function ($ownerQuery) use ($superPartnerId, $partnerIds) {
-                    $ownerQuery->where(function ($superPartnerQuery) use ($superPartnerId) {
-                        $superPartnerQuery->where('owner_type', 'super_partner')
-                            ->where('owner_id', $superPartnerId);
-                    })->orWhere(function ($partnerQuery) use ($partnerIds) {
-                        $partnerQuery->where('owner_type', 'partner')
-                            ->whereIn('owner_id', $partnerIds);
+                    $builder->where(function ($ownerQuery) use ($superPartnerId, $partnerIds) {
+                        $ownerQuery->where(function ($superPartnerQuery) use ($superPartnerId) {
+                            $superPartnerQuery->where('owner_type', 'super_partner')
+                                ->where('owner_id', $superPartnerId);
+                        })->orWhere(function ($partnerQuery) use ($partnerIds) {
+                            $partnerQuery->where('owner_type', 'partner')
+                                ->whereIn('owner_id', $partnerIds);
+                        });
                     });
                 });
-            });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
 
             $months = PartnerInvoice::query()
                 ->select('period_start')
@@ -168,6 +176,7 @@ class PartnerInvoiceController extends Controller
         return view('partner-invoices.index', compact(
             'invoices',
             'owner',
+            'hasFilters',
             'monthlyPartnerTotals',
             'months',
             'superPartners',
