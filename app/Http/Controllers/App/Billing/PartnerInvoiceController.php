@@ -210,6 +210,8 @@ class PartnerInvoiceController extends Controller
             abort(404);
         }
 
+        $partnerInvoice->loadMissing('commissionNote');
+
         $recipient = $partnerInvoice->owner_type === 'partner'
             ? Beneficiario::with('user')->findOrFail($partnerInvoice->owner_id)
             : SuperPartner::with('user')->findOrFail($partnerInvoice->owner_id);
@@ -235,13 +237,24 @@ class PartnerInvoiceController extends Controller
         $periodStart = Carbon::createFromFormat('!Y-m', $period);
         $partnerIds = $superPartner->beneficiarios()->pluck('id');
         $invoices = PartnerInvoice::query()
+            ->with('commissionNote')
             ->where('owner_type', 'partner')
             ->whereIn('owner_id', $partnerIds)
             ->whereDate('period_start', $periodStart->toDateString())
             ->orderBy('owner_id')
             ->get();
 
-        abort_if($invoices->isEmpty(), 404);
+        $superPartnerInvoice = PartnerInvoice::query()
+            ->with('commissionNote')
+            ->where('owner_type', 'super_partner')
+            ->where('owner_id', $superPartner->id)
+            ->whereDate('period_start', $periodStart->toDateString())
+            ->first();
+
+        abort_if(
+            $invoices->isEmpty() && (!$superPartnerInvoice || !$superPartnerInvoice->commissionNote),
+            404
+        );
 
         $partnersById = Beneficiario::query()
             ->whereIn('id', $invoices->pluck('owner_id')->unique())
@@ -258,12 +271,43 @@ class PartnerInvoiceController extends Controller
                     'plan_name' => $item['plan_name'] ?? 'eSIM',
                     'data_amount' => $item['data_amount'] ?? null,
                     'duration_days' => $item['duration_days'] ?? null,
+                    'country_code' => $item['country_code'] ?? null,
+                    'discount_percentage' => isset($item['discount_percentage']) ? (float) $item['discount_percentage'] : null,
+                    'discount_region' => $item['discount_region'] ?? null,
+                    'discount_unit_amount' => (float) ($item['discount_unit_amount'] ?? 0),
+                    'discount_total' => (float) ($item['discount_total'] ?? 0),
+                    'gross_unit_price' => (float) ($item['gross_unit_price'] ?? $item['unit_price'] ?? 0),
                     'quantity' => (int) ($item['quantity'] ?? 0),
                     'unit_price' => (float) ($item['unit_price'] ?? 0),
                     'total' => (float) ($item['total'] ?? 0),
                 ];
             });
         })->values();
+
+        $commissionRows = $invoices->flatMap(function (PartnerInvoice $invoice) use ($partnersById) {
+            $partnerName = optional($partnersById->get($invoice->owner_id))->nombre ?: 'Partner no disponible';
+
+            return collect(optional($invoice->commissionNote)->items ?? [])->map(function (array $item) use ($invoice, $partnerName) {
+                return $this->formatConsolidatedCommissionRow($item, $invoice, $partnerName);
+            });
+        });
+
+        if ($superPartnerInvoice && $superPartnerInvoice->commissionNote) {
+            $commissionRows = $commissionRows->merge(collect($superPartnerInvoice->commissionNote->items ?? [])
+                ->map(function (array $item) use ($superPartnerInvoice, $superPartner) {
+                    return $this->formatConsolidatedCommissionRow($item, $superPartnerInvoice, 'Super Partner: ' . $superPartner->nombre);
+                }));
+        }
+
+        $amount = round($invoices->sum('amount'), 2);
+        $paidAmount = round($invoices->sum('paid_amount'), 2);
+        $earnedCommissions = round(
+            $invoices->sum('earned_commissions') + (float) optional($superPartnerInvoice)->earned_commissions,
+            2
+        );
+        $outstandingBeforeCommissions = round(max(0, $amount - $paidAmount), 2);
+        $appliedCommissions = round(min($earnedCommissions, $outstandingBeforeCommissions), 2);
+        $dueAmount = round(max(0, $outstandingBeforeCommissions - $appliedCommissions), 2);
 
         $logoPath = public_path('images/logo.png');
         $logoData = is_file($logoPath)
@@ -273,14 +317,15 @@ class PartnerInvoiceController extends Controller
         return app('dompdf.wrapper')->loadView('partner-invoices.monthly-consolidated-invoice', [
             'superPartner' => $superPartner,
             'periodStart' => $periodStart,
-            'invoiceNumbers' => $invoices->pluck('invoice_number'),
+            'invoiceNumbers' => $invoices->pluck('invoice_number')->push(optional($superPartnerInvoice)->invoice_number)->filter()->values(),
             'items' => $items,
-            'amount' => round($invoices->sum('amount'), 2),
-            'paidAmount' => round($invoices->sum('paid_amount'), 2),
-            'appliedCommissions' => round($invoices->sum('applied_commissions'), 2),
-            'earnedCommissions' => round($invoices->sum('earned_commissions'), 2),
-            'dueAmount' => round($invoices->sum('due_amount'), 2),
-            'currency' => $invoices->first()->currency,
+            'commissionRows' => $commissionRows,
+            'amount' => $amount,
+            'paidAmount' => $paidAmount,
+            'appliedCommissions' => $appliedCommissions,
+            'earnedCommissions' => $earnedCommissions,
+            'dueAmount' => $dueAmount,
+            'currency' => optional($invoices->first() ?: $superPartnerInvoice)->currency ?: 'USD',
             'paymentDetails' => config('services.billing_payment'),
             'logoData' => $logoData,
         ])->setPaper('a4', 'landscape')->download('factura-consolidada-' . $period . '.pdf');
@@ -311,7 +356,7 @@ class PartnerInvoiceController extends Controller
             'note' => $note,
             'recipient' => $recipient,
             'logoData' => $logoData,
-        ])->setPaper('a4')->download(strtolower($note->note_number) . '.pdf');
+        ])->setPaper('a4', 'landscape')->download(strtolower($note->note_number) . '.pdf');
     }
 
     public function downloadMonthlyCommissionReport(Request $request, string $period)
@@ -332,7 +377,21 @@ class PartnerInvoiceController extends Controller
             ->orderBy('owner_id')
             ->get();
 
-        abort_if($invoices->isEmpty(), 404);
+        $superPartnerInvoice = PartnerInvoice::query()
+            ->with('commissionNote')
+            ->where('owner_type', 'super_partner')
+            ->where('owner_id', $superPartner->id)
+            ->whereDate('period_start', $periodStart->toDateString())
+            ->first();
+
+        abort_if(
+            $invoices->isEmpty() && (
+                !$superPartnerInvoice
+                || !$superPartnerInvoice->commissionNote
+                || (float) $superPartnerInvoice->commissionNote->amount <= 0
+            ),
+            404
+        );
 
         $partnersById = Beneficiario::query()
             ->whereIn('id', $invoices->pluck('owner_id')->unique())
@@ -354,12 +413,44 @@ class PartnerInvoiceController extends Controller
                         'plan_name' => $item['plan_name'] ?? 'eSIM',
                         'data_amount' => $item['data_amount'] ?? null,
                         'duration_days' => $item['duration_days'] ?? null,
+                        'country_code' => $item['country_code'] ?? null,
+                        'commission_percentage' => isset($item['commission_percentage']) ? (float) $item['commission_percentage'] : null,
+                        'commission_region' => $item['commission_region'] ?? null,
                         'quantity' => (int) ($item['quantity'] ?? 0),
                         'unit_price' => (float) ($item['unit_price'] ?? 0),
                         'total' => (float) ($item['total'] ?? 0),
                     ];
                 });
         })->values();
+
+        if ($superPartnerInvoice && $superPartnerInvoice->commissionNote) {
+            $commissionRows = $commissionRows->merge(collect($superPartnerInvoice->commissionNote->items ?? [])
+                ->filter(function (array $item) {
+                    return (float) ($item['total'] ?? 0) > 0;
+                })
+                ->map(function (array $item) use ($superPartnerInvoice, $superPartner) {
+                    return [
+                        'partner_name' => 'Super Partner: ' . $superPartner->nombre,
+                        'invoice_number' => $superPartnerInvoice->invoice_number,
+                        'note_number' => $superPartnerInvoice->commissionNote->note_number,
+                        'plan_name' => $item['plan_name'] ?? 'eSIM',
+                        'data_amount' => $item['data_amount'] ?? null,
+                        'duration_days' => $item['duration_days'] ?? null,
+                        'country_code' => $item['country_code'] ?? null,
+                        'commission_percentage' => isset($item['commission_percentage']) ? (float) $item['commission_percentage'] : null,
+                        'commission_region' => $item['commission_region'] ?? null,
+                        'quantity' => (int) ($item['quantity'] ?? 0),
+                        'unit_price' => (float) ($item['unit_price'] ?? 0),
+                        'total' => (float) ($item['total'] ?? 0),
+                    ];
+                }));
+        }
+
+        $commissionRows = $commissionRows->values();
+        $commissionNotes = $invoices->pluck('commissionNote')->filter();
+        if ($superPartnerInvoice && $superPartnerInvoice->commissionNote) {
+            $commissionNotes->push($superPartnerInvoice->commissionNote);
+        }
 
         $logoPath = public_path('images/logo.png');
         $logoData = is_file($logoPath)
@@ -370,15 +461,9 @@ class PartnerInvoiceController extends Controller
             'superPartner' => $superPartner,
             'periodStart' => $periodStart,
             'commissionRows' => $commissionRows,
-            'earnedCommissions' => round($invoices->sum(function (PartnerInvoice $invoice) {
-                return (float) $invoice->commissionNote->amount;
-            }), 2),
-            'appliedCommissions' => round($invoices->sum(function (PartnerInvoice $invoice) {
-                return (float) $invoice->commissionNote->applied_amount;
-            }), 2),
-            'balanceCommissions' => round($invoices->sum(function (PartnerInvoice $invoice) {
-                return (float) $invoice->commissionNote->balance_amount;
-            }), 2),
+            'earnedCommissions' => round($commissionNotes->sum('amount'), 2),
+            'appliedCommissions' => round($commissionNotes->sum('applied_amount'), 2),
+            'balanceCommissions' => round($commissionNotes->sum('balance_amount'), 2),
             'logoData' => $logoData,
         ])->setPaper('a4', 'landscape')->download('comisiones-partners-' . $period . '.pdf');
     }
@@ -434,6 +519,24 @@ class PartnerInvoiceController extends Controller
     private function ensureAdministrator(): void
     {
         abort_unless(auth()->user()->user_type === 'admin', 403);
+    }
+
+    private function formatConsolidatedCommissionRow(array $item, PartnerInvoice $invoice, string $recipientName): array
+    {
+        return [
+            'partner_name' => $recipientName,
+            'invoice_number' => $invoice->invoice_number,
+            'note_number' => optional($invoice->commissionNote)->note_number,
+            'plan_name' => $item['plan_name'] ?? 'eSIM',
+            'data_amount' => $item['data_amount'] ?? null,
+            'duration_days' => $item['duration_days'] ?? null,
+            'country_code' => $item['country_code'] ?? null,
+            'commission_percentage' => isset($item['commission_percentage']) ? (float) $item['commission_percentage'] : null,
+            'commission_region' => $item['commission_region'] ?? null,
+            'quantity' => (int) ($item['quantity'] ?? 0),
+            'unit_price' => (float) ($item['unit_price'] ?? 0),
+            'total' => (float) ($item['total'] ?? 0),
+        ];
     }
 
     private function resolveMonthlyInvoiceSuperPartner(Request $request): SuperPartner

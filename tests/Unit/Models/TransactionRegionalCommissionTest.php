@@ -74,7 +74,7 @@ class TransactionRegionalCommissionTest extends TestCase
     }
 
     /** @test */
-    public function free_large_plans_apply_the_regional_discount_to_the_partner_commission(): void
+    public function free_large_plans_apply_the_regional_discount_without_generating_sale_commissions(): void
     {
         $transaction = Transaction::create([
             'transaction_id' => 'FREE-DISCOUNT-DE',
@@ -87,5 +87,20 @@ class TransactionRegionalCommissionTest extends TestCase
 
         $this->assertSame('75.00', $transaction->beneficiary_commission_amount);
         $this->assertSame('100.00', $transaction->reference_purchase_amount);
+        $this->assertSame(0.0, (float) $transaction->partner_sale_commission_amount);
+        $this->assertSame(0.0, (float) $transaction->super_partner_sale_commission_amount);
+
+        $latamTransaction = Transaction::create([
+            'transaction_id' => 'FREE-DISCOUNT-CO',
+            'data_amount' => 3,
+            'purchase_amount' => 0,
+            'reference_purchase_amount' => 100,
+            'beneficiary_commission_amount' => 100,
+            'country_code' => 'CO',
+        ]);
+
+        $this->assertSame('85.00', $latamTransaction->beneficiary_commission_amount);
+        $this->assertSame(0.0, (float) $latamTransaction->partner_sale_commission_amount);
+        $this->assertSame(0.0, (float) $latamTransaction->super_partner_sale_commission_amount);
     }
 }

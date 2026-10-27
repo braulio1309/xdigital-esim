@@ -9,14 +9,20 @@ use Illuminate\Console\Command;
 
 class GeneratePartnerInvoices extends Command
 {
-    protected $signature = 'partner-invoices:generate {--month= : Period to generate in YYYY-MM format} {--backfill : Generate all closed periods with eSIM charges}';
+    protected $signature = 'partner-invoices:generate {--month= : Period to generate in YYYY-MM format} {--backfill : Generate all closed periods with eSIM charges} {--refresh : Rebuild existing invoices for the selected month}';
 
     protected $description = 'Generate monthly invoices for partner and super partner eSIM charges';
 
     public function handle(PartnerInvoiceService $invoiceService): int
     {
-        if ($this->option('backfill') && $this->option('month')) {
-            $this->error('Usa --month o --backfill, no ambos.');
+        if ($this->option('backfill') && ($this->option('month') || $this->option('refresh'))) {
+            $this->error('Usa --backfill por separado de --month y --refresh.');
+
+            return self::INVALID;
+        }
+
+        if ($this->option('refresh') && !$this->option('month')) {
+            $this->error('Usa --refresh junto con --month.');
 
             return self::INVALID;
         }
@@ -34,7 +40,11 @@ class GeneratePartnerInvoices extends Command
         }
 
         $periodStart = Carbon::createFromFormat('!Y-m', $month);
-        $count = $invoiceService->generateForPeriod($periodStart, $periodStart->copy()->endOfMonth());
+        $count = $invoiceService->generateForPeriod(
+            $periodStart,
+            $periodStart->copy()->endOfMonth(),
+            (bool) $this->option('refresh')
+        );
 
         $this->info("Facturas nuevas generadas: {$count} ({$month}).");
 

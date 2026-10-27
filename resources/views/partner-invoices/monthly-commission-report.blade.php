@@ -51,6 +51,7 @@
                 <th>Partner</th>
                 <th>Factura / nota</th>
                 <th>Plan</th>
+                <th>País y comisión</th>
                 <th class="number">Ventas</th>
                 <th class="number">Comisión unitaria</th>
                 <th class="number">Comisión total</th>
@@ -70,6 +71,12 @@
                             · {{ $row['duration_days'] }} días
                         @endif
                     </td>
+                    <td>
+                        {{ $row['country_code'] ?? 'N/D' }}
+                        @if(!empty($row['commission_percentage']))
+                            · {{ number_format((float) $row['commission_percentage'], 0) }}% {{ $row['commission_region'] ?? '' }}
+                        @endif
+                    </td>
                     <td class="number">{{ number_format($row['quantity']) }}</td>
                     <td class="number">USD {{ number_format($row['unit_price'], 2) }}</td>
                     <td class="number">USD {{ number_format($row['total'], 2) }}</td>
@@ -84,6 +91,6 @@
         <tr class="grand"><td>Saldo a favor</td><td>USD {{ number_format($balanceCommissions, 2) }}</td></tr>
     </table>
 
-    <div class="footer">Desglose mensual de comisiones a favor de los partners asociados al super partner.</div>
+    <div class="footer">Desglose mensual de comisiones a favor del super partner y sus partners asociados.</div>
 </body>
 </html>

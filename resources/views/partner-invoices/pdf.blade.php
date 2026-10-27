@@ -79,6 +79,7 @@
                 <th>Plan</th>
                 <th class="number">Cantidad</th>
                 <th class="number">Precio unitario</th>
+                <th class="number">Descuento</th>
                 <th class="number">Impuesto</th>
                 <th class="number">Total</th>
             </tr>
@@ -94,9 +95,15 @@
                         @if($item['duration_days'])
                             · {{ $item['duration_days'] }} días
                         @endif
+                        @if(!empty($item['country_code']))
+                            · {{ $item['country_code'] }}
+                        @endif
                     </td>
                     <td class="number">{{ number_format($item['quantity']) }}</td>
                     <td class="number">{{ $invoice->currency }} {{ number_format((float) $item['unit_price'], 2) }}</td>
+                    <td class="number">
+                        {{ !empty($item['discount_percentage']) ? number_format((float) $item['discount_percentage'], 0) . '%' : '-' }}
+                    </td>
                     <td class="number">N/A</td>
                     <td class="number">{{ $invoice->currency }} {{ number_format((float) $item['total'], 2) }}</td>
                 </tr>
@@ -104,9 +111,42 @@
         </tbody>
     </table>
 
+    @if($invoice->commissionNote && count($invoice->commissionNote->items ?? []) > 0)
+        <h3>Comisiones a favor por compras de clientes</h3>
+        <table class="items">
+            <thead>
+                <tr>
+                    <th>Plan</th>
+                    <th>País</th>
+                    <th class="number">Comisión</th>
+                    <th class="number">Ventas</th>
+                    <th class="number">Comisión total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($invoice->commissionNote->items as $item)
+                    <tr>
+                        <td>{{ $item['plan_name'] ?? 'eSIM' }}@if(!empty($item['data_amount'])) · {{ $item['data_amount'] }} GB @endif</td>
+                        <td>
+                            {{ $item['country_code'] ?? 'N/D' }}
+                            @if(!empty($item['commission_percentage']))
+                                · {{ number_format((float) $item['commission_percentage'], 0) }}% {{ $item['commission_region'] ?? '' }}
+                            @endif
+                        </td>
+                        <td class="number">{{ $invoice->currency }} {{ number_format((float) ($item['unit_price'] ?? 0), 2) }}</td>
+                        <td class="number">{{ number_format((int) ($item['quantity'] ?? 0)) }}</td>
+                        <td class="number">{{ $invoice->currency }} {{ number_format((float) ($item['total'] ?? 0), 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    @php($discountTotal = collect($invoice->items ?? [])->sum('discount_total'))
     <table class="totals">
-        <tr class="rule"><td>Subtotal de cargos</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->amount, 2) }}</td></tr>
+        <tr class="rule"><td>Subtotal de cargos</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->amount + $discountTotal, 2) }}</td></tr>
         <tr><td>Impuestos</td><td>{{ $invoice->currency }} 0.00</td></tr>
+        <tr><td>Descuentos aplicados</td><td>- {{ $invoice->currency }} {{ number_format($discountTotal, 2) }}</td></tr>
         <tr><td>Comisiones aplicadas</td><td>- {{ $invoice->currency }} {{ number_format((float) $invoice->applied_commissions, 2) }}</td></tr>
         <tr class="grand"><td>Total neto</td><td>{{ $invoice->currency }} {{ number_format(max(0, (float) $invoice->amount - (float) $invoice->applied_commissions), 2) }}</td></tr>
         <tr class="due"><td>Saldo pendiente</td><td>{{ $invoice->currency }} {{ number_format((float) $invoice->due_amount, 2) }}</td></tr>

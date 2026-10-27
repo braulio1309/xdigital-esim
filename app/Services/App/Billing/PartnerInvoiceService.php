@@ -184,29 +184,50 @@ class PartnerInvoiceService
     {
         return $transactions
             ->groupBy(function (Transaction $transaction) {
+                $discountPercentage = $this->getFreePlanDiscountPercentage($transaction);
+
                 return implode('|', [
                     $transaction->plan_name ?: 'eSIM',
                     $transaction->data_amount ?: 'N/D',
                     $transaction->duration_days ?: 'N/D',
+                    strtoupper((string) ($transaction->country_code ?: 'N/D')),
+                    $discountPercentage ?? 'none',
                 ]);
             })
             ->map(function (Collection $planTransactions) {
                 $first = $planTransactions->first();
-                $total = round($planTransactions->sum(function (Transaction $transaction) {
-                    return $transaction->getCommissionAmount();
-                }), 2);
+                $discountPercentage = $this->getFreePlanDiscountPercentage($first);
+                $grossTotal = 0.0;
+                $total = 0.0;
+
+                foreach ($planTransactions as $transaction) {
+                    $amounts = $this->getFreePlanAmounts($transaction, $discountPercentage);
+                    $grossTotal += $amounts['gross'];
+                    $total += $amounts['net'];
+                }
+
+                $grossTotal = round($grossTotal, 2);
+                $total = round($total, 2);
+                $quantity = max($planTransactions->count(), 1);
+
                 $paidTotal = round($planTransactions->filter(function (Transaction $transaction) {
                     return (bool) $transaction->is_paid;
-                })->sum(function (Transaction $transaction) {
-                    return $transaction->getCommissionAmount();
+                })->sum(function (Transaction $transaction) use ($discountPercentage) {
+                    return $this->getFreePlanAmounts($transaction, $discountPercentage)['net'];
                 }), 2);
 
                 return [
                     'plan_name' => $first->plan_name ?: 'eSIM',
                     'data_amount' => $first->data_amount,
                     'duration_days' => $first->duration_days,
+                    'country_code' => $first->country_code,
+                    'discount_percentage' => $discountPercentage,
+                    'discount_region' => $discountPercentage === 15.0 ? 'LATAM' : ($discountPercentage !== null ? 'Europa y EE. UU.' : null),
+                    'discount_unit_amount' => round(($grossTotal - $total) / $quantity, 2),
+                    'discount_total' => round($grossTotal - $total, 2),
+                    'gross_unit_price' => round($grossTotal / $quantity, 2),
                     'quantity' => $planTransactions->count(),
-                    'unit_price' => round($total / max($planTransactions->count(), 1), 2),
+                    'unit_price' => round($total / $quantity, 2),
                     'total' => $total,
                     'paid_total' => $paidTotal,
                     'due_total' => round(max(0, $total - $paidTotal), 2),
@@ -227,10 +248,17 @@ class PartnerInvoiceService
                 return (float) $transaction->{$commissionColumn} > 0;
             })
             ->groupBy(function (Transaction $transaction) {
+                $regionalPercentage = Transaction::getLargePlanRegionalPercentage(
+                    $transaction->country_code,
+                    $transaction->data_amount !== null ? (float) $transaction->data_amount : null
+                );
+
                 return implode('|', [
                     $transaction->plan_name ?: 'eSIM',
                     $transaction->data_amount ?: 'N/D',
                     $transaction->duration_days ?: 'N/D',
+                    strtoupper((string) ($transaction->country_code ?: 'N/D')),
+                    $regionalPercentage ?? 'configured',
                 ]);
             })
             ->map(function (Collection $planTransactions) use ($commissionColumn) {
@@ -238,11 +266,25 @@ class PartnerInvoiceService
                 $total = round($planTransactions->sum(function (Transaction $transaction) use ($commissionColumn) {
                     return (float) $transaction->{$commissionColumn};
                 }), 2);
+                $purchaseTotal = round($planTransactions->sum(function (Transaction $transaction) {
+                    return (float) $transaction->purchase_amount;
+                }), 2);
+                $regionalPercentage = Transaction::getLargePlanRegionalPercentage(
+                    $first->country_code,
+                    $first->data_amount !== null ? (float) $first->data_amount : null
+                );
 
                 return [
                     'plan_name' => $first->plan_name ?: 'eSIM',
                     'data_amount' => $first->data_amount,
                     'duration_days' => $first->duration_days,
+                    'country_code' => $first->country_code,
+                    'commission_percentage' => $regionalPercentage !== null && $commissionColumn === 'super_partner_sale_commission_amount'
+                        ? $regionalPercentage
+                        : ($purchaseTotal > 0 ? round($total / $purchaseTotal * 100, 2) : null),
+                    'commission_region' => $regionalPercentage !== null && $commissionColumn === 'super_partner_sale_commission_amount'
+                        ? ($regionalPercentage === 15.0 ? 'LATAM' : 'Europa y EE. UU.')
+                        : null,
                     'quantity' => $planTransactions->count(),
                     'unit_price' => round($total / max($planTransactions->count(), 1), 2),
                     'total' => $total,
@@ -250,5 +292,41 @@ class PartnerInvoiceService
             })
             ->values()
             ->all();
+    }
+
+    private function getFreePlanDiscountPercentage(Transaction $transaction): ?float
+    {
+        if ((float) $transaction->purchase_amount > 0) {
+            return null;
+        }
+
+        return Transaction::getLargePlanRegionalPercentage(
+            $transaction->country_code,
+            $transaction->data_amount !== null ? (float) $transaction->data_amount : null
+        );
+    }
+
+    private function getFreePlanAmounts(Transaction $transaction, ?float $discountPercentage): array
+    {
+        $commissionAmount = round($transaction->getCommissionAmount(), 2);
+
+        if ($discountPercentage === null) {
+            return ['gross' => $commissionAmount, 'net' => $commissionAmount];
+        }
+
+        $referenceAmount = round((float) $transaction->reference_purchase_amount, 2);
+        if ($referenceAmount <= 0) {
+            return [
+                'gross' => round($commissionAmount / (1 - $discountPercentage / 100), 2),
+                'net' => $commissionAmount,
+            ];
+        }
+
+        return [
+            'gross' => $referenceAmount,
+            'net' => $referenceAmount > $commissionAmount
+                ? $commissionAmount
+                : round($referenceAmount * (1 - $discountPercentage / 100), 2),
+        ];
     }
 }
