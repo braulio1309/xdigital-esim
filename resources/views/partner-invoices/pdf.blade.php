@@ -155,6 +155,7 @@
     <div class="payment">
         <div class="payment-title">Datos para realizar el pago</div>
         <table>
+            <tr><td><strong>Beneficiario</strong></td><td>XCERTUS LLC</td></tr>
             <tr><td><strong>Banco</strong></td><td>{{ $paymentDetails['bank_name'] ?? '' }}</td></tr>
             <tr><td><strong>Número de cuenta</strong></td><td>{{ $paymentDetails['account_number'] ?? '' }}</td></tr>
             <tr><td><strong>Routing number</strong></td><td>{{ $paymentDetails['routing_number'] ?? '' }}</td></tr>
