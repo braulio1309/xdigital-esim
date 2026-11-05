@@ -222,7 +222,9 @@ class PartnerInvoiceService
                     'duration_days' => $first->duration_days,
                     'country_code' => $first->country_code,
                     'discount_percentage' => $discountPercentage,
-                    'discount_region' => $discountPercentage === 15.0 ? 'LATAM' : ($discountPercentage !== null ? 'Europa y EE. UU.' : null),
+                    'discount_region' => $discountPercentage !== null
+                        ? $this->getRegionalLabel($first->country_code)
+                        : null,
                     'discount_unit_amount' => round(($grossTotal - $total) / $quantity, 2),
                     'discount_total' => round($grossTotal - $total, 2),
                     'gross_unit_price' => round($grossTotal / $quantity, 2),
@@ -250,7 +252,8 @@ class PartnerInvoiceService
             ->groupBy(function (Transaction $transaction) {
                 $regionalPercentage = Transaction::getLargePlanRegionalPercentage(
                     $transaction->country_code,
-                    $transaction->data_amount !== null ? (float) $transaction->data_amount : null
+                    $transaction->data_amount !== null ? (float) $transaction->data_amount : null,
+                    $transaction->resolveSuperPartner()
                 );
 
                 return implode('|', [
@@ -271,7 +274,8 @@ class PartnerInvoiceService
                 }), 2);
                 $regionalPercentage = Transaction::getLargePlanRegionalPercentage(
                     $first->country_code,
-                    $first->data_amount !== null ? (float) $first->data_amount : null
+                    $first->data_amount !== null ? (float) $first->data_amount : null,
+                    $first->resolveSuperPartner()
                 );
 
                 return [
@@ -282,9 +286,7 @@ class PartnerInvoiceService
                     'commission_percentage' => $regionalPercentage !== null && $commissionColumn === 'super_partner_sale_commission_amount'
                         ? $regionalPercentage
                         : ($purchaseTotal > 0 ? round($total / $purchaseTotal * 100, 2) : null),
-                    'commission_region' => $regionalPercentage !== null && $commissionColumn === 'super_partner_sale_commission_amount'
-                        ? ($regionalPercentage === 15.0 ? 'LATAM' : 'Europa y EE. UU.')
-                        : null,
+                    'commission_region' => $this->getRegionalLabel($first->country_code),
                     'quantity' => $planTransactions->count(),
                     'unit_price' => round($total / max($planTransactions->count(), 1), 2),
                     'total' => $total,
@@ -302,8 +304,24 @@ class PartnerInvoiceService
 
         return Transaction::getLargePlanRegionalPercentage(
             $transaction->country_code,
-            $transaction->data_amount !== null ? (float) $transaction->data_amount : null
+            $transaction->data_amount !== null ? (float) $transaction->data_amount : null,
+            $transaction->resolveSuperPartner()
         );
+    }
+
+    private function getRegionalLabel(?string $countryCode): ?string
+    {
+        if (!$countryCode) {
+            return null;
+        }
+
+        if (\App\Helpers\CountryTariffHelper::isLatamCountry($countryCode)) {
+            return 'LATAM';
+        }
+
+        return \App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode)
+            ? 'Europa y EE. UU.'
+            : null;
     }
 
     private function getFreePlanAmounts(Transaction $transaction, ?float $discountPercentage): array

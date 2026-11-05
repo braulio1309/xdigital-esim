@@ -34,13 +34,13 @@ class TransactionRegionalCommissionTest extends TestCase
         $latamCommissions = Transaction::calculateSaleCommissions(100, 'CO', $partner->id, $superPartner->id, 3);
 
         $this->assertSame(0.0, $europeCommissions['partner_sale_commission_amount']);
-        $this->assertSame(25.0, $europeCommissions['super_partner_sale_commission_amount']);
+        $this->assertSame(7.0, $europeCommissions['super_partner_sale_commission_amount']);
         $this->assertSame(0.0, $latamCommissions['partner_sale_commission_amount']);
-        $this->assertSame(15.0, $latamCommissions['super_partner_sale_commission_amount']);
+        $this->assertSame(5.0, $latamCommissions['super_partner_sale_commission_amount']);
     }
 
     /** @test */
-    public function small_plans_keep_the_configured_commissions(): void
+    public function small_plan_partner_commissions_use_the_super_partners_regional_rates(): void
     {
         $superPartner = SuperPartner::create([
             'nombre' => 'Super Partner',
@@ -59,7 +59,7 @@ class TransactionRegionalCommissionTest extends TestCase
 
         $commissions = Transaction::calculateSaleCommissions(100, 'DE', $partner->id, $superPartner->id, 1);
 
-        $this->assertSame(12.0, $commissions['partner_sale_commission_amount']);
+        $this->assertSame(7.0, $commissions['partner_sale_commission_amount']);
         $this->assertSame(7.0, $commissions['super_partner_sale_commission_amount']);
     }
 
@@ -102,5 +102,48 @@ class TransactionRegionalCommissionTest extends TestCase
         $this->assertSame('85.00', $latamTransaction->beneficiary_commission_amount);
         $this->assertSame(0.0, (float) $latamTransaction->partner_sale_commission_amount);
         $this->assertSame(0.0, (float) $latamTransaction->super_partner_sale_commission_amount);
+    }
+
+    /** @test */
+    public function free_large_plan_discounts_use_the_super_partners_regional_rates(): void
+    {
+        $superPartner = SuperPartner::create([
+            'nombre' => 'Super Partner',
+            'codigo' => 'SP000001',
+            'sale_commission_latam_pct' => 6,
+            'sale_commission_usa_ca_eu_pct' => 8,
+        ]);
+        $partner = Beneficiario::create([
+            'nombre' => 'Partner',
+            'descripcion' => 'Test partner',
+            'codigo' => 'P000001',
+            'super_partner_id' => $superPartner->id,
+            'sale_commission_latam_pct' => 20,
+            'sale_commission_usa_ca_eu_pct' => 30,
+        ]);
+
+        $europeTransaction = Transaction::create([
+            'transaction_id' => 'FREE-DISCOUNT-SP-DE',
+            'beneficiario_id' => $partner->id,
+            'super_partner_id' => $superPartner->id,
+            'data_amount' => 3,
+            'purchase_amount' => 0,
+            'reference_purchase_amount' => 100,
+            'beneficiary_commission_amount' => 100,
+            'country_code' => 'DE',
+        ]);
+        $latamTransaction = Transaction::create([
+            'transaction_id' => 'FREE-DISCOUNT-SP-CO',
+            'beneficiario_id' => $partner->id,
+            'super_partner_id' => $superPartner->id,
+            'data_amount' => 3,
+            'purchase_amount' => 0,
+            'reference_purchase_amount' => 100,
+            'beneficiary_commission_amount' => 100,
+            'country_code' => 'CO',
+        ]);
+
+        $this->assertSame('92.00', $europeTransaction->beneficiary_commission_amount);
+        $this->assertSame('94.00', $latamTransaction->beneficiary_commission_amount);
     }
 }

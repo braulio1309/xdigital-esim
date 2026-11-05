@@ -69,7 +69,8 @@ class Transaction extends AppModel
             if ($transaction->isFreeEsim() && $transaction->beneficiary_commission_amount !== null) {
                 $discountPercentage = self::getLargePlanRegionalPercentage(
                     $transaction->country_code,
-                    $transaction->data_amount
+                    $transaction->data_amount !== null ? (float) $transaction->data_amount : null,
+                    $transaction->resolveSuperPartner()
                 );
 
                 if ($discountPercentage !== null) {
@@ -289,7 +290,15 @@ class Transaction extends AppModel
             ];
         }
 
-        $regionalPercentage = self::getLargePlanRegionalPercentage($countryCode, $dataAmount);
+        $superPartner = $superPartnerId
+            ? \App\Models\App\SuperPartner\SuperPartner::find($superPartnerId)
+            : null;
+        if (!$superPartner && $beneficiarioId) {
+            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
+            $superPartner = $beneficiario ? $beneficiario->superPartner : null;
+        }
+
+        $regionalPercentage = self::getLargePlanRegionalPercentage($countryCode, $dataAmount, $superPartner);
 
         if ($regionalPercentage !== null && $superPartnerId) {
             return [
@@ -300,6 +309,7 @@ class Transaction extends AppModel
 
         $isLatam = \App\Helpers\CountryTariffHelper::isLatamCountry($countryCode);
         $isUsaCaEu = \App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode);
+        $superPartnerRegionalPercentage = self::getRegionalSaleCommissionPercentage($countryCode, $superPartner);
 
         if ($beneficiarioId) {
             $beneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
@@ -313,6 +323,12 @@ class Transaction extends AppModel
                     $pct = (float) $beneficiario->sale_commission_usa_ca_eu_pct;
                 }
 
+                if ($superPartner && $superPartnerRegionalPercentage !== null) {
+                    $pct = $superPartnerRegionalPercentage;
+                } elseif ($superPartner) {
+                    $pct = null;
+                }
+
                 if ($pct !== null) {
                     $partnerAmount = round($purchaseAmount * $pct / 100, 2);
                 }
@@ -320,8 +336,6 @@ class Transaction extends AppModel
         }
 
         if ($superPartnerId) {
-            $superPartner = \App\Models\App\SuperPartner\SuperPartner::find($superPartnerId);
-
             if ($superPartner) {
                 $pct = null;
 
@@ -343,10 +357,17 @@ class Transaction extends AppModel
         ];
     }
 
-    public static function getLargePlanRegionalPercentage(?string $countryCode, ?float $dataAmount): ?float
-    {
+    public static function getLargePlanRegionalPercentage(
+        ?string $countryCode,
+        ?float $dataAmount,
+        ?\App\Models\App\SuperPartner\SuperPartner $superPartner = null
+    ): ?float {
         if ((float) $dataAmount <= 1 || !$countryCode) {
             return null;
+        }
+
+        if ($superPartner) {
+            return self::getRegionalSaleCommissionPercentage($countryCode, $superPartner);
         }
 
         $countryCode = strtoupper(trim($countryCode));
@@ -359,6 +380,31 @@ class Transaction extends AppModel
 
         if ($countryCode === 'US' || in_array($region, ['EU28', 'Europe'], true)) {
             return 25.0;
+        }
+
+        return null;
+    }
+
+    public static function getRegionalSaleCommissionPercentage(
+        ?string $countryCode,
+        ?\App\Models\App\SuperPartner\SuperPartner $superPartner
+    ): ?float {
+        if (!$countryCode || !$superPartner) {
+            return null;
+        }
+
+        $countryCode = strtoupper(trim($countryCode));
+
+        if (\App\Helpers\CountryTariffHelper::isLatamCountry($countryCode)) {
+            return $superPartner->sale_commission_latam_pct !== null
+                ? (float) $superPartner->sale_commission_latam_pct
+                : null;
+        }
+
+        if (\App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode)) {
+            return $superPartner->sale_commission_usa_ca_eu_pct !== null
+                ? (float) $superPartner->sale_commission_usa_ca_eu_pct
+                : null;
         }
 
         return null;

@@ -19,13 +19,16 @@
         .items th { background: #303030; color: #fff; padding: 7px 6px; text-align: left; }
         .items td { border-bottom: 1px solid #e8e8e8; padding: 7px 6px; }
         .items tr:nth-child(even) td { background: #f7f7f7; }
-        .section-title { font-size: 12px; margin: 20px 0 8px; }
         .number { text-align: right !important; white-space: nowrap; }
-        .totals { border-collapse: collapse; margin: 18px 0 0 auto; width: 290px; }
+        .summary { border-collapse: collapse; margin-top: 18px; width: 100%; }
+        .summary-cell { vertical-align: top; width: 50%; }
+        .payment-cell { padding-right: 12px; }
+        .totals-cell { padding-left: 12px; }
+        .totals { border-collapse: collapse; margin: 0; width: 100%; }
         .totals td { padding: 5px 0; }
         .totals td:last-child { text-align: right; white-space: nowrap; }
         .totals .grand td { border-top: 1px solid #888; font-size: 12px; font-weight: bold; padding-top: 8px; }
-        .payment { border: 1px solid #ddd; margin-top: 22px; padding: 10px; width: 55%; }
+        .payment { border: 1px solid #ddd; padding: 10px; }
         .payment-title { font-size: 11px; font-weight: bold; margin-bottom: 6px; }
         .payment td { padding: 3px 14px 3px 0; }
         .footer { border-top: 1px solid #ddd; color: #777; font-size: 8px; margin-top: 28px; padding-top: 8px; }
@@ -107,63 +110,33 @@
         </tbody>
     </table>
 
-    @if($commissionRows->isNotEmpty())
-        <h2 class="section-title">Comisiones a favor por compras de clientes</h2>
-        <table class="items">
-            <thead>
-                <tr>
-                    <th>Beneficiario</th>
-                    <th>Factura / nota</th>
-                    <th>Plan</th>
-                    <th>País y comisión</th>
-                    <th class="number">Ventas</th>
-                    <th class="number">Comisión total</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($commissionRows as $row)
-                    <tr>
-                        <td>{{ $row['partner_name'] }}</td>
-                        <td>{{ $row['invoice_number'] }}<br>{{ $row['note_number'] }}</td>
-                        <td>
-                            {{ $row['plan_name'] }}
-                            @if($row['data_amount'])
-                                · {{ $row['data_amount'] }} GB
-                            @endif
-                        </td>
-                        <td>
-                            {{ $row['country_code'] ?? 'N/D' }}
-                            @if(!empty($row['commission_percentage']))
-                                · {{ number_format((float) $row['commission_percentage'], 0) }}% {{ $row['commission_region'] ?? '' }}
-                            @endif
-                        </td>
-                        <td class="number">{{ number_format($row['quantity']) }}</td>
-                        <td class="number">{{ $currency }} {{ number_format($row['total'], 2) }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @endif
-
     @php($discountTotal = $items->sum('discount_total'))
-    <table class="totals">
-        <tr><td>Subtotal de cargos</td><td>{{ $currency }} {{ number_format($amount + $discountTotal, 2) }}</td></tr>
-        <tr><td>Descuentos aplicados</td><td>- {{ $currency }} {{ number_format($discountTotal, 2) }}</td></tr>
-        <tr><td>Comisiones aplicadas</td><td>- {{ $currency }} {{ number_format($appliedCommissions, 2) }}</td></tr>
-        <tr class="grand"><td>Total consolidado</td><td>{{ $currency }} {{ number_format(max(0, $amount - $appliedCommissions), 2) }}</td></tr>
-        <tr><td>Saldo pendiente</td><td>{{ $currency }} {{ number_format($dueAmount, 2) }}</td></tr>
-        <tr><td>Saldo a favor</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
+    <table class="summary">
+        <tr>
+            <td class="summary-cell payment-cell">
+                <div class="payment">
+                    <div class="payment-title">Datos para realizar el pago</div>
+                    <table>
+                        <tr><td><strong>Beneficiario</strong></td><td>XCERTUS LLC</td></tr>
+                        <tr><td><strong>Banco</strong></td><td>{{ $paymentDetails['bank_name'] ?? '' }}</td></tr>
+                        <tr><td><strong>Número de cuenta</strong></td><td>{{ $paymentDetails['account_number'] ?? '' }}</td></tr>
+                        <tr><td><strong>Routing number</strong></td><td>{{ $paymentDetails['routing_number'] ?? '' }}</td></tr>
+                    </table>
+                </div>
+            </td>
+            <td class="summary-cell totals-cell">
+                <table class="totals">
+                    <tr><td>Subtotal de cargos</td><td>{{ $currency }} {{ number_format($amount + $discountTotal, 2) }}</td></tr>
+                    <tr><td>Descuentos aplicados</td><td>- {{ $currency }} {{ number_format($discountTotal, 2) }}</td></tr>
+                    <tr><td>Comisiones totales</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
+                    <tr><td>Comisiones aplicadas</td><td>- {{ $currency }} {{ number_format($appliedCommissions, 2) }}</td></tr>
+                    <tr class="grand"><td>Total consolidado</td><td>{{ $currency }} {{ number_format(max(0, $amount - $appliedCommissions), 2) }}</td></tr>
+                    <tr><td>Saldo pendiente</td><td>{{ $currency }} {{ number_format($dueAmount, 2) }}</td></tr>
+                    <tr><td>Saldo a favor</td><td>{{ $currency }} {{ number_format(max(0, $earnedCommissions - $appliedCommissions), 2) }}</td></tr>
+                </table>
+            </td>
+        </tr>
     </table>
-
-    <div class="payment">
-        <div class="payment-title">Datos para realizar el pago</div>
-        <table>
-            <tr><td><strong>Beneficiario</strong></td><td>XCERTUS LLC</td></tr>
-            <tr><td><strong>Banco</strong></td><td>{{ $paymentDetails['bank_name'] ?? '' }}</td></tr>
-            <tr><td><strong>Número de cuenta</strong></td><td>{{ $paymentDetails['account_number'] ?? '' }}</td></tr>
-            <tr><td><strong>Routing number</strong></td><td>{{ $paymentDetails['routing_number'] ?? '' }}</td></tr>
-        </table>
-    </div>
 
     <div class="footer">Factura consolidada de cargos y comisiones a favor relacionados con los partners y el super partner durante el periodo indicado. Impuestos no incluidos.</div>
 </body>
