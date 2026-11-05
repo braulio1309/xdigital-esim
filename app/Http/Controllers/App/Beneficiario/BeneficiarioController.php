@@ -129,9 +129,6 @@ class BeneficiarioController extends Controller
 
         $clients->each(function ($client) use ($esimsByClient, $companionsByClient) {
             $esim = optional($esimsByClient->get($client->id))->first();
-            $client->esim_status = !$esim
-                ? 'No asignada'
-                : ($esim->status === 'completed' && !$esim->terminated_at ? 'Activa' : 'No activa');
             $client->esim_plan = $esim ? $esim->plan_name : null;
 
             $companions = $companionsByClient->get($client->id, collect())
