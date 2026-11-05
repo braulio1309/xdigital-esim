@@ -493,6 +493,21 @@ class PartnerInvoiceController extends Controller
         ])->setPaper('a4', 'landscape')->download('comisiones-partners-' . $period . '.pdf');
     }
 
+    private function getCommissionRegionLabel(?string $countryCode): ?string
+    {
+        if (!$countryCode) {
+            return null;
+        }
+
+        if (\App\Helpers\CountryTariffHelper::isLatamCountry($countryCode)) {
+            return 'LATAM';
+        }
+
+        return \App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode)
+            ? 'Europa y EE. UU.'
+            : null;
+    }
+
     private function resolveOwner(): array
     {
         $user = auth()->user();
