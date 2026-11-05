@@ -176,6 +176,7 @@ class PartnerInvoiceAdminTest extends TestCase
                 if ($view === 'partner-invoices.monthly-commission-report') {
                     $this->assertCount(1, $data['commissionRows']);
                     $this->assertSame(1, $data['commissionRows']->first()['quantity']);
+                    $this->assertSame(100.0, $data['commissionRows']->first()['sale_unit_price']);
                     $this->assertSame(25.0, $data['commissionRows']->first()['total']);
                 }
 

@@ -520,6 +520,7 @@ class PartnerInvoiceController extends Controller
                     'commission_percentage' => $percentage,
                     'commission_region' => $this->getCommissionRegionLabel($transaction->country_code),
                     'quantity' => 1,
+                    'sale_unit_price' => (float) $transaction->purchase_amount,
                     'unit_price' => $commission,
                     'total' => $commission,
                 ];
@@ -535,6 +536,7 @@ class PartnerInvoiceController extends Controller
                     $row['duration_days'] ?? 'N/D',
                     strtoupper((string) ($row['country_code'] ?? 'N/D')),
                     $row['commission_percentage'],
+                    $row['sale_unit_price'],
                 ]);
             })
             ->map(function ($rows) {

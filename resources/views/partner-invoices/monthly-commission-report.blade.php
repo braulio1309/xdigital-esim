@@ -53,6 +53,7 @@
                 <th>Plan</th>
                 <th>País y comisión</th>
                 <th class="number">Ventas</th>
+                <th class="number">Precio unitario</th>
                 <th class="number">Comisión unitaria</th>
                 <th class="number">Comisión total</th>
             </tr>
@@ -78,6 +79,7 @@
                         @endif
                     </td>
                     <td class="number">{{ number_format($row['quantity']) }}</td>
+                    <td class="number">USD {{ number_format($row['sale_unit_price'], 2) }}</td>
                     <td class="number">USD {{ number_format($row['unit_price'], 2) }}</td>
                     <td class="number">USD {{ number_format($row['total'], 2) }}</td>
                 </tr>
