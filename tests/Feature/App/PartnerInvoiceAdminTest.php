@@ -165,23 +165,33 @@ class PartnerInvoiceAdminTest extends TestCase
 
         $pdf = \Mockery::mock();
         $pdf->shouldReceive('loadView')
-            ->once()
+            ->twice()
             ->withArgs(function ($view, $data) {
-                $this->assertSame('partner-invoices.monthly-commission-report', $view);
-                $this->assertCount(1, $data['commissionRows']);
-                $this->assertSame(1, $data['commissionRows']->first()['quantity']);
-                $this->assertSame(25.0, $data['commissionRows']->first()['total']);
+                $this->assertContains($view, [
+                    'partner-invoices.monthly-commission-report',
+                    'partner-invoices.monthly-consolidated-invoice',
+                ]);
                 $this->assertSame(25.0, $data['earnedCommissions']);
+
+                if ($view === 'partner-invoices.monthly-commission-report') {
+                    $this->assertCount(1, $data['commissionRows']);
+                    $this->assertSame(1, $data['commissionRows']->first()['quantity']);
+                    $this->assertSame(25.0, $data['commissionRows']->first()['total']);
+                }
 
                 return true;
             })
             ->andReturnSelf();
-        $pdf->shouldReceive('setPaper')->once()->andReturnSelf();
-        $pdf->shouldReceive('download')->once()->andReturn(response('PDF'));
+        $pdf->shouldReceive('setPaper')->twice()->andReturnSelf();
+        $pdf->shouldReceive('download')->twice()->andReturn(response('PDF'));
         app()->instance('dompdf.wrapper', $pdf);
 
         $this->actingAs($superPartner->user)
             ->get(route('partner-invoices.monthly-commission-report', '2026-10'))
+            ->assertOk();
+
+        $this->actingAs($superPartner->user)
+            ->get(route('partner-invoices.monthly-invoice', '2026-10'))
             ->assertOk();
     }
 

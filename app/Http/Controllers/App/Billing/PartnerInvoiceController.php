@@ -304,12 +304,15 @@ class PartnerInvoiceController extends Controller
             });
         })->values();
 
+        $commissionRows = $this->buildMonthlySuperPartnerCommissionRows(
+            $superPartner,
+            $periodStart,
+            $invoices,
+            $superPartnerInvoice
+        );
         $amount = round($invoices->sum('amount'), 2);
         $paidAmount = round($invoices->sum('paid_amount'), 2);
-        $earnedCommissions = round(
-            $invoices->sum('earned_commissions') + (float) optional($superPartnerInvoice)->earned_commissions,
-            2
-        );
+        $earnedCommissions = round($commissionRows->sum('total'), 2);
         $outstandingBeforeCommissions = round(max(0, $amount - $paidAmount), 2);
         $appliedCommissions = round(min($earnedCommissions, $outstandingBeforeCommissions), 2);
         $dueAmount = round(max(0, $outstandingBeforeCommissions - $appliedCommissions), 2);
@@ -385,86 +388,12 @@ class PartnerInvoiceController extends Controller
             ->whereDate('period_start', $periodStart->toDateString())
             ->first();
 
-        $transactions = Transaction::query()
-            ->with(['beneficiario', 'superPartner', 'cliente.beneficiario'])
-            ->whereBetween('creation_time', [
-                $periodStart->copy()->startOfMonth()->startOfDay(),
-                $periodStart->copy()->endOfMonth()->endOfDay(),
-            ])
-            ->where('purchase_amount', '>', 0)
-            ->where(function ($query) use ($superPartner, $partnerIds) {
-                $query->where(function ($direct) use ($superPartner) {
-                    $direct->where('super_partner_id', $superPartner->id)
-                        ->whereNull('beneficiario_id')
-                        ->whereDoesntHave('cliente', function ($clienteQuery) {
-                            $clienteQuery->whereNotNull('beneficiario_id');
-                        });
-                })->orWhereIn('beneficiario_id', $partnerIds)
-                    ->orWhereHas('cliente', function ($clienteQuery) use ($partnerIds) {
-                        $clienteQuery->whereIn('beneficiario_id', $partnerIds);
-                    });
-            })
-            ->orderBy('creation_time')
-            ->get();
-
-        $partnerInvoicesByOwner = $invoices->keyBy('owner_id');
-        $commissionRows = $transactions
-            ->map(function (Transaction $transaction) use ($superPartner, $partnerInvoicesByOwner, $superPartnerInvoice) {
-                $partner = $transaction->resolveBeneficiario();
-                $invoice = $partner && (int) $partner->super_partner_id === (int) $superPartner->id
-                    ? $partnerInvoicesByOwner->get($partner->id)
-                    : $superPartnerInvoice;
-                $percentage = Transaction::getRegionalSaleCommissionPercentage(
-                    $transaction->country_code,
-                    $superPartner
-                );
-                $commission = $percentage !== null
-                    ? round((float) $transaction->purchase_amount * $percentage / 100, 2)
-                    : 0.0;
-
-                if ($commission <= 0) {
-                    return null;
-                }
-
-                return [
-                    'partner_name' => $partner && (int) $partner->super_partner_id === (int) $superPartner->id
-                        ? $partner->nombre
-                        : 'Super Partner: ' . $superPartner->nombre,
-                    'invoice_number' => optional($invoice)->invoice_number ?: 'N/D',
-                    'note_number' => optional(optional($invoice)->commissionNote)->note_number ?: 'N/D',
-                    'plan_name' => $transaction->plan_name ?: 'eSIM',
-                    'data_amount' => $transaction->data_amount,
-                    'duration_days' => $transaction->duration_days,
-                    'country_code' => $transaction->country_code,
-                    'commission_percentage' => $percentage,
-                    'commission_region' => $this->getCommissionRegionLabel($transaction->country_code),
-                    'quantity' => 1,
-                    'unit_price' => $commission,
-                    'total' => $commission,
-                ];
-            })
-            ->filter()
-            ->groupBy(function (array $row) {
-                return implode('|', [
-                    $row['partner_name'],
-                    $row['invoice_number'],
-                    $row['note_number'],
-                    $row['plan_name'],
-                    $row['data_amount'] ?? 'N/D',
-                    $row['duration_days'] ?? 'N/D',
-                    strtoupper((string) ($row['country_code'] ?? 'N/D')),
-                    $row['commission_percentage'],
-                ]);
-            })
-            ->map(function ($rows) {
-                $row = $rows->first();
-                $row['quantity'] = $rows->sum('quantity');
-                $row['total'] = round($rows->sum('total'), 2);
-                $row['unit_price'] = round($row['total'] / max($row['quantity'], 1), 2);
-
-                return $row;
-            })
-            ->values();
+        $commissionRows = $this->buildMonthlySuperPartnerCommissionRows(
+            $superPartner,
+            $periodStart,
+            $invoices,
+            $superPartnerInvoice
+        );
 
         abort_if($commissionRows->isEmpty(), 404);
 
@@ -506,6 +435,98 @@ class PartnerInvoiceController extends Controller
         return \App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode)
             ? 'Europa y EE. UU.'
             : null;
+    }
+
+    private function buildMonthlySuperPartnerCommissionRows(
+        SuperPartner $superPartner,
+        Carbon $periodStart,
+        \Illuminate\Support\Collection $partnerInvoices,
+        ?PartnerInvoice $superPartnerInvoice
+    ): \Illuminate\Support\Collection {
+        $partnerIds = $superPartner->beneficiarios()->pluck('id');
+        $transactions = Transaction::query()
+            ->with(['beneficiario', 'superPartner', 'cliente.beneficiario'])
+            ->whereBetween('creation_time', [
+                $periodStart->copy()->startOfMonth()->startOfDay(),
+                $periodStart->copy()->endOfMonth()->endOfDay(),
+            ])
+            ->where('purchase_amount', '>', 0)
+            ->where(function ($query) use ($superPartner, $partnerIds) {
+                $query->where(function ($direct) use ($superPartner) {
+                    $direct->where('super_partner_id', $superPartner->id)
+                        ->whereNull('beneficiario_id')
+                        ->whereDoesntHave('cliente', function ($clienteQuery) {
+                            $clienteQuery->whereNotNull('beneficiario_id');
+                        });
+                })->orWhereIn('beneficiario_id', $partnerIds)
+                    ->orWhereHas('cliente', function ($clienteQuery) use ($partnerIds) {
+                        $clienteQuery->whereIn('beneficiario_id', $partnerIds);
+                    });
+            })
+            ->orderBy('creation_time')
+            ->get();
+
+        $partnerInvoicesByOwner = $partnerInvoices->keyBy('owner_id');
+
+        return $transactions
+            ->map(function (Transaction $transaction) use ($superPartner, $partnerInvoicesByOwner, $superPartnerInvoice) {
+                $partner = $transaction->resolveBeneficiario();
+                $isPartnerTransaction = $partner
+                    && (int) $partner->super_partner_id === (int) $superPartner->id;
+                $invoice = $isPartnerTransaction
+                    ? $partnerInvoicesByOwner->get($partner->id)
+                    : $superPartnerInvoice;
+                $percentage = Transaction::getRegionalSaleCommissionPercentage(
+                    $transaction->country_code,
+                    $superPartner
+                );
+                $commission = $percentage !== null
+                    ? round((float) $transaction->purchase_amount * $percentage / 100, 2)
+                    : 0.0;
+
+                if ($commission <= 0) {
+                    return null;
+                }
+
+                return [
+                    'partner_name' => $isPartnerTransaction
+                        ? $partner->nombre
+                        : 'Super Partner: ' . $superPartner->nombre,
+                    'invoice_number' => optional($invoice)->invoice_number ?: 'N/D',
+                    'note_number' => optional(optional($invoice)->commissionNote)->note_number ?: 'N/D',
+                    'plan_name' => $transaction->plan_name ?: 'eSIM',
+                    'data_amount' => $transaction->data_amount,
+                    'duration_days' => $transaction->duration_days,
+                    'country_code' => $transaction->country_code,
+                    'commission_percentage' => $percentage,
+                    'commission_region' => $this->getCommissionRegionLabel($transaction->country_code),
+                    'quantity' => 1,
+                    'unit_price' => $commission,
+                    'total' => $commission,
+                ];
+            })
+            ->filter()
+            ->groupBy(function (array $row) {
+                return implode('|', [
+                    $row['partner_name'],
+                    $row['invoice_number'],
+                    $row['note_number'],
+                    $row['plan_name'],
+                    $row['data_amount'] ?? 'N/D',
+                    $row['duration_days'] ?? 'N/D',
+                    strtoupper((string) ($row['country_code'] ?? 'N/D')),
+                    $row['commission_percentage'],
+                ]);
+            })
+            ->map(function ($rows) {
+                $row = $rows->first();
+                $row['quantity'] = $rows->sum('quantity');
+                $row['total'] = round($rows->sum('total'), 2);
+                $row['unit_price'] = round($row['total'] / max($row['quantity'], 1), 2);
+
+                return $row;
+            })
+            ->values();
     }
 
     private function resolveOwner(): array
