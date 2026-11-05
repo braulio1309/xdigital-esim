@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\App\Transaction\PartnerInvoice;
+use App\Models\App\Transaction\Transaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -374,9 +375,6 @@ class PartnerInvoiceController extends Controller
             ->where('owner_type', 'partner')
             ->whereIn('owner_id', $partnerIds)
             ->whereDate('period_start', $periodStart->toDateString())
-            ->whereHas('commissionNote', function ($query) {
-                $query->where('amount', '>', 0);
-            })
             ->orderBy('owner_id')
             ->get();
 
@@ -387,73 +385,97 @@ class PartnerInvoiceController extends Controller
             ->whereDate('period_start', $periodStart->toDateString())
             ->first();
 
-        abort_if(
-            $invoices->isEmpty() && (
-                !$superPartnerInvoice
-                || !$superPartnerInvoice->commissionNote
-                || (float) $superPartnerInvoice->commissionNote->amount <= 0
-            ),
-            404
-        );
+        $transactions = Transaction::query()
+            ->with(['beneficiario', 'superPartner', 'cliente.beneficiario'])
+            ->whereBetween('creation_time', [
+                $periodStart->copy()->startOfMonth()->startOfDay(),
+                $periodStart->copy()->endOfMonth()->endOfDay(),
+            ])
+            ->where('purchase_amount', '>', 0)
+            ->where(function ($query) use ($superPartner, $partnerIds) {
+                $query->where(function ($direct) use ($superPartner) {
+                    $direct->where('super_partner_id', $superPartner->id)
+                        ->whereNull('beneficiario_id')
+                        ->whereDoesntHave('cliente', function ($clienteQuery) {
+                            $clienteQuery->whereNotNull('beneficiario_id');
+                        });
+                })->orWhereIn('beneficiario_id', $partnerIds)
+                    ->orWhereHas('cliente', function ($clienteQuery) use ($partnerIds) {
+                        $clienteQuery->whereIn('beneficiario_id', $partnerIds);
+                    });
+            })
+            ->orderBy('creation_time')
+            ->get();
 
-        $partnersById = Beneficiario::query()
-            ->whereIn('id', $invoices->pluck('owner_id')->unique())
-            ->get()
-            ->keyBy('id');
+        $partnerInvoicesByOwner = $invoices->keyBy('owner_id');
+        $commissionRows = $transactions
+            ->map(function (Transaction $transaction) use ($superPartner, $partnerInvoicesByOwner, $superPartnerInvoice) {
+                $partner = $transaction->resolveBeneficiario();
+                $invoice = $partner && (int) $partner->super_partner_id === (int) $superPartner->id
+                    ? $partnerInvoicesByOwner->get($partner->id)
+                    : $superPartnerInvoice;
+                $percentage = Transaction::getRegionalSaleCommissionPercentage(
+                    $transaction->country_code,
+                    $superPartner
+                );
+                $commission = $percentage !== null
+                    ? round((float) $transaction->purchase_amount * $percentage / 100, 2)
+                    : 0.0;
 
-        $commissionRows = $invoices->flatMap(function (PartnerInvoice $invoice) use ($partnersById) {
-            $partner = $partnersById->get($invoice->owner_id);
+                if ($commission <= 0) {
+                    return null;
+                }
 
-            return collect($invoice->commissionNote->items ?? [])
-                ->filter(function (array $item) {
-                    return (float) ($item['total'] ?? 0) > 0;
-                })
-                ->map(function (array $item) use ($invoice, $partner) {
-                    return [
-                        'partner_name' => $partner ? $partner->nombre : 'Partner no disponible',
-                        'invoice_number' => $invoice->invoice_number,
-                        'note_number' => $invoice->commissionNote->note_number,
-                        'plan_name' => $item['plan_name'] ?? 'eSIM',
-                        'data_amount' => $item['data_amount'] ?? null,
-                        'duration_days' => $item['duration_days'] ?? null,
-                        'country_code' => $item['country_code'] ?? null,
-                        'commission_percentage' => isset($item['commission_percentage']) ? (float) $item['commission_percentage'] : null,
-                        'commission_region' => $item['commission_region'] ?? null,
-                        'quantity' => (int) ($item['quantity'] ?? 0),
-                        'unit_price' => (float) ($item['unit_price'] ?? 0),
-                        'total' => (float) ($item['total'] ?? 0),
-                    ];
-                });
-        })->values();
+                return [
+                    'partner_name' => $partner && (int) $partner->super_partner_id === (int) $superPartner->id
+                        ? $partner->nombre
+                        : 'Super Partner: ' . $superPartner->nombre,
+                    'invoice_number' => optional($invoice)->invoice_number ?: 'N/D',
+                    'note_number' => optional(optional($invoice)->commissionNote)->note_number ?: 'N/D',
+                    'plan_name' => $transaction->plan_name ?: 'eSIM',
+                    'data_amount' => $transaction->data_amount,
+                    'duration_days' => $transaction->duration_days,
+                    'country_code' => $transaction->country_code,
+                    'commission_percentage' => $percentage,
+                    'commission_region' => $this->getCommissionRegionLabel($transaction->country_code),
+                    'quantity' => 1,
+                    'unit_price' => $commission,
+                    'total' => $commission,
+                ];
+            })
+            ->filter()
+            ->groupBy(function (array $row) {
+                return implode('|', [
+                    $row['partner_name'],
+                    $row['invoice_number'],
+                    $row['note_number'],
+                    $row['plan_name'],
+                    $row['data_amount'] ?? 'N/D',
+                    $row['duration_days'] ?? 'N/D',
+                    strtoupper((string) ($row['country_code'] ?? 'N/D')),
+                    $row['commission_percentage'],
+                ]);
+            })
+            ->map(function ($rows) {
+                $row = $rows->first();
+                $row['quantity'] = $rows->sum('quantity');
+                $row['total'] = round($rows->sum('total'), 2);
+                $row['unit_price'] = round($row['total'] / max($row['quantity'], 1), 2);
 
-        if ($superPartnerInvoice && $superPartnerInvoice->commissionNote) {
-            $commissionRows = $commissionRows->merge(collect($superPartnerInvoice->commissionNote->items ?? [])
-                ->filter(function (array $item) {
-                    return (float) ($item['total'] ?? 0) > 0;
-                })
-                ->map(function (array $item) use ($superPartnerInvoice, $superPartner) {
-                    return [
-                        'partner_name' => 'Super Partner: ' . $superPartner->nombre,
-                        'invoice_number' => $superPartnerInvoice->invoice_number,
-                        'note_number' => $superPartnerInvoice->commissionNote->note_number,
-                        'plan_name' => $item['plan_name'] ?? 'eSIM',
-                        'data_amount' => $item['data_amount'] ?? null,
-                        'duration_days' => $item['duration_days'] ?? null,
-                        'country_code' => $item['country_code'] ?? null,
-                        'commission_percentage' => isset($item['commission_percentage']) ? (float) $item['commission_percentage'] : null,
-                        'commission_region' => $item['commission_region'] ?? null,
-                        'quantity' => (int) ($item['quantity'] ?? 0),
-                        'unit_price' => (float) ($item['unit_price'] ?? 0),
-                        'total' => (float) ($item['total'] ?? 0),
-                    ];
-                }));
-        }
+                return $row;
+            })
+            ->values();
 
-        $commissionRows = $commissionRows->values();
-        $commissionNotes = $invoices->pluck('commissionNote')->filter();
-        if ($superPartnerInvoice && $superPartnerInvoice->commissionNote) {
-            $commissionNotes->push($superPartnerInvoice->commissionNote);
-        }
+        abort_if($commissionRows->isEmpty(), 404);
+
+        $earnedCommissions = round($commissionRows->sum('total'), 2);
+        $appliedCommissions = round(min(
+            $earnedCommissions,
+            $invoices->sum(function (PartnerInvoice $invoice) {
+                return optional($invoice->commissionNote)->applied_amount ?? 0;
+            }) + (float) optional(optional($superPartnerInvoice)->commissionNote)->applied_amount
+        ), 2);
+        $balanceCommissions = round(max(0, $earnedCommissions - $appliedCommissions), 2);
 
         $logoPath = public_path('images/logo.png');
         $logoData = is_file($logoPath)
@@ -464,9 +486,9 @@ class PartnerInvoiceController extends Controller
             'superPartner' => $superPartner,
             'periodStart' => $periodStart,
             'commissionRows' => $commissionRows,
-            'earnedCommissions' => round($commissionNotes->sum('amount'), 2),
-            'appliedCommissions' => round($commissionNotes->sum('applied_amount'), 2),
-            'balanceCommissions' => round($commissionNotes->sum('balance_amount'), 2),
+            'earnedCommissions' => $earnedCommissions,
+            'appliedCommissions' => $appliedCommissions,
+            'balanceCommissions' => $balanceCommissions,
             'logoData' => $logoData,
         ])->setPaper('a4', 'landscape')->download('comisiones-partners-' . $period . '.pdf');
     }

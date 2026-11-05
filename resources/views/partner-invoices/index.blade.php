@@ -326,18 +326,18 @@
                                                 </span>
                                             </td>
                                             <td class="text-center">
-                                                <a class="btn btn-sm btn-outline-primary"
+                                                <a class="btn btn-sm btn-primary text-nowrap mb-1"
                                                    href="{{ route('partner-invoices.download', $invoice) }}"
                                                    title="Descargar factura PDF"
                                                    aria-label="Descargar factura PDF">
-                                                    <i class="mdi mdi-download"></i>
+                                                    <i class="mdi mdi-download mr-1"></i>Descargar factura
                                                 </a>
                                                 @if($invoice->commissionNote)
-                                                    <a class="btn btn-sm btn-outline-secondary"
+                                                    <a class="btn btn-sm btn-secondary text-nowrap mb-1"
                                                        href="{{ route('partner-invoices.commission-note', $invoice) }}"
                                                        title="Descargar nota de comisiones PDF"
                                                        aria-label="Descargar nota de comisiones PDF">
-                                                        <i class="mdi mdi-file-document-outline"></i>
+                                                        <i class="mdi mdi-file-document-outline mr-1"></i>Descargar nota
                                                     </a>
                                                 @endif
                                             </td>

@@ -4,7 +4,9 @@ namespace Tests\Feature\App;
 
 use App\Models\App\Beneficiario\Beneficiario;
 use App\Models\App\SuperPartner\SuperPartner;
+use App\Models\App\Transaction\PartnerCommissionNote;
 use App\Models\App\Transaction\PartnerInvoice;
+use App\Models\App\Transaction\Transaction;
 use App\Models\Core\Auth\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -110,6 +112,77 @@ class PartnerInvoiceAdminTest extends TestCase
             ->assertOk()
             ->assertSee($matchingInvoice->invoice_number)
             ->assertDontSee($otherInvoice->invoice_number);
+    }
+
+    /** @test */
+    public function monthly_commission_report_lists_a_purchased_esim_only_once(): void
+    {
+        [$superPartner, $partner] = $this->createPartnerNetwork();
+        $superPartner->update(['sale_commission_usa_ca_eu_pct' => 25]);
+        $partnerInvoice = $this->createInvoice('XC-P-202610-000001', 'partner', $partner->id, '2026-10-01');
+        $superPartnerInvoice = $this->createInvoice('XC-SP-202610-000002', 'super_partner', $superPartner->id, '2026-10-01');
+        $commissionItem = [
+            'plan_name' => 'Spain_3GB_30DAYS',
+            'data_amount' => 3,
+            'duration_days' => 30,
+            'country_code' => 'ES',
+            'commission_percentage' => 25,
+            'commission_region' => 'Europa y EE. UU.',
+            'quantity' => 1,
+            'unit_price' => 25,
+            'total' => 25,
+        ];
+        PartnerCommissionNote::create([
+            'partner_invoice_id' => $partnerInvoice->id,
+            'note_number' => 'XC-NC-P-202610-000001',
+            'amount' => 25,
+            'applied_amount' => 25,
+            'balance_amount' => 0,
+            'items' => [$commissionItem],
+            'issued_at' => '2026-10-31',
+        ]);
+        PartnerCommissionNote::create([
+            'partner_invoice_id' => $superPartnerInvoice->id,
+            'note_number' => 'XC-NC-SP-202610-000002',
+            'amount' => 25,
+            'applied_amount' => 25,
+            'balance_amount' => 0,
+            'items' => [$commissionItem],
+            'issued_at' => '2026-10-31',
+        ]);
+        Transaction::create([
+            'transaction_id' => 'PAID-ESIM-ONCE',
+            'creation_time' => '2026-10-15 12:00:00',
+            'beneficiario_id' => $partner->id,
+            'super_partner_id' => $superPartner->id,
+            'plan_name' => 'Spain_3GB_30DAYS',
+            'data_amount' => 3,
+            'duration_days' => 30,
+            'purchase_amount' => 100,
+            'beneficiary_commission_amount' => 0,
+            'country_code' => 'ES',
+        ]);
+
+        $pdf = \Mockery::mock();
+        $pdf->shouldReceive('loadView')
+            ->once()
+            ->withArgs(function ($view, $data) {
+                $this->assertSame('partner-invoices.monthly-commission-report', $view);
+                $this->assertCount(1, $data['commissionRows']);
+                $this->assertSame(1, $data['commissionRows']->first()['quantity']);
+                $this->assertSame(25.0, $data['commissionRows']->first()['total']);
+                $this->assertSame(25.0, $data['earnedCommissions']);
+
+                return true;
+            })
+            ->andReturnSelf();
+        $pdf->shouldReceive('setPaper')->once()->andReturnSelf();
+        $pdf->shouldReceive('download')->once()->andReturn(response('PDF'));
+        app()->instance('dompdf.wrapper', $pdf);
+
+        $this->actingAs($superPartner->user)
+            ->get(route('partner-invoices.monthly-commission-report', '2026-10'))
+            ->assertOk();
     }
 
     /** @test */
