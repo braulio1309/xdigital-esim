@@ -48,7 +48,7 @@ class PartnerInvoiceService
         $amount = round(array_sum(array_column($items, 'total')), 2);
         $paidAmount = round(array_sum(array_column($items, 'paid_total')), 2);
         $commissionTransactions = $this->commissionTransactions($ownerType, $ownerId, $periodStart, $periodEnd);
-        $commissionItems = $this->buildCommissionItems($commissionTransactions, $ownerType);
+        $commissionItems = $this->buildCommissionItems($commissionTransactions);
         $earnedCommissions = round(array_sum(array_column($commissionItems, 'total')), 2);
         $outstandingBeforeCommissions = round(max(0, $amount - $paidAmount), 2);
         $appliedCommissions = round(min($earnedCommissions, $outstandingBeforeCommissions), 2);
@@ -152,7 +152,7 @@ class PartnerInvoiceService
     private function commissionTransactions(string $ownerType, int $ownerId, Carbon $periodStart, Carbon $periodEnd): Collection
     {
         $query = Transaction::query()
-            ->with(['cliente.beneficiario'])
+            ->with(['beneficiario.superPartner', 'superPartner', 'cliente.beneficiario.superPartner'])
             ->whereBetween('creation_time', [$periodStart, $periodEnd])
             ->where('purchase_amount', '>', 0);
 
@@ -167,14 +167,11 @@ class PartnerInvoiceService
                     });
             });
         } else {
-            $partnerIds = SuperPartner::findOrFail($ownerId)->beneficiarios()->pluck('id');
-            $query->where(function ($builder) use ($ownerId, $partnerIds) {
-                $builder->where('super_partner_id', $ownerId)
-                    ->orWhereIn('beneficiario_id', $partnerIds)
-                    ->orWhereHas('cliente', function ($clienteQuery) use ($partnerIds) {
-                        $clienteQuery->whereIn('beneficiario_id', $partnerIds);
-                    });
-            });
+            $query->where('super_partner_id', $ownerId)
+                ->whereNull('beneficiario_id')
+                ->whereDoesntHave('cliente', function ($clienteQuery) {
+                    $clienteQuery->whereNotNull('beneficiario_id');
+                });
         }
 
         return $query->orderBy('creation_time')->get();
@@ -239,53 +236,47 @@ class PartnerInvoiceService
             ->all();
     }
 
-    private function buildCommissionItems(Collection $transactions, string $ownerType): array
+    private function buildCommissionItems(Collection $transactions): array
     {
-        $commissionColumn = $ownerType === 'partner'
-            ? 'partner_sale_commission_amount'
-            : 'super_partner_sale_commission_amount';
-
         return $transactions
-            ->filter(function (Transaction $transaction) use ($commissionColumn) {
-                return (float) $transaction->{$commissionColumn} > 0;
-            })
-            ->groupBy(function (Transaction $transaction) {
-                $regionalPercentage = Transaction::getLargePlanRegionalPercentage(
+            ->map(function (Transaction $transaction) {
+                $superPartner = $transaction->resolveSuperPartner();
+                $percentage = Transaction::getRegionalSaleCommissionPercentage(
                     $transaction->country_code,
-                    $transaction->data_amount !== null ? (float) $transaction->data_amount : null,
-                    $transaction->resolveSuperPartner()
+                    $superPartner
                 );
 
+                $transaction->invoice_commission_percentage = $percentage;
+                $transaction->invoice_commission_amount = $percentage !== null
+                    ? round((float) $transaction->purchase_amount * $percentage / 100, 2)
+                    : 0.0;
+
+                return $transaction;
+            })
+            ->filter(function (Transaction $transaction) {
+                return $transaction->invoice_commission_amount > 0;
+            })
+            ->groupBy(function (Transaction $transaction) {
                 return implode('|', [
                     $transaction->plan_name ?: 'eSIM',
                     $transaction->data_amount ?: 'N/D',
                     $transaction->duration_days ?: 'N/D',
                     strtoupper((string) ($transaction->country_code ?: 'N/D')),
-                    $regionalPercentage ?? 'configured',
+                    $transaction->invoice_commission_percentage,
                 ]);
             })
-            ->map(function (Collection $planTransactions) use ($commissionColumn) {
+            ->map(function (Collection $planTransactions) {
                 $first = $planTransactions->first();
-                $total = round($planTransactions->sum(function (Transaction $transaction) use ($commissionColumn) {
-                    return (float) $transaction->{$commissionColumn};
+                $total = round($planTransactions->sum(function (Transaction $transaction) {
+                    return $transaction->invoice_commission_amount;
                 }), 2);
-                $purchaseTotal = round($planTransactions->sum(function (Transaction $transaction) {
-                    return (float) $transaction->purchase_amount;
-                }), 2);
-                $regionalPercentage = Transaction::getLargePlanRegionalPercentage(
-                    $first->country_code,
-                    $first->data_amount !== null ? (float) $first->data_amount : null,
-                    $first->resolveSuperPartner()
-                );
 
                 return [
                     'plan_name' => $first->plan_name ?: 'eSIM',
                     'data_amount' => $first->data_amount,
                     'duration_days' => $first->duration_days,
                     'country_code' => $first->country_code,
-                    'commission_percentage' => $regionalPercentage !== null && $commissionColumn === 'super_partner_sale_commission_amount'
-                        ? $regionalPercentage
-                        : ($purchaseTotal > 0 ? round($total / $purchaseTotal * 100, 2) : null),
+                    'commission_percentage' => $first->invoice_commission_percentage,
                     'commission_region' => $this->getRegionalLabel($first->country_code),
                     'quantity' => $planTransactions->count(),
                     'unit_price' => round($total / max($planTransactions->count(), 1), 2),

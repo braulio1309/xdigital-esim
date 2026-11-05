@@ -98,6 +98,21 @@ class PartnerInvoiceAdminTest extends TestCase
     }
 
     /** @test */
+    public function administrator_can_search_invoices_by_number(): void
+    {
+        $admin = $this->createAdmin(['user_type' => 'admin']);
+        [$superPartner] = $this->createPartnerNetwork();
+        $matchingInvoice = $this->createInvoice('XC-SP-202609-123456', 'super_partner', $superPartner->id, '2026-09-01');
+        $otherInvoice = $this->createInvoice('XC-SP-202609-654321', 'super_partner', $superPartner->id, '2026-09-01');
+
+        $this->actingAs($admin)
+            ->get(route('partner-invoices.index', ['invoice_number' => '123456']))
+            ->assertOk()
+            ->assertSee($matchingInvoice->invoice_number)
+            ->assertDontSee($otherInvoice->invoice_number);
+    }
+
+    /** @test */
     public function super_partner_cannot_change_invoice_payment_status(): void
     {
         [$superPartner] = $this->createPartnerNetwork();

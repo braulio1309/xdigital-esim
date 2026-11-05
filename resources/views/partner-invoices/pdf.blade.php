@@ -112,13 +112,13 @@
     </table>
 
     @if($invoice->commissionNote && count($invoice->commissionNote->items ?? []) > 0)
-        <h3>Comisiones a favor por compras de clientes</h3>
+        <h3>Comisiones por eSIM compradas (tasa del Super Partner)</h3>
         <table class="items">
             <thead>
                 <tr>
                     <th>Plan</th>
-                    <th>País</th>
-                    <th class="number">Comisión</th>
+                    <th>País y comisión del Super Partner</th>
+                    <th class="number">Comisión unitaria</th>
                     <th class="number">Ventas</th>
                     <th class="number">Comisión total</th>
                 </tr>
@@ -130,7 +130,7 @@
                         <td>
                             {{ $item['country_code'] ?? 'N/D' }}
                             @if(!empty($item['commission_percentage']))
-                                · {{ number_format((float) $item['commission_percentage'], 0) }}% {{ $item['commission_region'] ?? '' }}
+                                · {{ number_format((float) $item['commission_percentage'], 2) }}% {{ $item['commission_region'] ?? '' }}
                             @endif
                         </td>
                         <td class="number">{{ $invoice->currency }} {{ number_format((float) ($item['unit_price'] ?? 0), 2) }}</td>

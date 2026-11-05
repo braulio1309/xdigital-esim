@@ -128,7 +128,7 @@
                 <table class="totals">
                     <tr><td>Subtotal de cargos</td><td>{{ $currency }} {{ number_format($amount + $discountTotal, 2) }}</td></tr>
                     <tr><td>Descuentos aplicados</td><td>- {{ $currency }} {{ number_format($discountTotal, 2) }}</td></tr>
-                    <tr><td>Comisiones totales</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
+                    <tr><td>Comisiones por compras (Super Partner)</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
                     <tr><td>Comisiones aplicadas</td><td>- {{ $currency }} {{ number_format($appliedCommissions, 2) }}</td></tr>
                     <tr class="grand"><td>Total consolidado</td><td>{{ $currency }} {{ number_format(max(0, $amount - $appliedCommissions), 2) }}</td></tr>
                     <tr><td>Saldo pendiente</td><td>{{ $currency }} {{ number_format($dueAmount, 2) }}</td></tr>

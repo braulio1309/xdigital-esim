@@ -64,6 +64,23 @@ class TransactionRegionalCommissionTest extends TestCase
     }
 
     /** @test */
+    public function partner_visual_rates_do_not_generate_commissions_without_a_super_partner(): void
+    {
+        $partner = Beneficiario::create([
+            'nombre' => 'Partner',
+            'descripcion' => 'Test partner',
+            'codigo' => 'P000001',
+            'sale_commission_latam_pct' => 10,
+            'sale_commission_usa_ca_eu_pct' => 12,
+        ]);
+
+        $commissions = Transaction::calculateSaleCommissions(100, 'DE', $partner->id, null, 1);
+
+        $this->assertSame(0.0, $commissions['partner_sale_commission_amount']);
+        $this->assertSame(0.0, $commissions['super_partner_sale_commission_amount']);
+    }
+
+    /** @test */
     public function regional_rates_apply_only_to_plans_above_one_gigabyte(): void
     {
         $this->assertSame(25.0, Transaction::getLargePlanRegionalPercentage('US', 1.5));

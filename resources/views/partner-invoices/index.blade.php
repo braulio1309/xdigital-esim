@@ -85,7 +85,7 @@
                 <div class="col-12">
                     <form method="GET" action="{{ route('partner-invoices.index') }}" class="card card-body">
                         <div class="form-row align-items-end">
-                            <div class="form-group col-md-4 mb-md-0">
+                            <div class="form-group col-md-3 mb-md-0">
                                 <label for="invoice-month">Filtrar por mes</label>
                                 <select id="invoice-month" name="month" class="form-control">
                                     <option value="">Todos los meses</option>
@@ -96,7 +96,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="form-group col-md-4 mb-md-0">
+                            <div class="form-group col-md-3 mb-md-0">
                                 <label for="invoice-super-partner">Super Partner</label>
                                 <select id="invoice-super-partner" name="super_partner_id" class="form-control">
                                     <option value="">Todos los super partners</option>
@@ -107,7 +107,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="form-group col-md-3 mb-md-0">
+                            <div class="form-group col-md-2 mb-md-0">
                                 <label for="invoice-type">Tipo de factura</label>
                                 <select id="invoice-type" name="invoice_type" class="form-control">
                                     <option value="">Todos los tipos</option>
@@ -115,9 +115,14 @@
                                     <option value="partner" {{ request('invoice_type') === 'partner' ? 'selected' : '' }}>Partners</option>
                                 </select>
                             </div>
+                            <div class="form-group col-md-3 mb-md-0">
+                                <label for="invoice-number">Número de factura</label>
+                                <input id="invoice-number" type="search" name="invoice_number" class="form-control"
+                                       value="{{ $invoiceNumber }}" placeholder="Ej. XC-P-202611">
+                            </div>
                             <div class="form-group mb-0">
                                 <button type="submit" class="btn btn-primary">Filtrar</button>
-                                @if(request()->filled('month') || request()->filled('super_partner_id') || request()->filled('invoice_type'))
+                                @if(request()->filled('month') || request()->filled('super_partner_id') || request()->filled('invoice_type') || $invoiceNumber !== '')
                                     <a href="{{ route('partner-invoices.index') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
                             </div>
@@ -240,6 +245,28 @@
             @endif
         @endif
 
+        @if($owner['type'] !== 'admin')
+            <div class="row mt-3">
+                <div class="col-12">
+                    <form method="GET" action="{{ route('partner-invoices.index') }}" class="card card-body">
+                        <div class="form-row align-items-end">
+                            <div class="form-group col-md-4 mb-md-0">
+                                <label for="invoice-number">Número de factura</label>
+                                <input id="invoice-number" type="search" name="invoice_number" class="form-control"
+                                       value="{{ $invoiceNumber }}" placeholder="Ej. XC-P-202611">
+                            </div>
+                            <div class="form-group mb-0">
+                                <button type="submit" class="btn btn-primary">Buscar</button>
+                                @if($invoiceNumber !== '')
+                                    <a href="{{ route('partner-invoices.index') }}" class="btn btn-outline-secondary">Limpiar</a>
+                                @endif
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
+
         @if($owner['type'] !== 'admin' || $hasFilters)
         <div class="row mt-3">
             <div class="col-12">
@@ -319,7 +346,7 @@
                                                     <form method="POST" action="{{ route('partner-invoices.payment-status', $invoice) }}">
                                                         @csrf
                                                         @method('PATCH')
-                                                        @foreach(['month', 'super_partner_id', 'invoice_type'] as $filter)
+                                                        @foreach(['month', 'super_partner_id', 'invoice_type', 'invoice_number'] as $filter)
                                                             @if(request()->filled($filter))
                                                                 <input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">
                                                             @endif

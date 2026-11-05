@@ -13,8 +13,15 @@ class PartnerInvoiceController extends Controller
 {
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'invoice_number' => ['nullable', 'string', 'max:100'],
+        ]);
+        $invoiceNumber = trim($validated['invoice_number'] ?? '');
         $owner = $this->resolveOwner();
         $query = PartnerInvoice::query()->with('commissionNote')->orderByDesc('period_start')->orderByDesc('id');
+        if ($invoiceNumber !== '') {
+            $query->where('invoice_number', 'like', '%' . $invoiceNumber . '%');
+        }
         $monthlyPartnerTotals = collect();
         $superPartnerInvoiceTotals = collect();
         $adminPartnerInvoiceTotals = collect();
@@ -27,6 +34,7 @@ class PartnerInvoiceController extends Controller
                 'month' => ['nullable', 'date_format:Y-m'],
                 'super_partner_id' => ['nullable', 'integer', 'exists:super_partners,id'],
                 'invoice_type' => ['nullable', 'in:super_partner,partner'],
+                'invoice_number' => ['nullable', 'string', 'max:100'],
             ]);
 
             $periodStart = $request->filled('month')
@@ -36,11 +44,15 @@ class PartnerInvoiceController extends Controller
             $invoiceType = $request->input('invoice_type');
             $hasFilters = $request->filled('month')
                 || $request->filled('super_partner_id')
-                || $request->filled('invoice_type');
+                || $request->filled('invoice_type')
+                || $invoiceNumber !== '';
 
             if ($hasFilters && (!$invoiceType || $invoiceType === 'super_partner')) {
                 $superPartnerInvoiceTotals = PartnerInvoice::query()
                     ->where('partner_invoices.owner_type', 'super_partner')
+                    ->when($invoiceNumber !== '', function ($builder) use ($invoiceNumber) {
+                        $builder->where('partner_invoices.invoice_number', 'like', '%' . $invoiceNumber . '%');
+                    })
                     ->when($superPartnerId, function ($builder) use ($superPartnerId) {
                         $builder->where('partner_invoices.owner_id', $superPartnerId);
                     })
@@ -60,7 +72,10 @@ class PartnerInvoiceController extends Controller
             if ($hasFilters && (!$invoiceType || $invoiceType === 'partner')) {
                 $partnerInvoiceQuery = PartnerInvoice::query()
                     ->join('beneficiarios', 'beneficiarios.id', '=', 'partner_invoices.owner_id')
-                    ->where('partner_invoices.owner_type', 'partner');
+                    ->where('partner_invoices.owner_type', 'partner')
+                    ->when($invoiceNumber !== '', function ($builder) use ($invoiceNumber) {
+                        $builder->where('partner_invoices.invoice_number', 'like', '%' . $invoiceNumber . '%');
+                    });
                 if ($periodStart) {
                     $partnerInvoiceQuery->whereDate('partner_invoices.period_start', $periodStart);
                 }
@@ -124,6 +139,9 @@ class PartnerInvoiceController extends Controller
             $monthlyPartnerTotals = PartnerInvoice::query()
                 ->where('owner_type', 'partner')
                 ->whereIn('owner_id', $partnerIds)
+                ->when($invoiceNumber !== '', function ($builder) use ($invoiceNumber) {
+                    $builder->where('invoice_number', 'like', '%' . $invoiceNumber . '%');
+                })
                 ->selectRaw('period_start, COUNT(*) as partner_count')
                 ->selectRaw('SUM(CASE WHEN amount > applied_commissions THEN amount - applied_commissions ELSE 0 END) as net_amount')
                 ->selectRaw('SUM(earned_commissions) as earned_commissions')
@@ -176,6 +194,7 @@ class PartnerInvoiceController extends Controller
         return view('partner-invoices.index', compact(
             'invoices',
             'owner',
+            'invoiceNumber',
             'hasFilters',
             'monthlyPartnerTotals',
             'months',
@@ -198,7 +217,7 @@ class PartnerInvoiceController extends Controller
         ]);
 
         return redirect()
-            ->route('partner-invoices.index', $request->only('month', 'super_partner_id', 'invoice_type'))
+            ->route('partner-invoices.index', $request->only('month', 'super_partner_id', 'invoice_type', 'invoice_number'))
             ->with('success', 'El estatus de pago de la factura se actualizó correctamente.');
     }
 

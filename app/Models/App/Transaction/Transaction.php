@@ -307,47 +307,15 @@ class Transaction extends AppModel
             ];
         }
 
-        $isLatam = \App\Helpers\CountryTariffHelper::isLatamCountry($countryCode);
-        $isUsaCaEu = \App\Helpers\CountryTariffHelper::isUsaCaEuCountry($countryCode);
         $superPartnerRegionalPercentage = self::getRegionalSaleCommissionPercentage($countryCode, $superPartner);
 
-        if ($beneficiarioId) {
-            $beneficiario = \App\Models\App\Beneficiario\Beneficiario::find($beneficiarioId);
-
-            if ($beneficiario) {
-                $pct = null;
-
-                if ($isLatam && $beneficiario->sale_commission_latam_pct !== null) {
-                    $pct = (float) $beneficiario->sale_commission_latam_pct;
-                } elseif ($isUsaCaEu && $beneficiario->sale_commission_usa_ca_eu_pct !== null) {
-                    $pct = (float) $beneficiario->sale_commission_usa_ca_eu_pct;
-                }
-
-                if ($superPartner && $superPartnerRegionalPercentage !== null) {
-                    $pct = $superPartnerRegionalPercentage;
-                } elseif ($superPartner) {
-                    $pct = null;
-                }
-
-                if ($pct !== null) {
-                    $partnerAmount = round($purchaseAmount * $pct / 100, 2);
-                }
-            }
+        if ($beneficiarioId && $superPartnerRegionalPercentage !== null) {
+            $partnerAmount = round($purchaseAmount * $superPartnerRegionalPercentage / 100, 2);
         }
 
         if ($superPartnerId) {
-            if ($superPartner) {
-                $pct = null;
-
-                if ($isLatam && $superPartner->sale_commission_latam_pct !== null) {
-                    $pct = (float) $superPartner->sale_commission_latam_pct;
-                } elseif ($isUsaCaEu && $superPartner->sale_commission_usa_ca_eu_pct !== null) {
-                    $pct = (float) $superPartner->sale_commission_usa_ca_eu_pct;
-                }
-
-                if ($pct !== null) {
-                    $superPartnerAmount = round($purchaseAmount * $pct / 100, 2);
-                }
+            if ($superPartnerRegionalPercentage !== null) {
+                $superPartnerAmount = round($purchaseAmount * $superPartnerRegionalPercentage / 100, 2);
             }
         }
 

@@ -74,7 +74,7 @@
                     <td>
                         {{ $row['country_code'] ?? 'N/D' }}
                         @if(!empty($row['commission_percentage']))
-                            · {{ number_format((float) $row['commission_percentage'], 0) }}% {{ $row['commission_region'] ?? '' }}
+                            · {{ number_format((float) $row['commission_percentage'], 2) }}% {{ $row['commission_region'] ?? '' }}
                         @endif
                     </td>
                     <td class="number">{{ number_format($row['quantity']) }}</td>

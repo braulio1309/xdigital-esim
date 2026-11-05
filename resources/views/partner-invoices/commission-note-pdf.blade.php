@@ -73,7 +73,7 @@
         <thead>
             <tr>
                 <th>Plan con comisión generada</th>
-                <th>País y comisión</th>
+                <th>País y comisión del Super Partner</th>
                 <th class="number">Ventas</th>
                 <th class="number">Comisión unitaria</th>
                 <th class="number">Comisión ganada</th>
@@ -94,7 +94,7 @@
                     <td>
                         {{ $item['country_code'] ?? 'N/D' }}
                         @if(!empty($item['commission_percentage']))
-                            · {{ number_format((float) $item['commission_percentage'], 0) }}% {{ $item['commission_region'] ?? '' }}
+                            · {{ number_format((float) $item['commission_percentage'], 2) }}% {{ $item['commission_region'] ?? '' }}
                         @endif
                     </td>
                     <td class="number">{{ number_format($item['quantity']) }}</td>
