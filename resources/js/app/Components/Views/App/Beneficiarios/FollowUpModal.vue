@@ -40,7 +40,7 @@
                                 class="btn btn-success"
                                 :disabled="loading"
                                 @click="exportPartners">
-                            Exportar
+                            Exportar Excel
                         </button>
                     </div>
                 </div>

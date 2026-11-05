@@ -38,7 +38,8 @@ class PartnerFollowUpTest extends TestCase
         $export = $this->actingAs($admin)
             ->get(route('beneficiarios.follow-up-export', $filters));
         $export->assertOk()
-            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringStartsWith('PK', $export->getContent());
     }
 
     /** @test */

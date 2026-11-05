@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\App\Beneficiario;
 
 use App\Exports\App\Beneficiario\BeneficiarioCommissionsExport;
+use App\Exports\App\Beneficiario\BeneficiarioFollowUpExport;
 use App\Filters\App\Beneficiario\BeneficiarioFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\BeneficiarioRequest as Request;
@@ -80,22 +81,10 @@ class BeneficiarioController extends Controller
     {
         $partners = $this->getFollowUpPartners($request);
 
-        return response()->streamDownload(function () use ($partners) {
-            $output = fopen('php://output', 'w');
-            fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Partner', 'Clientes registrados']);
-
-            foreach ($partners as $partner) {
-                fputcsv($output, [
-                    $this->safeCsvCell($partner->nombre),
-                    $partner->registered_clients_count,
-                ]);
-            }
-
-            fclose($output);
-        }, 'seguimiento-partners-' . now()->format('Ymd-His') . '.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download(
+            new BeneficiarioFollowUpExport($partners),
+            'seguimiento-partners-' . now()->format('Ymd-His') . '.xlsx'
+        );
     }
 
     private function getFollowUpPartners(\Illuminate\Http\Request $request)
@@ -139,11 +128,6 @@ class BeneficiarioController extends Controller
         }
 
         return $query->get();
-    }
-
-    private function safeCsvCell(string $value): string
-    {
-        return preg_match('/^[=+\-@]/', $value) === 1 ? "'" . $value : $value;
     }
 
     public function inactivate(Beneficiario $beneficiario)
