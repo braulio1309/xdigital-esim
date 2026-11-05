@@ -71,6 +71,7 @@ export const BENEFICIARIOS_EXPORT_COMMISSIONS = (id) => `beneficiarios/${id}/exp
 export const BENEFICIARIOS_VISUAL_COMMISSIONS = (id) => `beneficiarios/${id}/visual-commissions`;
 export const BENEFICIARIOS_FOLLOW_UP = 'beneficiarios/seguimiento';
 export const BENEFICIARIOS_FOLLOW_UP_EXPORT = 'beneficiarios/seguimiento/export';
+export const BENEFICIARIOS_FOLLOW_UP_CLIENTS_EXPORT = (id) => `beneficiarios/seguimiento/${id}/clientes/export`;
 
 //Super Partners
 export const SUPER_PARTNERS = 'super-partners';

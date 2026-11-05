@@ -40,6 +40,14 @@ class PartnerFollowUpTest extends TestCase
         $export->assertOk()
             ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         $this->assertStringStartsWith('PK', $export->getContent());
+
+        $clientExport = $this->actingAs($admin)
+            ->get(route('beneficiarios.follow-up-clients-export', [
+                'beneficiario' => $firstPartner->id,
+            ] + $filters));
+        $clientExport->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringStartsWith('PK', $clientExport->getContent());
     }
 
     /** @test */
@@ -64,6 +72,12 @@ class PartnerFollowUpTest extends TestCase
             ->assertJsonCount(1, 'partners')
             ->assertJsonPath('partners.0.id', $ownPartner->id)
             ->assertJsonPath('partners.0.registered_clients_count', 1);
+
+        $this->actingAs($owner)
+            ->get(route('beneficiarios.follow-up-clients-export', [
+                'beneficiario' => $otherPartner->id,
+            ]))
+            ->assertNotFound();
     }
 
     private function createPartnerNetwork(string $suffix = 'Uno'): array

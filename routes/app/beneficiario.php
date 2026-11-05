@@ -11,6 +11,9 @@ Route::get('beneficiarios/seguimiento', [BeneficiarioController::class, 'followU
 Route::get('beneficiarios/seguimiento/export', [BeneficiarioController::class, 'exportFollowUp'])
     ->withoutMiddleware('authorize')
     ->name('beneficiarios.follow-up-export');
+Route::get('beneficiarios/seguimiento/{beneficiario}/clientes/export', [BeneficiarioController::class, 'exportRegisteredClients'])
+    ->withoutMiddleware('authorize')
+    ->name('beneficiarios.follow-up-clients-export');
 Route::resource('beneficiarios', BeneficiarioController::class);
 Route::post('beneficiarios/{beneficiario}/inactivate', [BeneficiarioController::class, 'inactivate'])->name('beneficiarios.inactivate');
 Route::post('beneficiarios/{beneficiario}/activate', [BeneficiarioController::class, 'activate'])->name('beneficiarios.activate');

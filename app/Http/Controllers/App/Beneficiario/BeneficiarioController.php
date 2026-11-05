@@ -4,10 +4,12 @@ namespace App\Http\Controllers\App\Beneficiario;
 
 use App\Exports\App\Beneficiario\BeneficiarioCommissionsExport;
 use App\Exports\App\Beneficiario\BeneficiarioFollowUpExport;
+use App\Exports\App\Beneficiario\BeneficiarioRegisteredClientsExport;
 use App\Filters\App\Beneficiario\BeneficiarioFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\App\BeneficiarioRequest as Request;
 use App\Models\App\Beneficiario\Beneficiario;
+use App\Models\App\Transaction\Transaction as EsimTransaction;
 use App\Models\App\SuperPartner\SuperPartner;
 use App\Models\Core\Status;
 use App\Services\App\Beneficiario\BeneficiarioService;
@@ -87,21 +89,75 @@ class BeneficiarioController extends Controller
         );
     }
 
-    private function getFollowUpPartners(\Illuminate\Http\Request $request)
-    {
-        $user = $request->user();
-        abort_unless(in_array($user->user_type, ['admin', 'super_partner', 'admin_partner'], true), 403);
+    public function exportRegisteredClients(
+        \Illuminate\Http\Request $request,
+        Beneficiario $beneficiario
+    ) {
+        $filters = $this->validateFollowUpFilters($request);
+        $this->authorizeFollowUpPartner($request, $beneficiario);
 
-        $rules = [
-            'start_date' => 'nullable|date_format:Y-m-d',
-            'end_date' => 'nullable|date_format:Y-m-d',
-        ];
+        $clients = $beneficiario->clientes()
+            ->select(['id', 'nombre', 'apellido', 'email', 'identificador', 'created_at'])
+            ->orderBy('created_at')
+            ->orderBy('id');
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $rules['end_date'] .= '|after_or_equal:start_date';
+        if (!empty($filters['start_date'])) {
+            $clients->whereDate('created_at', '>=', $filters['start_date']);
         }
 
-        $filters = $request->validate($rules);
+        if (!empty($filters['end_date'])) {
+            $clients->whereDate('created_at', '<=', $filters['end_date']);
+        }
+
+        $clients = $clients->get();
+        $clientIds = $clients->pluck('id');
+        $esimsByClient = EsimTransaction::query()
+            ->whereIn('cliente_id', $clientIds)
+            ->whereNull('companion_of_cliente_id')
+            ->orderByDesc('creation_time')
+            ->orderByDesc('id')
+            ->get(['id', 'cliente_id', 'status', 'terminated_at', 'plan_name'])
+            ->groupBy('cliente_id');
+        $companionsByClient = EsimTransaction::query()
+            ->with('cliente:id,nombre,apellido,email')
+            ->whereIn('companion_of_cliente_id', $clientIds)
+            ->whereNotNull('cliente_id')
+            ->orderBy('creation_time')
+            ->get(['id', 'cliente_id', 'companion_of_cliente_id', 'creation_time'])
+            ->unique('cliente_id')
+            ->groupBy('companion_of_cliente_id');
+
+        $clients->each(function ($client) use ($esimsByClient, $companionsByClient) {
+            $esim = optional($esimsByClient->get($client->id))->first();
+            $client->esim_status = !$esim
+                ? 'No asignada'
+                : ($esim->status === 'completed' && !$esim->terminated_at ? 'Activa' : 'No activa');
+            $client->esim_plan = $esim ? $esim->plan_name : null;
+
+            $companions = $companionsByClient->get($client->id, collect())
+                ->map(function ($transaction) {
+                    $companion = $transaction->cliente;
+
+                    return $companion
+                        ? trim($companion->nombre . ' ' . $companion->apellido) . ' (' . $companion->email . ')'
+                        : null;
+                })
+                ->filter()
+                ->values();
+            $client->companions_count = $companions->count();
+            $client->companions = $companions->implode(', ');
+        });
+
+        return Excel::download(
+            new BeneficiarioRegisteredClientsExport($clients),
+            'clientes-' . Str::slug($beneficiario->nombre) . '-' . now()->format('Ymd-His') . '.xlsx'
+        );
+    }
+
+    private function getFollowUpPartners(\Illuminate\Http\Request $request)
+    {
+        $filters = $this->validateFollowUpFilters($request);
+        $user = $request->user();
         $query = Beneficiario::query()
             ->select(['id', 'nombre', 'super_partner_id'])
             ->withCount(['clientes as registered_clients_count' => function ($clienteQuery) use ($filters) {
@@ -116,18 +172,48 @@ class BeneficiarioController extends Controller
             ->orderBy('nombre');
 
         if ($user->user_type !== 'admin') {
-            $superPartnerId = $user->user_type === 'super_partner'
-                ? SuperPartner::query()->where('user_id', $user->id)->value('id')
-                : $user->super_partner_id;
-
-            if ($superPartnerId) {
-                $query->where('super_partner_id', $superPartnerId);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+            $superPartnerId = $this->getUserSuperPartnerId($user);
+            $query->where('super_partner_id', $superPartnerId ?: 0);
         }
 
         return $query->get();
+    }
+
+    private function validateFollowUpFilters(\Illuminate\Http\Request $request): array
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->user_type, ['admin', 'super_partner', 'admin_partner'], true), 403);
+
+        $rules = [
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d',
+        ];
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $rules['end_date'] .= '|after_or_equal:start_date';
+        }
+
+        return $request->validate($rules);
+    }
+
+    private function authorizeFollowUpPartner(\Illuminate\Http\Request $request, Beneficiario $beneficiario): void
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->user_type, ['admin', 'super_partner', 'admin_partner'], true), 403);
+
+        if ($user->user_type !== 'admin') {
+            $superPartnerId = $this->getUserSuperPartnerId($user);
+            abort_unless($superPartnerId && (int) $beneficiario->super_partner_id === $superPartnerId, 404);
+        }
+    }
+
+    private function getUserSuperPartnerId($user): ?int
+    {
+        $id = $user->user_type === 'super_partner'
+            ? SuperPartner::query()->where('user_id', $user->id)->value('id')
+            : $user->super_partner_id;
+
+        return $id ? (int) $id : null;
     }
 
     public function inactivate(Beneficiario $beneficiario)

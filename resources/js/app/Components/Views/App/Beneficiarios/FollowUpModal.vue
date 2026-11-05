@@ -60,6 +60,12 @@
                             <td>{{ partner.nombre }}</td>
                             <td class="text-right">
                                 <span class="badge badge-primary">{{ partner.registered_clients_count }}</span>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-success ml-2"
+                                        :disabled="loading || partner.registered_clients_count === 0"
+                                        @click="exportClients(partner)">
+                                    Descargar clientes
+                                </button>
                             </td>
                         </tr>
                         <tr v-if="partners.length === 0">
@@ -121,6 +127,14 @@
                 if (this.endDate) query.set('end_date', this.endDate);
                 const suffix = query.toString();
                 const url = urlGenerator(actions.BENEFICIARIOS_FOLLOW_UP_EXPORT);
+                window.location.href = suffix ? `${url}?${suffix}` : url;
+            },
+            exportClients(partner) {
+                const query = new URLSearchParams();
+                if (this.startDate) query.set('start_date', this.startDate);
+                if (this.endDate) query.set('end_date', this.endDate);
+                const suffix = query.toString();
+                const url = urlGenerator(actions.BENEFICIARIOS_FOLLOW_UP_CLIENTS_EXPORT(partner.id));
                 window.location.href = suffix ? `${url}?${suffix}` : url;
             },
         },
