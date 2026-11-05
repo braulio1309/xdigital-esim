@@ -179,10 +179,23 @@ class PartnerInvoiceAdminTest extends TestCase
                     $this->assertSame(25.0, $data['commissionRows']->first()['total']);
                 }
 
+                if ($view === 'partner-invoices.monthly-consolidated-invoice') {
+                    $this->assertCount(2, $data['regionalCommissions']);
+                    $this->assertSame('LATAM', $data['regionalCommissions'][0]['region']);
+                    $this->assertSame(0.0, $data['regionalCommissions'][0]['total']);
+                    $this->assertSame('Europa y EE. UU.', $data['regionalCommissions'][1]['region']);
+                    $this->assertSame(25.0, $data['regionalCommissions'][1]['percentage']);
+                    $this->assertSame(25.0, $data['regionalCommissions'][1]['total']);
+                }
+
                 return true;
             })
             ->andReturnSelf();
         $pdf->shouldReceive('setPaper')->twice()->andReturnSelf();
+        $pdf->shouldReceive('setOption')
+            ->once()
+            ->with('isPhpEnabled', true)
+            ->andReturnSelf();
         $pdf->shouldReceive('download')->twice()->andReturn(response('PDF'));
         app()->instance('dompdf.wrapper', $pdf);
 

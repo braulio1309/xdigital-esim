@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Factura consolidada {{ $periodStart->format('m/Y') }}</title>
     <style>
-        @page { margin: 28px 32px; }
+        @page { margin: 28px 32px 42px; }
         body { color: #282828; font-family: DejaVu Sans, sans-serif; font-size: 9px; }
         .header { width: 100%; margin-bottom: 24px; }
         .header td { vertical-align: top; }
@@ -20,6 +20,9 @@
         .items td { border-bottom: 1px solid #e8e8e8; padding: 7px 6px; }
         .items tr:nth-child(even) td { background: #f7f7f7; }
         .number { text-align: right !important; white-space: nowrap; }
+        .regional-commissions { border-collapse: collapse; margin-top: 12px; width: 100%; }
+        .regional-commissions th { background: #f0f0f0; padding: 6px; text-align: left; }
+        .regional-commissions td { border-bottom: 1px solid #e8e8e8; padding: 6px; }
         .summary { border-collapse: collapse; margin-top: 18px; width: 100%; }
         .summary-cell { vertical-align: top; width: 50%; }
         .payment-cell { padding-right: 12px; }
@@ -35,6 +38,12 @@
     </style>
 </head>
 <body>
+    <script type="text/php">
+        if (isset($pdf)) {
+            $font = $fontMetrics->get_font('DejaVu Sans', 'normal');
+            $pdf->page_text($pdf->get_width() - 105, $pdf->get_height() - 20, 'Página {PAGE_NUM} de {PAGE_COUNT}', $font, 8, [0.47, 0.47, 0.47]);
+        }
+    </script>
     <table class="header">
         <tr>
             <td>
@@ -110,6 +119,26 @@
         </tbody>
     </table>
 
+    <table class="regional-commissions">
+        <thead>
+            <tr>
+                <th>Comisiones generadas por región</th>
+                <th class="number">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($regionalCommissions as $regionalCommission)
+                <tr>
+                    <td>
+                        {{ $regionalCommission['region'] }}
+                        ({{ number_format((float) ($regionalCommission['percentage'] ?? 0), 2) }}%)
+                    </td>
+                    <td class="number">{{ $currency }} {{ number_format((float) $regionalCommission['total'], 2) }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+
     @php($discountTotal = $items->sum('discount_total'))
     <table class="summary">
         <tr>
@@ -128,7 +157,6 @@
                 <table class="totals">
                     <tr><td>Subtotal de cargos</td><td>{{ $currency }} {{ number_format($amount + $discountTotal, 2) }}</td></tr>
                     <tr><td>Descuentos aplicados</td><td>- {{ $currency }} {{ number_format($discountTotal, 2) }}</td></tr>
-                    <tr><td>Comisiones por compras (Super Partner)</td><td>{{ $currency }} {{ number_format($earnedCommissions, 2) }}</td></tr>
                     <tr><td>Comisiones aplicadas</td><td>- {{ $currency }} {{ number_format($appliedCommissions, 2) }}</td></tr>
                     <tr class="grand"><td>Total consolidado</td><td>{{ $currency }} {{ number_format(max(0, $amount - $appliedCommissions), 2) }}</td></tr>
                     <tr><td>Saldo pendiente</td><td>{{ $currency }} {{ number_format($dueAmount, 2) }}</td></tr>

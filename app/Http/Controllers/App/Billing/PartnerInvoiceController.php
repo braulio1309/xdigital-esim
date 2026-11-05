@@ -313,6 +313,22 @@ class PartnerInvoiceController extends Controller
         $amount = round($invoices->sum('amount'), 2);
         $paidAmount = round($invoices->sum('paid_amount'), 2);
         $earnedCommissions = round($commissionRows->sum('total'), 2);
+        $regionalCommissions = collect([
+            [
+                'region' => 'LATAM',
+                'percentage' => $superPartner->sale_commission_latam_pct !== null
+                    ? (float) $superPartner->sale_commission_latam_pct
+                    : null,
+                'total' => round($commissionRows->where('commission_region', 'LATAM')->sum('total'), 2),
+            ],
+            [
+                'region' => 'Europa y EE. UU.',
+                'percentage' => $superPartner->sale_commission_usa_ca_eu_pct !== null
+                    ? (float) $superPartner->sale_commission_usa_ca_eu_pct
+                    : null,
+                'total' => round($commissionRows->where('commission_region', 'Europa y EE. UU.')->sum('total'), 2),
+            ],
+        ]);
         $outstandingBeforeCommissions = round(max(0, $amount - $paidAmount), 2);
         $appliedCommissions = round(min($earnedCommissions, $outstandingBeforeCommissions), 2);
         $dueAmount = round(max(0, $outstandingBeforeCommissions - $appliedCommissions), 2);
@@ -329,13 +345,16 @@ class PartnerInvoiceController extends Controller
             'items' => $items,
             'amount' => $amount,
             'paidAmount' => $paidAmount,
+            'regionalCommissions' => $regionalCommissions,
             'appliedCommissions' => $appliedCommissions,
             'earnedCommissions' => $earnedCommissions,
             'dueAmount' => $dueAmount,
             'currency' => optional($invoices->first() ?: $superPartnerInvoice)->currency ?: 'USD',
             'paymentDetails' => config('services.billing_payment'),
             'logoData' => $logoData,
-        ])->setPaper('a4', 'landscape')->download('factura-consolidada-' . $period . '.pdf');
+        ])->setOption('isPhpEnabled', true)
+            ->setPaper('a4', 'landscape')
+            ->download('factura-consolidada-' . $period . '.pdf');
     }
 
     public function downloadCommissionNote(PartnerInvoice $partnerInvoice)
