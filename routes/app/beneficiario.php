@@ -5,6 +5,12 @@ use App\Http\Controllers\App\Beneficiario\BeneficiarioDashboardController;
 use App\Http\Controllers\App\Settings\BeneficiaryPlanMarginController;
 
 Route::view('/admin/beneficiarios', 'beneficiarios.index')->name('beneficiarios.view');
+Route::get('beneficiarios/seguimiento', [BeneficiarioController::class, 'followUp'])
+    ->withoutMiddleware('authorize')
+    ->name('beneficiarios.follow-up');
+Route::get('beneficiarios/seguimiento/export', [BeneficiarioController::class, 'exportFollowUp'])
+    ->withoutMiddleware('authorize')
+    ->name('beneficiarios.follow-up-export');
 Route::resource('beneficiarios', BeneficiarioController::class);
 Route::post('beneficiarios/{beneficiario}/inactivate', [BeneficiarioController::class, 'inactivate'])->name('beneficiarios.inactivate');
 Route::post('beneficiarios/{beneficiario}/activate', [BeneficiarioController::class, 'activate'])->name('beneficiarios.activate');

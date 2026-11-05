@@ -69,6 +69,83 @@ class BeneficiarioController extends Controller
         return $beneficiarios;
     }
 
+    public function followUp(\Illuminate\Http\Request $request)
+    {
+        return response()->json([
+            'partners' => $this->getFollowUpPartners($request),
+        ]);
+    }
+
+    public function exportFollowUp(\Illuminate\Http\Request $request)
+    {
+        $partners = $this->getFollowUpPartners($request);
+
+        return response()->streamDownload(function () use ($partners) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['Partner', 'Clientes registrados']);
+
+            foreach ($partners as $partner) {
+                fputcsv($output, [
+                    $this->safeCsvCell($partner->nombre),
+                    $partner->registered_clients_count,
+                ]);
+            }
+
+            fclose($output);
+        }, 'seguimiento-partners-' . now()->format('Ymd-His') . '.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function getFollowUpPartners(\Illuminate\Http\Request $request)
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->user_type, ['admin', 'super_partner', 'admin_partner'], true), 403);
+
+        $rules = [
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d',
+        ];
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $rules['end_date'] .= '|after_or_equal:start_date';
+        }
+
+        $filters = $request->validate($rules);
+        $query = Beneficiario::query()
+            ->select(['id', 'nombre', 'super_partner_id'])
+            ->withCount(['clientes as registered_clients_count' => function ($clienteQuery) use ($filters) {
+                if (!empty($filters['start_date'])) {
+                    $clienteQuery->whereDate('created_at', '>=', $filters['start_date']);
+                }
+
+                if (!empty($filters['end_date'])) {
+                    $clienteQuery->whereDate('created_at', '<=', $filters['end_date']);
+                }
+            }])
+            ->orderBy('nombre');
+
+        if ($user->user_type !== 'admin') {
+            $superPartnerId = $user->user_type === 'super_partner'
+                ? SuperPartner::query()->where('user_id', $user->id)->value('id')
+                : $user->super_partner_id;
+
+            if ($superPartnerId) {
+                $query->where('super_partner_id', $superPartnerId);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        return $query->get();
+    }
+
+    private function safeCsvCell(string $value): string
+    {
+        return preg_match('/^[=+\-@]/', $value) === 1 ? "'" . $value : $value;
+    }
+
     public function inactivate(Beneficiario $beneficiario)
     {
         if (!$this->canManageStatus($beneficiario)) {

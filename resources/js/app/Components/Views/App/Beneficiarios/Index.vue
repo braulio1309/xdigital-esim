@@ -6,6 +6,12 @@
             </div>
             <div class="col-sm-12 col-md-6 breadcrumb-side-button">
                 <div class="float-md-right mb-3 mb-sm-3 mb-md-0">
+                    <button 
+                            type="button"
+                            class="btn btn-outline-primary btn-with-shadow mr-2"
+                            @click="isFollowUpModalActive = true">
+                        Seguimiento
+                    </button>
                     <button type="button"
                             class="btn btn-primary btn-with-shadow"
                             data-toggle="modal"
@@ -35,6 +41,9 @@
             :beneficiario-name="selectedBeneficiario.nombre"
             @close="closeVisualCommissionsModal"/>
 
+        <follow-up-modal v-if="isFollowUpModalActive"
+                         @close="isFollowUpModalActive = false"/>
+
         <app-delete-modal v-if="deleteConfirmationModalActive"
                           :preloader="deleteLoader"
                           :title="confirmationTitle"
@@ -56,6 +65,7 @@
     // CAMBIO 1: Importamos el modal local desde la misma carpeta
     import AddModal from "./AddModal"; 
     import VisualCommissionsModal from "./VisualCommissionsModal";
+    import FollowUpModal from "./FollowUpModal";
 
     export default {
         extends: CoreLibrary,
@@ -63,7 +73,8 @@
         // CAMBIO 2: Registramos el componente
         components: {
             AddModal,
-            VisualCommissionsModal
+            VisualCommissionsModal,
+            FollowUpModal
         },
         data() {
             return {
@@ -71,6 +82,7 @@
                 isAddEditModalActive: false,
                 isMarginModalActive: false,
                 isVisualCommissionsModalActive: false,
+                isFollowUpModalActive: false,
                 selectedBeneficiario: {},
                 deleteConfirmationModalActive: false,
                 selectedUrl: '',
@@ -84,6 +96,13 @@
                 return this.$store.state.user &&
                        this.$store.state.user.loggedInUser &&
                        ['super_partner', 'admin_partner'].includes(this.$store.state.user.loggedInUser.user_type);
+            },
+            canViewFollowUp() {
+                const userType = this.$store.state.user &&
+                    this.$store.state.user.loggedInUser &&
+                    this.$store.state.user.loggedInUser.user_type;
+
+                return ['admin', 'super_partner', 'admin_partner'].includes(userType);
             },
             confirmationTitle() {
                 if (this.confirmationMode === 'inactivate') {

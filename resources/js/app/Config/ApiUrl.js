@@ -69,6 +69,8 @@ export const CUSTOM_TABLE = 'admin/app/custom-tables';
 export const BENEFICIARIOS = 'beneficiarios';
 export const BENEFICIARIOS_EXPORT_COMMISSIONS = (id) => `beneficiarios/${id}/export-commissions`;
 export const BENEFICIARIOS_VISUAL_COMMISSIONS = (id) => `beneficiarios/${id}/visual-commissions`;
+export const BENEFICIARIOS_FOLLOW_UP = 'beneficiarios/seguimiento';
+export const BENEFICIARIOS_FOLLOW_UP_EXPORT = 'beneficiarios/seguimiento/export';
 
 //Super Partners
 export const SUPER_PARTNERS = 'super-partners';
